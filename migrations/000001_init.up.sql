@@ -1052,10 +1052,13 @@ INSERT INTO system_settings (key, value, value_type, category, description, upda
 INSERT INTO enrichment_pipelines (media_type, plugin_id, stage_name, position, enabled) VALUES
     ('movie', 'builtin:nfo', 'nfo', 1, 1),
     ('movie', 'builtin:local-images', 'local-images', 2, 1),
+    ('movie', 'builtin:metadata', 'metadata', 999, 1),
     ('tv', 'builtin:nfo', 'nfo', 1, 1),
     ('tv', 'builtin:local-images', 'local-images', 2, 1),
+    ('tv', 'builtin:metadata', 'metadata', 999, 1),
     ('tv_show', 'builtin:nfo', 'nfo', 1, 1),
     ('tv_show', 'builtin:local-images', 'local-images', 2, 1),
+    ('tv_show', 'builtin:metadata', 'metadata', 999, 1),
     ('music', 'builtin:nfo', 'nfo', 1, 1),
     ('music', 'builtin:local-images', 'local-images', 2, 1);
 

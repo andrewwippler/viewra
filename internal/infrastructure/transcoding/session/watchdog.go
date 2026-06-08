@@ -9,6 +9,7 @@ package session
 
 import (
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	domainevents "github.com/mantonx/viewra/internal/domain/events"
@@ -94,23 +95,32 @@ func (wd *ProgressWatchdog) checkProgress() {
 
 		// Kill the FFmpeg process
 		if wd.session.FFmpegCmd != nil && wd.session.FFmpegCmd.Process != nil {
-			if err := wd.session.FFmpegCmd.Process.Kill(); err != nil {
-				wd.session.logger.Error("Failed to kill stalled FFmpeg process",
+			// Check if process has already exited
+			if err := wd.session.FFmpegCmd.Process.Signal(syscall.Signal(0)); err != nil {
+				// Process has already exited, no need to kill it
+				wd.session.logger.Debug("FFmpeg process already exited, skipping kill",
 					"session_id", wd.session.ID,
 					"error", err)
 			} else {
-				wd.session.logger.Info("Killed stalled FFmpeg process",
-					"session_id", wd.session.ID,
-					"stall_duration", elapsed)
-				// Publish transcode.failed event for stalled process
-				if wd.session.publisher != nil {
-					wd.session.publisher.Publish(domainevents.NewEvent(domainevents.EventTranscodeFailed, "watchdog").
-						WithMediaID(wd.session.MediaID).
-						WithData("session_id", wd.session.ID).
-						WithData("quality", wd.session.Quality).
-						WithData("reason", "stalled").
-						WithData("stall_duration_sec", elapsed.Seconds()).
-						Build())
+				// Process is still running, kill it
+				if err := wd.session.FFmpegCmd.Process.Kill(); err != nil {
+					wd.session.logger.Error("Failed to kill stalled FFmpeg process",
+						"session_id", wd.session.ID,
+						"error", err)
+				} else {
+					wd.session.logger.Info("Killed stalled FFmpeg process",
+						"session_id", wd.session.ID,
+						"stall_duration", elapsed)
+					// Publish transcode.failed event for stalled process
+					if wd.session.publisher != nil {
+						wd.session.publisher.Publish(domainevents.NewEvent(domainevents.EventTranscodeFailed, "watchdog").
+							WithMediaID(wd.session.MediaID).
+							WithData("session_id", wd.session.ID).
+							WithData("quality", wd.session.Quality).
+							WithData("reason", "stalled").
+							WithData("stall_duration_sec", elapsed.Seconds()).
+							Build())
+					}
 				}
 			}
 		}

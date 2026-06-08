@@ -16,7 +16,6 @@ import {
   parseSchemaActions,
   parseSchemaSections,
   getSectionsForCapability,
-  getTabActions,
   getVisibleTabActions,
   getInlineListActions,
   findCreateAction,
@@ -170,8 +169,8 @@ export const PluginSettingsForm = forwardRef<PluginSettingsFormHandle, PluginSet
     if (propertyOrder.length > 0) {
       const orderMap = new Map(propertyOrder.map((name, index) => [name, index]))
       const sortedEntries = Object.entries(visibleProperties).sort(([a], [b]) => {
-        const aOrder = orderMap.has(a) ? orderMap.get(a)! : Infinity
-        const bOrder = orderMap.has(b) ? orderMap.get(b)! : Infinity
+        const aOrder = orderMap.has(a) ? (orderMap.get(a) ?? Infinity) : Infinity
+        const bOrder = orderMap.has(b) ? (orderMap.get(b) ?? Infinity) : Infinity
         return aOrder - bOrder
       })
       const sortedProperties: SchemaProperties = {}

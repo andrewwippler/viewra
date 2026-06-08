@@ -96,6 +96,8 @@ export const useUpdateProgress = () => {
     onSuccess: (response: WatchProgressResponse) => {
       // Invalidate all progress queries
       queryClient.invalidateQueries({ queryKey: progressKeys.all });
+      // Also invalidate home sections since they may contain progress info
+      queryClient.invalidateQueries({ queryKey: ['home'] });
 
       // Update the specific media progress in cache
       if (response.media_id) {
@@ -123,6 +125,8 @@ export const useMarkWatched = () => {
     },
     onSuccess: (response: WatchProgressResponse) => {
       queryClient.invalidateQueries({ queryKey: progressKeys.all });
+      // Also invalidate home sections since they may contain progress info
+      queryClient.invalidateQueries({ queryKey: ['home'] });
       if (response.media_id) {
         queryClient.setQueryData(
           progressKeys.detail(response.media_id),
@@ -148,6 +152,8 @@ export const useMarkUnwatched = () => {
     },
     onSuccess: (response: WatchProgressResponse) => {
       queryClient.invalidateQueries({ queryKey: progressKeys.all });
+      // Also invalidate home sections since they may contain progress info
+      queryClient.invalidateQueries({ queryKey: ['home'] });
       if (response.media_id) {
         queryClient.setQueryData(
           progressKeys.detail(response.media_id),
@@ -166,6 +172,8 @@ export const useDeleteProgress = () => {
     mutationFn: (mediaId: number) => deleteApiProgressId(mediaId),
     onSuccess: (_, mediaId) => {
       queryClient.invalidateQueries({ queryKey: progressKeys.all });
+      // Also invalidate home sections since they may contain progress info
+      queryClient.invalidateQueries({ queryKey: ['home'] });
       queryClient.removeQueries({ queryKey: progressKeys.detail(mediaId) });
     },
   });

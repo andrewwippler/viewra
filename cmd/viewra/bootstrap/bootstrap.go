@@ -88,13 +88,30 @@ func Initialize() (*Application, error) {
 
 			container.Server.Router().NoRoute(func(c *gin.Context) {
 				path := c.Request.URL.Path
-				// Skip API paths
+				// Skip ViewRA API paths (default 404)
 				if isAPIPath(path) {
 					return
 				}
+				// Log unhandled Jellyfin-style API endpoints
+				if isJellyfinPath(path) {
+					lgr.Warn("jellyfin: unhandled endpoint",
+						"method", c.Request.Method,
+						"path", c.Request.URL.String(),
+					)
+					c.JSON(404, gin.H{"error": "Not implemented"})
+					return
+				}
+				// Redirect /web/index.html → /web/ so SPA loads at correct base route
+				// Without this, TanStack Router sees route /index.html (post-basepath strip) → no match → blank page
+				if strings.HasSuffix(path, "index.html") {
+					c.Redirect(http.StatusMovedPermanently, "./")
+					return
+				}
 				// Try to serve the file directly (for assets like .js, .css, images)
+				// Strip /web/ prefix if present (frontend is served at root)
 				if strings.Contains(path, ".") {
-					c.FileFromFS(path, httpFS)
+					fsPath := strings.TrimPrefix(path, "/web")
+					c.FileFromFS(fsPath, httpFS)
 					return
 				}
 				// For SPA routes (no extension), serve index.html content directly
@@ -103,6 +120,16 @@ func Initialize() (*Application, error) {
 		}
 	} else {
 		lgr.Info("Frontend not embedded - development mode (use Vite on :5173)")
+		// In dev mode, still log unhandled Jellyfin endpoints
+		container.Server.Router().NoRoute(func(c *gin.Context) {
+			if isJellyfinPath(c.Request.URL.Path) {
+				lgr.Warn("jellyfin: unhandled endpoint",
+					"method", c.Request.Method,
+					"path", c.Request.URL.String(),
+				)
+				c.JSON(404, gin.H{"error": "Not implemented"})
+			}
+		})
 	}
 
 	return &Application{
@@ -190,11 +217,37 @@ func (a *Application) Run() error {
 	return nil
 }
 
-// isAPIPath checks if a path is an API endpoint
+// isAPIPath checks if a path is a ViewRA API endpoint
 func isAPIPath(path string) bool {
 	return strings.HasPrefix(path, "/api/") ||
 		strings.HasPrefix(path, "/swagger/") ||
 		strings.HasPrefix(path, "/health")
+}
+
+// isJellyfinPath checks if a path looks like a Jellyfin-compatible API endpoint.
+// These are paths the Jellyfin handler registers routes for, but if they don't
+// match, we log them so we can identify missed endpoints.
+func isJellyfinPath(path string) bool {
+	return strings.HasPrefix(path, "/Users/") ||
+		strings.HasPrefix(path, "/System/") ||
+		strings.HasPrefix(path, "/Items/") ||
+		strings.HasPrefix(path, "/Videos/") ||
+		strings.HasPrefix(path, "/Audio/") ||
+		strings.HasPrefix(path, "/Shows/") ||
+		strings.HasPrefix(path, "/Sessions/") ||
+		strings.HasPrefix(path, "/Branding/") ||
+		strings.HasPrefix(path, "/QuickConnect/") ||
+		strings.HasPrefix(path, "/DisplayPreferences/") ||
+		strings.HasPrefix(path, "/Search/") ||
+		strings.HasPrefix(path, "/Collections/") ||
+		strings.HasPrefix(path, "/LiveTv/") ||
+		strings.HasPrefix(path, "/Notifications/") ||
+		strings.HasPrefix(path, "/Packages/") ||
+		strings.HasPrefix(path, "/Plugins/") ||
+		strings.HasPrefix(path, "/HomeScreen/") ||
+		strings.HasPrefix(path, "/MediaSegments/") ||
+		strings.HasPrefix(path, "/Genres/") ||
+		strings.HasPrefix(path, "/Persons/")
 }
 
 // logStartupReady prints a startup banner confirming all services are ready

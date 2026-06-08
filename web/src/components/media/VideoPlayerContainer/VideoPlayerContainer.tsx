@@ -24,6 +24,18 @@ interface VideoPlayerContainerProps {
   overlay?: React.ReactNode
   /** Callback to change quality - rebuilds URL and reloads stream */
   onQualityChange?: (qualityId: string, currentPosition: number) => Promise<void>
+  /** Keep player visible when playback ends (for auto-play countdown) */
+  showOnEnd?: boolean
+  /** Info about the next episode (for auto-play overlay) */
+  nextEpisodeInfo?: { title: string; season: number; episode: number; episodeTitle?: string }
+  /** Called when next episode should start (auto-play) */
+  onAutoPlayNext?: () => void
+  /** Called when user cancels auto-play */
+  onAutoPlayCancel?: () => void
+  /** Navigate to next episode */
+  onPlayNext?: () => void
+  /** Navigate to previous episode */
+  onPlayPrev?: () => void
 }
 
 export const VideoPlayerContainer = ({
@@ -33,6 +45,12 @@ export const VideoPlayerContainer = ({
   onTimeUpdate,
   overlay,
   onQualityChange,
+  showOnEnd,
+  nextEpisodeInfo,
+  onAutoPlayNext,
+  onAutoPlayCancel,
+  onPlayNext,
+  onPlayPrev,
 }: VideoPlayerContainerProps) => {
   // Fetch images for TV shows or movies
   const tvShowImages = useTVShowImages(media?.show_id || 0, {
@@ -42,13 +60,16 @@ export const VideoPlayerContainer = ({
     enabled: !!media?.id && !media?.show_title,
   })
 
-  // Don't render if not playing or no media
-  if (!playbackState.isPlaying || !media) {
+  // Don't render if not playing or no media (unless showOnEnd is set for auto-play)
+  if (!media) {
+    return null
+  }
+  if (!playbackState.isPlaying && !showOnEnd) {
     return null
   }
 
-  // Show loading overlay while waiting for stream URL
-  const isLoadingStream = !playbackState.streamUrl
+  // Show loading overlay while waiting for stream URL (unless showing ended state)
+  const isLoadingStream = !playbackState.streamUrl && !showOnEnd
 
   // Get poster URL based on media type
   let posterUrl: string | undefined
@@ -121,7 +142,7 @@ export const VideoPlayerContainer = ({
     <div className="relative">
       <VideoPlayer
         mediaId={media.id || 0}
-        streamUrl={playbackState.streamUrl!}
+        streamUrl={playbackState.streamUrl || ''}
         initialPosition={playbackState.initialPosition}
         duration={media.duration}
         metadata={metadata}
@@ -131,6 +152,11 @@ export const VideoPlayerContainer = ({
         selectedQualityId={playbackState.selectedQualityId}
         onQualityChange={onQualityChange}
         savedPreferences={playbackState.savedPreferences}
+        nextEpisodeInfo={nextEpisodeInfo}
+        onAutoPlayNext={onAutoPlayNext}
+        onAutoPlayCancel={onAutoPlayCancel}
+        onPlayNext={onPlayNext}
+        onPlayPrev={onPlayPrev}
       />
       {overlay}
     </div>

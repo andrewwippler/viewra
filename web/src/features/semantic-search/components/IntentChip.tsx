@@ -122,7 +122,7 @@ const typeColorMap: Record<
  * Shows users what the system understood from their search query.
  * Chips can be removed to refine the search.
  */
-export const IntentChip = ({ chip, onRemove, onRefine, className }: IntentChipProps) => {
+export const IntentChip = ({ chip, onRemove, className }: IntentChipProps) => {
   const Icon = typeIconMap[chip.type] || Sparkles
   const colors = typeColorMap[chip.type] || typeColorMap.mood
 

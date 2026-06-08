@@ -65,6 +65,14 @@ func (m *Manager) RegisterEnricher(enricher appenrich.Enricher) {
 	m.enrichers[enricher.Stage()] = enricher
 }
 
+// GetEnricher retrieves a registered enricher by stage name.
+func (m *Manager) GetEnricher(stage string) (appenrich.Enricher, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	e, ok := m.enrichers[stage]
+	return e, ok
+}
+
 // RegisterBuiltinEnricher registers a built-in enricher and ensures pipeline
 // configuration exists for it. Builtin enrichers run before external plugins
 // and are inserted at the beginning of the pipeline (position 0, 1, ...).

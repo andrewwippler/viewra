@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/mantonx/viewra/internal/app/config"
@@ -25,6 +26,7 @@ import (
 	"github.com/mantonx/viewra/internal/infrastructure/auth"
 	"github.com/mantonx/viewra/internal/infrastructure/crypto"
 	"github.com/mantonx/viewra/internal/infrastructure/events"
+	"github.com/mantonx/viewra/internal/infrastructure/ffmpeg/paths"
 	infraimages "github.com/mantonx/viewra/internal/infrastructure/images"
 	"github.com/mantonx/viewra/internal/infrastructure/pathbrowser"
 	"github.com/mantonx/viewra/internal/infrastructure/persistence/location"
@@ -45,6 +47,117 @@ import (
 type DiskMonitoringRepo interface {
 	GetTotalSize(ctx context.Context) (int64, error)
 	ListByLRU(ctx context.Context, limit int) ([]*domaintranscode.TranscodeJob, error)
+}
+
+// validateHardwareAccelEncoder checks if the specified hardware acceleration encoder is actually available
+// in the FFmpeg build and falls back to none if not available.
+func validateHardwareAccelEncoder(hwAccel transcodeconfig.HardwareAccel, logger *slog.Logger) transcodeconfig.HardwareAccel {
+	// If already set to none, no need to check
+	if hwAccel == transcodeconfig.AccelNone {
+		return hwAccel
+	}
+
+	// Import paths package locally to avoid circular dependencies
+	ffmpegPaths, err := paths.New()
+
+	if err != nil {
+		logger.Warn("Failed to get FFmpeg paths for encoder validation, keeping hardware acceleration setting",
+			"hw_accel", hwAccel, "error", err)
+		return hwAccel
+	}
+
+	// Map our hardware accel types to encoder names
+	var encoderName string
+	switch hwAccel {
+	case transcodeconfig.AccelNVENC:
+		encoderName = "h264_nvenc"
+	case transcodeconfig.AccelQSV:
+		encoderName = "h264_qsv"
+	case transcodeconfig.AccelVAAPI:
+		encoderName = "h264_vaapi"
+	case transcodeconfig.AccelVideoToolbox:
+		encoderName = "h264_videotoolbox"
+	default:
+		// Unknown accel type, return as-is
+		return hwAccel
+	}
+
+	// Check if encoder is available using ffmpeg -encoders
+	cmd := ffmpegPaths.PrepareCommand("ffmpeg", "-encoders")
+	output, err := cmd.Output()
+	if err != nil {
+		logger.Warn("Failed to check FFmpeg encoders, keeping hardware acceleration setting",
+			"hw_accel", hwAccel, "encoder", encoderName, "error", err)
+		return hwAccel
+	}
+
+	// Verify encoder is listed in encoders output
+	if !strings.Contains(string(output), encoderName) {
+		logger.Warn("Hardware acceleration encoder not available in FFmpeg build, falling back to software encoding",
+			"hw_accel", hwAccel, "encoder", encoderName)
+		return transcodeconfig.AccelNone
+	}
+
+	// Additional verification: check if encoder is actually usable with -h encoder=name
+	helpCmd := ffmpegPaths.PrepareCommand("ffmpeg", "-h", "encoder="+encoderName)
+	if err := helpCmd.Run(); err != nil {
+		logger.Warn("Hardware acceleration encoder not usable, falling back to software encoding",
+			"hw_accel", hwAccel, "encoder", encoderName, "error", err)
+		return transcodeconfig.AccelNone
+	}
+
+	// For VAAPI and QSV, verify the hardware device can actually be initialized.
+	// The encoder may be compiled into FFmpeg but the driver/library may not be
+	// installed, causing "No VA display found" at runtime (exit code 234).
+	devicePath := os.Getenv("HARDWARE_DEVICE")
+	if devicePath == "" {
+		devicePath = "/dev/dri/renderD128"
+	}
+
+	switch hwAccel {
+	case transcodeconfig.AccelVAAPI:
+		verifyCmd := ffmpegPaths.PrepareCommand("ffmpeg",
+			"-vaapi_device", devicePath,
+			"-f", "lavfi", "-i", "nullsrc=s=1x1",
+			"-frames", "1",
+			"-f", "null", "-",
+		)
+		output, err := verifyCmd.CombinedOutput()
+		if err != nil {
+			logger.Warn("VAAPI device initialization failed, falling back to software encoding",
+				"hw_accel", hwAccel, "device", devicePath, "error", err, "output", string(output))
+			return transcodeconfig.AccelNone
+		}
+	case transcodeconfig.AccelQSV:
+		verifyCmd := ffmpegPaths.PrepareCommand("ffmpeg",
+			"-init_hw_device", "qsv=qsv:"+devicePath,
+			"-f", "lavfi", "-i", "nullsrc=s=1x1",
+			"-frames", "1",
+			"-f", "null", "-",
+		)
+		output, err := verifyCmd.CombinedOutput()
+		if err != nil {
+			logger.Warn("QSV device initialization failed, falling back to software encoding",
+				"hw_accel", hwAccel, "device", devicePath, "error", err, "output", string(output))
+			return transcodeconfig.AccelNone
+		}
+	case transcodeconfig.AccelNVENC:
+		verifyCmd := ffmpegPaths.PrepareCommand("ffmpeg",
+			"-hwaccel", "cuda",
+			"-f", "lavfi", "-i", "nullsrc=s=1x1",
+			"-frames", "1",
+			"-f", "null", "-",
+		)
+		output, err := verifyCmd.CombinedOutput()
+		if err != nil {
+			logger.Warn("CUDA/NVENC device initialization failed, falling back to software encoding",
+				"hw_accel", hwAccel, "error", err, "output", string(output))
+			return transcodeconfig.AccelNone
+		}
+	}
+
+	// Encoder is available and usable
+	return hwAccel
 }
 
 // Services holds all infrastructure and domain services.
@@ -210,8 +323,34 @@ func initTranscodeServices(
 	repos *repositories.Repositories,
 	logger *slog.Logger,
 ) (transcoding.Service, *transcode.Queue, *transcode.CleanupService, *session.Manager, *transcodeconfig.TranscodeConfig) {
-	// Initialize transcode service
-	transcodeService, err := transcoding.NewService(repos.Transcode, logger)
+	// Build and validate transcode config first (before creating services that depend on it)
+	var transcodeConfig *transcodeconfig.TranscodeConfig
+	if cfg.SystemProfile != nil {
+		settings := cfg.SystemProfile.Calculate()
+		transcodeConfig = transcodeconfig.DefaultFromProfile(settings.HardwareAccel, nil)
+		// Validate that the selected hardware acceleration encoder is actually available
+		originalHWAccel := transcodeConfig.HardwareAccel
+		transcodeConfig.HardwareAccel = validateHardwareAccelEncoder(transcodeConfig.HardwareAccel, logger)
+		if transcodeConfig.HardwareAccel != originalHWAccel {
+			logger.Warn("Hardware acceleration encoder validation changed setting",
+				"original", originalHWAccel,
+				"validated", transcodeConfig.HardwareAccel)
+		}
+		logger.Info("Using profile-based transcode config", "hardware_accel", settings.HardwareAccel)
+	} else {
+		transcodeConfig = transcodeconfig.Default()
+		// Validate that the selected hardware acceleration encoder is actually available
+		originalHWAccel := transcodeConfig.HardwareAccel
+		transcodeConfig.HardwareAccel = validateHardwareAccelEncoder(transcodeConfig.HardwareAccel, logger)
+		if transcodeConfig.HardwareAccel != originalHWAccel {
+			logger.Warn("Hardware acceleration encoder validation changed setting",
+				"original", originalHWAccel,
+				"validated", transcodeConfig.HardwareAccel)
+		}
+	}
+
+	// Initialize transcode service with validated config
+	transcodeService, err := transcoding.NewService(repos.Transcode, logger, transcodeConfig)
 	if err != nil {
 		logger.Error("Failed to initialize transcode service", "error", err)
 		transcodeService = nil
@@ -240,16 +379,6 @@ func initTranscodeServices(
 	var cleanupService *transcode.CleanupService
 	if repos.Transcode != nil {
 		cleanupService = transcode.NewCleanupService(repos.Transcode, cfg.Media.TranscodeOutputDir)
-	}
-
-	// Initialize session manager with transcode config
-	var transcodeConfig *transcodeconfig.TranscodeConfig
-	if cfg.SystemProfile != nil {
-		settings := cfg.SystemProfile.Calculate()
-		transcodeConfig = transcodeconfig.DefaultFromProfile(settings.HardwareAccel, nil)
-		logger.Info("Using profile-based transcode config", "hardware_accel", settings.HardwareAccel)
-	} else {
-		transcodeConfig = transcodeconfig.Default()
 	}
 
 	sessionManager := session.NewManager(&session.ManagerConfig{

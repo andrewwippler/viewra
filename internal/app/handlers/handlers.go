@@ -22,6 +22,7 @@ import (
 	"github.com/mantonx/viewra/internal/infrastructure/plugins/querier"
 	"github.com/mantonx/viewra/internal/infrastructure/plugins/registry"
 	"github.com/mantonx/viewra/internal/infrastructure/streaming"
+	"github.com/mantonx/viewra/internal/jellyfin"
 )
 
 // InfrastructureDeps holds infrastructure dependencies needed by some handlers.
@@ -179,6 +180,7 @@ func BuildHandlers(
 			infra.Repos.EnrichmentStatus,
 			infra.Repos.EnrichmentQueue,
 			svcs.EventBus,
+			infra.Repos.Image,
 			logger.With("handler", "enrichment"),
 		)
 		// Wire up media repository for bulk enqueue functionality
@@ -333,10 +335,11 @@ func BuildHandlers(
 		trendingHandler = handlers.NewTrendingHandler(trendingService)
 	}
 
-	// Create ratings handler
+	// Create ratings service (shared between ratings handler and jellyfin handler)
+	var ratingsService *appratings.Service
 	var ratingsHandler *handlers.RatingsHandler
 	if infra.Repos != nil && infra.Repos.Ratings != nil {
-		ratingsService := appratings.NewService(infra.Repos.Ratings)
+		ratingsService = appratings.NewService(infra.Repos.Ratings)
 		ratingsHandler = handlers.NewRatingsHandler(ratingsService)
 	}
 
@@ -351,6 +354,38 @@ func BuildHandlers(
 			configSaver := createConfigSaver(infra.Config.DataDir)
 			systemHandler.SetMigrationService(infra.DB, infra.Config.Database.Driver, configSaver)
 		}
+	}
+
+	// Create Jellyfin-compatible API handler
+	var jellyfinHandler *jellyfin.Handler
+	if cases.Media.Get != nil && cases.Library.Service != nil && svcs.TokenService != nil && authService != nil {
+		jellyfinHandler = jellyfin.NewHandler(
+			cases.Media.Get,
+			cases.Media.List,
+			cases.Library.Service,
+			cases.Movies.List,
+			cases.Movies.Get,
+			cases.Movies.Search,
+			cases.TV.ListShows,
+			cases.TV.GetShow,
+			cases.TV.ListEpisodes,
+			cases.TV.GetEpisode,
+			cases.TV.GetNextEpisode,
+			cases.Progress,
+			cases.Images.Get,
+			cases.Images.GetMedia,
+			cases.Images.GetEntity,
+			svcs.Search,
+			authService,
+			svcs.TokenService,
+			streamHandler,
+			transcodeHandler,
+			imagesHandler,
+			cases.Media.GetTracks,
+			ratingsService,
+			svcs.Home,
+			logger.With("handler", "jellyfin"),
+		)
 	}
 
 	return &api.Handlers{
@@ -385,6 +420,7 @@ func BuildHandlers(
 		PluginProxy:      pluginProxy,
 		Search:           searchHandler,
 		AuthValidator:    authService,
+		Jellyfin:         jellyfinHandler,
 	}
 }
 

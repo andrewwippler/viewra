@@ -104,6 +104,21 @@ func (r *Repository) ListTVEpisodesByShowID(ctx context.Context, showID int64) (
 	}), nil
 }
 
+// DeleteTVEpisode removes a TV episode from the database without deleting the media file
+func (r *Repository) DeleteTVEpisode(ctx context.Context, id int64) error {
+	return r.Q().DeleteTVEpisode(ctx, id)
+}
+
+// DeleteTVSeason removes a TV season and its episodes from the database
+func (r *Repository) DeleteTVSeason(ctx context.Context, id int64) error {
+	return r.Q().DeleteTVSeason(ctx, id)
+}
+
+// DeleteTVShow removes a TV show and all its seasons and episodes from the database
+func (r *Repository) DeleteTVShow(ctx context.Context, id int64) error {
+	return r.Q().DeleteTVShow(ctx, id)
+}
+
 // UpdateTVEpisode modifies an existing TV episode
 func (r *Repository) UpdateTVEpisode(ctx context.Context, episode *media.TVEpisode) error {
 	// First, update the base media record
@@ -138,7 +153,32 @@ func (r *Repository) UpdateTVEpisode(ctx context.Context, episode *media.TVEpiso
 	}
 
 	// Update the episode record
-	return r.Q().UpdateTVEpisode(ctx, buildUpdateEpisodeParams(episode, showID, seasonID))
+	params := buildUpdateEpisodeParams(episode, showID, seasonID)
+	err := r.Q().UpdateTVEpisode(ctx, params)
+	if err != nil && isConstraintError(err) {
+		// The update would create a duplicate (show_id, season_number, episode_number).
+		// Find the existing episode with this key and update its media_id to the current file.
+		existing, lookupErr := r.Q().GetTVEpisodeByShowSeasonEpisode(ctx, unified.GetTVEpisodeByShowSeasonEpisodeParams{
+			ShowID:         params.ShowID,
+			SeasonNumber:   params.SeasonNumber,
+			EpisodeNumber:  params.EpisodeNumber,
+		})
+		if lookupErr != nil {
+			return fmt.Errorf("failed to find existing episode after constraint violation: %w", lookupErr)
+		}
+		// Update the existing episode's metadata and point it to the current media_id
+		params.MediaID = existing.MediaID
+		return r.Q().UpdateTVEpisode(ctx, params)
+	}
+	return err
+}
+
+func isConstraintError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "UNIQUE constraint failed") || strings.Contains(errStr, "duplicate key")
 }
 
 // SearchTVEpisodes searches for TV episodes by show title or episode title

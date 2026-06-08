@@ -151,6 +151,24 @@ func (c *Client) FindByIMDbID(ctx context.Context, imdbID string) (*FindByExtern
 	return &result, nil
 }
 
+// GetMovieExternalIDs fetches external IDs for a movie.
+func (c *Client) GetMovieExternalIDs(ctx context.Context, tmdbID int) (*ExternalIDs, error) {
+	var result ExternalIDs
+	if err := c.get(ctx, fmt.Sprintf("/movie/%d/external_ids", tmdbID), nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// GetTVExternalIDs fetches external IDs for a TV show.
+func (c *Client) GetTVExternalIDs(ctx context.Context, tmdbID int) (*ExternalIDs, error) {
+	var result ExternalIDs
+	if err := c.get(ctx, fmt.Sprintf("/tv/%d/external_ids", tmdbID), nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // GetTrending fetches trending movies and/or TV shows.
 // mediaType can be "movie", "tv", or "all".
 // window can be "day" or "week".

@@ -14,6 +14,7 @@ import (
 	"github.com/mantonx/viewra/internal/api/middleware"
 	"github.com/mantonx/viewra/internal/api/routes"
 	"github.com/mantonx/viewra/internal/infrastructure/plugins"
+	"github.com/mantonx/viewra/internal/jellyfin"
 )
 
 // Server represents the HTTP server
@@ -117,6 +118,9 @@ type Handlers struct {
 
 	// AuthRateLimiters provides rate limiting for auth endpoints
 	AuthRateLimiters *middleware.AuthRateLimiters
+
+	// Jellyfin provides Jellyfin-compatible API endpoints
+	Jellyfin *jellyfin.Handler
 }
 
 // NewServer creates a new HTTP server with the provided configuration and handlers.
@@ -246,6 +250,11 @@ func (s *Server) setupRoutes() {
 
 	// Register adaptive quality routes
 	routes.RegisterAdaptiveQualityRoutes(s.router, s.logger)
+
+	// Register Jellyfin-compatible API routes (at root level)
+	if h.Jellyfin != nil {
+		h.Jellyfin.RegisterRoutes(s.router)
+	}
 
 	// Register admin routes (requires admin)
 	if h.AuthValidator != nil {

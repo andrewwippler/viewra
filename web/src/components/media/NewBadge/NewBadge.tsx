@@ -18,10 +18,10 @@ interface NewBadgeProps {
  */
 export const NewBadge = ({ createdAt, daysThreshold = 7, className }: NewBadgeProps) => {
   const isNew = useMemo(() => {
-    if (!createdAt) return false
+    if (!createdAt) { return false }
 
     const created = new Date(createdAt)
-    if (isNaN(created.getTime())) return false
+    if (isNaN(created.getTime())) { return false }
 
     const now = new Date()
     const diffMs = now.getTime() - created.getTime()

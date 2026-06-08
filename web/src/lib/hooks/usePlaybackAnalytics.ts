@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect } from 'react'
+import { logger } from '@/lib/utils/logger'
 import {
   createAnalyticsState,
   startSession,
@@ -87,11 +88,11 @@ export const usePlaybackAnalytics = (
     const flush = async () => {
       // Flush if we have events OR an active session (session data is valuable even without events)
       if (stateRef.current.eventQueue.length === 0 && !stateRef.current.currentSession) {
-        console.log('[Analytics] Skipping flush - no events and no session')
+        logger.debug('[Analytics] Skipping flush - no events and no session')
         return
       }
 
-      console.log('[Analytics] Flushing', {
+      logger.debug('[Analytics] Flushing', {
         eventCount: stateRef.current.eventQueue.length,
         hasSession: !!stateRef.current.currentSession,
         sessionId: stateRef.current.currentSession?.sessionId,
@@ -101,7 +102,7 @@ export const usePlaybackAnalytics = (
       stateRef.current = state
 
       const success = await flushEvents(events, session, currentConfig)
-      console.log('[Analytics] Flush result:', success)
+      logger.debug('[Analytics] Flush result:', success)
       if (!success) {
         stateRef.current = requeueEvents(stateRef.current, events)
       }
@@ -122,15 +123,15 @@ export const usePlaybackAnalytics = (
   }, [enabled])
 
   const handleStartSession = useCallback((mediaId: number, externalSessionId?: string): string => {
-    console.log('[Analytics] Starting session', { mediaId, externalSessionId })
+    logger.debug('[Analytics] Starting session', { mediaId, externalSessionId })
     const result = startSession(stateRef.current, mediaId, externalSessionId)
     stateRef.current = result.state
-    console.log('[Analytics] Session started', { sessionId: result.sessionId })
+    logger.debug('[Analytics] Session started', { sessionId: result.sessionId })
     return result.sessionId
   }, [])
 
   const handleUpdateSessionId = useCallback((newSessionId: string) => {
-    console.log('[Analytics] Updating session ID', { newSessionId })
+    logger.debug('[Analytics] Updating session ID', { newSessionId })
     stateRef.current = updateSessionId(stateRef.current, newSessionId)
   }, [])
 

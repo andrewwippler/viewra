@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
 import { AudioPlayerProvider, useAudioPlayer } from '@/lib/contexts/AudioPlayerContext'
 import { AudioPlayer } from '@/components/music'
 import { ErrorBoundary } from '@/components/common'
@@ -25,13 +25,10 @@ const Layout = () => {
   const { isAuthenticated, isLoading, needsSetup, user, logout } = useAuth()
 
   // Redirect to login/setup if not authenticated
-  useEffect(() => {
-    if (!isLoading) {
-      if (needsSetup) {
-        navigate({ to: '/setup' })
-      } else if (!isAuthenticated) {
-        navigate({ to: '/login' })
-      }
+  // MUST be before any early return — React hooks require same call count per render.
+  useLayoutEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate({ to: needsSetup ? '/setup' : '/login' })
     }
   }, [isAuthenticated, isLoading, needsSetup, navigate])
 
@@ -44,7 +41,6 @@ const Layout = () => {
     )
   }
 
-  // Don't render layout if not authenticated
   if (!isAuthenticated) {
     return null
   }

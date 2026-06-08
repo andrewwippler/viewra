@@ -150,7 +150,25 @@ INSERT INTO tv_episodes (
     ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?
-);
+)
+ON CONFLICT (show_id, season_number, episode_number) DO UPDATE SET
+    media_id = excluded.media_id,
+    season_id = excluded.season_id,
+    absolute_number = excluded.absolute_number,
+    dvd_season = excluded.dvd_season,
+    dvd_episode = excluded.dvd_episode,
+    episode_title = excluded.episode_title,
+    original_title = excluded.original_title,
+    air_date = excluded.air_date,
+    plot = excluded.plot,
+    content_rating = excluded.content_rating,
+    maturity_rating = excluded.maturity_rating,
+    imdb_id = excluded.imdb_id,
+    tmdb_id = excluded.tmdb_id,
+    tvdb_id = excluded.tvdb_id,
+    rating = excluded.rating,
+    rating_votes = excluded.rating_votes,
+    runtime_minutes = excluded.runtime_minutes;
 
 -- name: GetTVEpisodeByMediaID :one
 SELECT

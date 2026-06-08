@@ -9,6 +9,7 @@ interface ContinueWatchingCardProps {
   item: ContinueWatchingItem
   onClick: () => void
   onPlay?: () => void
+  onRemove?: () => void
 }
 
 /**
@@ -21,7 +22,7 @@ interface ContinueWatchingCardProps {
  * - Episode badge for TV shows (S2 E4)
  * - Play button overlay on hover
  */
-export const ContinueWatchingCard = ({ item, onClick, onPlay }: ContinueWatchingCardProps) => {
+export const ContinueWatchingCard = ({ item, onClick, onPlay, onRemove }: ContinueWatchingCardProps) => {
   const [isHovered, setIsHovered] = useState(false)
 
   // Fetch backdrop image based on entity type
@@ -99,6 +100,35 @@ export const ContinueWatchingCard = ({ item, onClick, onPlay }: ContinueWatching
             <HoverPlayButton isParentHovered={isHovered} iconType="play" size="large" />
           </div>
         </div>
+
+        {/* Remove button */}
+        {onRemove && (
+          <div
+            className={cn(
+              'absolute top-2 right-2 z-10 transition-opacity duration-200',
+              isHovered ? 'opacity-100' : 'opacity-0'
+            )}
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                onRemove()
+              }}
+              className={cn(
+                'w-7 h-7 flex items-center justify-center rounded-full',
+                'bg-black/60 text-white hover:bg-red-600/80',
+                'backdrop-blur-sm transition-colors cursor-pointer'
+              )}
+              title="Remove from continue watching"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
 
         {/* Episode badge for TV shows */}
         {episodeBadge && (

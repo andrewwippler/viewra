@@ -24,6 +24,7 @@ import { Route as LayoutSettingsPreferencesRouteImport } from './routes/_layout/
 import { Route as LayoutSettingsPluginsRouteImport } from './routes/_layout/settings.plugins'
 import { Route as LayoutSettingsDisplayRouteImport } from './routes/_layout/settings.display'
 import { Route as LayoutSettingsAccountRouteImport } from './routes/_layout/settings.account'
+import { Route as LayoutMoviesIdRouteImport } from './routes/_layout/movies.$id'
 import { Route as LayoutTvShowIdIndexRouteImport } from './routes/_layout/tv.$showId.index'
 import { Route as LayoutMusicArtistsArtistIdRouteImport } from './routes/_layout/music.artists.$artistId'
 import { Route as LayoutMusicAlbumsAlbumIdRouteImport } from './routes/_layout/music.albums.$albumId'
@@ -104,6 +105,11 @@ const LayoutSettingsAccountRoute = LayoutSettingsAccountRouteImport.update({
   path: '/settings/account',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutMoviesIdRoute = LayoutMoviesIdRouteImport.update({
+  id: '/movies/$id',
+  path: '/movies/$id',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutTvShowIdIndexRoute = LayoutTvShowIdIndexRouteImport.update({
   id: '/tv/$showId/',
   path: '/tv/$showId/',
@@ -133,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/libraries': typeof LayoutLibrariesRoute
   '/': typeof LayoutIndexRoute
+  '/movies/$id': typeof LayoutMoviesIdRoute
   '/settings/account': typeof LayoutSettingsAccountRoute
   '/settings/display': typeof LayoutSettingsDisplayRoute
   '/settings/plugins': typeof LayoutSettingsPluginsRoute
@@ -153,6 +160,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/libraries': typeof LayoutLibrariesRoute
   '/': typeof LayoutIndexRoute
+  '/movies/$id': typeof LayoutMoviesIdRoute
   '/settings/account': typeof LayoutSettingsAccountRoute
   '/settings/display': typeof LayoutSettingsDisplayRoute
   '/settings/plugins': typeof LayoutSettingsPluginsRoute
@@ -175,6 +183,7 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/_layout/libraries': typeof LayoutLibrariesRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/_layout/movies/$id': typeof LayoutMoviesIdRoute
   '/_layout/settings/account': typeof LayoutSettingsAccountRoute
   '/_layout/settings/display': typeof LayoutSettingsDisplayRoute
   '/_layout/settings/plugins': typeof LayoutSettingsPluginsRoute
@@ -197,6 +206,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/libraries'
     | '/'
+    | '/movies/$id'
     | '/settings/account'
     | '/settings/display'
     | '/settings/plugins'
@@ -217,6 +227,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/libraries'
     | '/'
+    | '/movies/$id'
     | '/settings/account'
     | '/settings/display'
     | '/settings/plugins'
@@ -238,6 +249,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/_layout/libraries'
     | '/_layout/'
+    | '/_layout/movies/$id'
     | '/_layout/settings/account'
     | '/_layout/settings/display'
     | '/_layout/settings/plugins'
@@ -367,6 +379,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsAccountRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/movies/$id': {
+      id: '/_layout/movies/$id'
+      path: '/movies/$id'
+      fullPath: '/movies/$id'
+      preLoaderRoute: typeof LayoutMoviesIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/tv/$showId/': {
       id: '/_layout/tv/$showId/'
       path: '/tv/$showId'
@@ -401,6 +420,7 @@ declare module '@tanstack/react-router' {
 interface LayoutRouteChildren {
   LayoutLibrariesRoute: typeof LayoutLibrariesRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutMoviesIdRoute: typeof LayoutMoviesIdRoute
   LayoutSettingsAccountRoute: typeof LayoutSettingsAccountRoute
   LayoutSettingsDisplayRoute: typeof LayoutSettingsDisplayRoute
   LayoutSettingsPluginsRoute: typeof LayoutSettingsPluginsRoute
@@ -420,6 +440,7 @@ interface LayoutRouteChildren {
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutLibrariesRoute: LayoutLibrariesRoute,
   LayoutIndexRoute: LayoutIndexRoute,
+  LayoutMoviesIdRoute: LayoutMoviesIdRoute,
   LayoutSettingsAccountRoute: LayoutSettingsAccountRoute,
   LayoutSettingsDisplayRoute: LayoutSettingsDisplayRoute,
   LayoutSettingsPluginsRoute: LayoutSettingsPluginsRoute,

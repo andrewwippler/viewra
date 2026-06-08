@@ -49,6 +49,8 @@ type MovieResponse struct {
 	OriginalLanguage string    `json:"original_language,omitempty"`
 	CountryOfOrigin  string    `json:"country_of_origin,omitempty"`
 	AwardsSummary    string    `json:"awards_summary,omitempty"`
+	Rating           float32   `json:"rating,omitempty"`
+	RatingVotes      int       `json:"rating_votes,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -98,6 +100,8 @@ func ToMovieResponse(m *media.Movie) MovieResponse {
 		OriginalLanguage: m.OriginalLanguage,
 		CountryOfOrigin: m.CountryOfOrigin,
 		AwardsSummary:   m.AwardsSummary,
+		Rating:          m.Rating,
+		RatingVotes:     m.RatingVotes,
 		CreatedAt:       m.CreatedAt,
 		UpdatedAt:       m.UpdatedAt,
 	}

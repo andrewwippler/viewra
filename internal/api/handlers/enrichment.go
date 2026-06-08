@@ -12,8 +12,10 @@ import (
 	"github.com/mantonx/viewra/internal/api/sse"
 	"github.com/mantonx/viewra/internal/application/enrichment/pipeline"
 	"github.com/mantonx/viewra/internal/domain/enrichment"
+	"github.com/mantonx/viewra/internal/domain/images"
 	"github.com/mantonx/viewra/internal/domain/media"
 	"github.com/mantonx/viewra/internal/infrastructure/events"
+	"github.com/mantonx/viewra/internal/infrastructure/persistence/image"
 	enrichmentRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/enrichment"
 )
 
@@ -32,6 +34,7 @@ type EnrichmentHandler struct {
 	logger          *slog.Logger
 	mediaListByType MediaListByTypeFunc
 	tvShowList      TVShowListFunc
+	imageRepo       *image.Repository
 }
 
 // NewEnrichmentHandler creates a new enrichment handler.
@@ -40,6 +43,7 @@ func NewEnrichmentHandler(
 	statusRepo *enrichmentRepo.StatusRepository,
 	queueRepo *enrichmentRepo.QueueRepository,
 	eventBus *events.Bus,
+	imageRepo *image.Repository,
 	logger *slog.Logger,
 ) *EnrichmentHandler {
 	return &EnrichmentHandler{
@@ -47,6 +51,7 @@ func NewEnrichmentHandler(
 		statusRepo: statusRepo,
 		queueRepo:  queueRepo,
 		eventBus:   eventBus,
+		imageRepo:  imageRepo,
 		logger:     logger,
 	}
 }
@@ -152,6 +157,14 @@ func (h *EnrichmentHandler) EnqueueMedia(c *gin.Context) {
 	if req.LibraryID <= 0 {
 		respondError(c, http.StatusBadRequest, "BAD_REQUEST", "library_id is required")
 		return
+	}
+
+	// If requesting metadata re-enrichment, delete existing images first so they re-download
+	if req.Stage == "metadata" && h.imageRepo != nil {
+		mediaType := images.MediaType(req.MediaType)
+		if err := h.imageRepo.DeleteByEntity(c.Request.Context(), mediaType, int(req.MediaID)); err != nil {
+			h.logger.Warn("failed to delete images before metadata re-enrichment", "media_id", req.MediaID, "error", err)
+		}
 	}
 
 	err := h.manager.EnqueueStage(c.Request.Context(), req.MediaID, req.LibraryID, enrichment.MediaType(req.MediaType), req.Stage, req.Priority)

@@ -129,7 +129,7 @@ export const ActionList = ({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => onShowCreate(action.emptyState!.showCreate!)}
+              onClick={() => onShowCreate(action.emptyState?.showCreate ?? '')}
             >
               Add one
             </Button>

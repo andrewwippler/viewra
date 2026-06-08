@@ -53,12 +53,15 @@ type CheckpointStats struct {
 
 // GetProcessedFiles returns the total number of processed files (completed + failed + warning)
 func (s *CheckpointStats) GetProcessedFiles() int64 {
+	if s == nil {
+		return 0
+	}
 	return s.CompletedFiles + s.FailedFiles + s.WarningFiles
 }
 
 // GetSuccessRate returns the percentage of successfully processed files
 func (s *CheckpointStats) GetSuccessRate() float64 {
-	if s.TotalFiles == 0 {
+	if s == nil || s.TotalFiles == 0 {
 		return 0
 	}
 	return float64(s.CompletedFiles) / float64(s.TotalFiles) * 100
@@ -66,7 +69,7 @@ func (s *CheckpointStats) GetSuccessRate() float64 {
 
 // GetProgress returns the processing progress percentage
 func (s *CheckpointStats) GetProgress() float64 {
-	if s.TotalFiles == 0 {
+	if s == nil || s.TotalFiles == 0 {
 		return 0
 	}
 	return float64(s.GetProcessedFiles()) / float64(s.TotalFiles) * 100
@@ -79,7 +82,7 @@ func (s *CheckpointStats) GetProgress() float64 {
 // actualTotal: The actual total files to process (from job.FilesFound), not the checkpoint count.
 // Checkpoints are created in batches, so TotalFiles from checkpoints may be less than actual total.
 func (s *CheckpointStats) EstimateRemainingSeconds(actualTotal int64) *int64 {
-	if s.ProcessedFiles == 0 || actualTotal == 0 || s.FirstProcessedAt == nil {
+	if s == nil || s.ProcessedFiles == 0 || actualTotal == 0 || s.FirstProcessedAt == nil {
 		return nil
 	}
 

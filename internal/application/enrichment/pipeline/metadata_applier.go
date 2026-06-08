@@ -19,6 +19,19 @@ func parseDate(s string) (time.Time, error) {
 	return time.Parse("2006-01-02", s)
 }
 
+// needsNormalization checks if a sort title might need normalization.
+// Returns true if it starts with a leading article that would be stripped.
+func needsNormalization(sortTitle string) bool {
+	lower := strings.ToLower(sortTitle)
+	articles := []string{"the ", "a ", "an ", "le ", "la ", "les ", "el ", "los ", "der ", "die ", "das ", "il ", "lo ", "de ", "het ", "o "}
+	for _, article := range articles {
+		if strings.HasPrefix(lower, article) {
+			return true
+		}
+	}
+	return false
+}
+
 // MetadataApplier handles type-specific metadata updates.
 type MetadataApplier struct {
 	typedRepos *TypedMediaRepos
@@ -82,20 +95,24 @@ func (a *MetadataApplier) applyMovieMetadata(ctx context.Context, mediaID int64,
 
 	updated := false
 
-	// Note: We intentionally do NOT update movie.Title from enrichment.
-	// The title is derived from the folder/filename and may include year or other
-	// disambiguation. NFO/TMDb titles could conflict with existing entries.
-	// Instead, store the enriched title in OriginalTitle if not already set.
-	if metadata.Title != nil && *metadata.Title != "" && movie.OriginalTitle == "" {
-		movie.OriginalTitle = *metadata.Title
+	// Update the displayed title from the enriched metadata (NFO, TMDb, etc.)
+	// so the user sees the proper title, not the filename-derived one.
+	if metadata.Title != nil && *metadata.Title != "" && movie.Title != *metadata.Title {
+		movie.Title = *metadata.Title
 		updated = true
 	}
-	if metadata.OriginalTitle != nil && *metadata.OriginalTitle != "" {
+	if metadata.OriginalTitle != nil && *metadata.OriginalTitle != "" && movie.OriginalTitle != *metadata.OriginalTitle {
 		movie.OriginalTitle = *metadata.OriginalTitle
 		updated = true
 	}
 	if metadata.SortTitle != nil && *metadata.SortTitle != "" {
 		movie.SortTitle = *metadata.SortTitle
+		updated = true
+	}
+	// Ensure SortTitle is always normalized (articles like "The", "A", "An" removed)
+	// This catches cases where enrichment didn't provide SortTitle or provided unnormalized value
+	if movie.SortTitle == "" || needsNormalization(movie.SortTitle) {
+		movie.SortTitle = domainCommon.NormalizeSortTitle(movie.Title)
 		updated = true
 	}
 	if metadata.Year != nil {
@@ -268,6 +285,12 @@ func (a *MetadataApplier) applyTVShowMetadata(ctx context.Context, mediaID int64
 	}
 	if metadata.SortTitle != nil && *metadata.SortTitle != "" {
 		show.SortTitle = *metadata.SortTitle
+		updated = true
+	}
+	// Ensure SortTitle is always normalized (articles like "The", "A", "An" removed)
+	// This catches cases where enrichment didn't provide SortTitle or provided unnormalized value
+	if show.SortTitle == "" || needsNormalization(show.SortTitle) {
+		show.SortTitle = domainCommon.NormalizeSortTitle(show.Title)
 		updated = true
 	}
 	if metadata.Year != nil {

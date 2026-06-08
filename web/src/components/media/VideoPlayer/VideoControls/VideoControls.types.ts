@@ -35,4 +35,6 @@ export interface VideoControlsProps {
   onSpeedChange: (speed: number) => void
   onSkip: (seconds: number) => void
   onToggleStats: () => void
+  onPlayNext?: () => void
+  onPlayPrev?: () => void
 }

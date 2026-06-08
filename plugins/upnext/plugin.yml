@@ -1,0 +1,19 @@
+# Up Next Plugin Manifest
+id: upnext
+name: Up Next
+version: 1.0.0
+description: Shows the next unwatched TV episode for shows you're watching
+
+author: ViewRA Team
+license: MIT
+homepage: https://github.com/mantonx/viewra
+
+min_host_version: "0.1.0"
+
+display_category: recommendations
+
+capabilities:
+  - recommendations
+
+permissions:
+  - data:media:read

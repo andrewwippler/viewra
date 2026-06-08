@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/mantonx/viewra/internal/domain/transcode"
+	"github.com/mantonx/viewra/internal/infrastructure/transcoding/config"
 	"github.com/mantonx/viewra/internal/infrastructure/transcoding/executor"
 	pkgLogger "github.com/mantonx/viewra/internal/pkg/logger"
 )
@@ -48,8 +49,14 @@ type service struct {
 
 // NewService creates a new transcoding service.
 // It verifies that FFmpeg is available in the system PATH.
-func NewService(repo transcode.Repository, logger *slog.Logger) (Service, error) {
-	ffmpegExec, err := executor.NewFFmpegExecutor()
+func NewService(repo transcode.Repository, logger *slog.Logger, cfg ...*config.TranscodeConfig) (Service, error) {
+	var ffmpegExec *executor.FFmpegExecutor
+	var err error
+	if len(cfg) > 0 && cfg[0] != nil {
+		ffmpegExec, err = executor.NewFFmpegExecutorWithConfig(cfg[0])
+	} else {
+		ffmpegExec, err = executor.NewFFmpegExecutor()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize ffmpeg executor: %w", err)
 	}

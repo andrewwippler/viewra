@@ -134,5 +134,7 @@ const useServerStatus = (): ServerStatusContextValue => {
   return context
 }
 
+/* eslint-disable react-refresh/only-export-components */
 export { ServerStatusProvider, useServerStatus }
 export type { ServerStatus, ServerStatusContextValue }
+/* eslint-enable react-refresh/only-export-components */

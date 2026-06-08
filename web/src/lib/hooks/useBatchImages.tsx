@@ -1,11 +1,12 @@
 /**
- * useBatchImages Hook & Context
+ * BatchImagesProvider & Hook
  * Provides efficient batch image loading to eliminate N+1 queries
  *
  * Usage:
  * 1. For media items (movies, episodes): <BatchImagesProvider mediaIds={[1,2,3,...]}>
  * 2. For entities (TV shows, artists): <BatchImagesProvider entityIds={[1,2,3,...]} mediaType="tv_show">
- * 3. Use useBatchImages(id) in child components to get images
+ * 3. For mixed content: <BatchImagesProvider mediaIds={mediaIds} entityIds={entityIds} mediaType="tv_show">
+ * 4. Use useBatchImages(id) in child components to get images
  */
 
 import { createContext, useContext, useMemo } from 'react'
@@ -32,45 +33,64 @@ interface BatchImagesProviderProps {
 /**
  * Provider component that fetches images for multiple media items or entities in batched chunks
  * Handles infinite scroll by splitting IDs into 50-item batches and merging results
+ * Can handle both mediaIds (for movies/episodes) and entityIds (for TV shows/music) simultaneously
  */
 export const BatchImagesProvider = ({ mediaIds, entityIds, mediaType, children }: BatchImagesProviderProps) => {
-  const ids = useMemo(() => mediaIds || entityIds || [], [mediaIds, entityIds])
-  const isEntityBased = !!entityIds && !!mediaType
+  const hasMediaIds = mediaIds && mediaIds.length > 0
+  const hasEntityIds = entityIds && entityIds.length > 0
+  const isEntityBased = hasEntityIds && !!mediaType
 
   // Split IDs into chunks of 50 to avoid overwhelming the backend
   const BATCH_SIZE = 50
-  const batches = useMemo(() => {
+
+  const mediaIdBatches = useMemo(() => {
+    if (!hasMediaIds) return []
     const chunks: number[][] = []
-    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
-      chunks.push(ids.slice(i, i + BATCH_SIZE))
+    for (let i = 0; i < mediaIds.length; i += BATCH_SIZE) {
+      chunks.push(mediaIds.slice(i, i + BATCH_SIZE))
     }
     return chunks
-  }, [ids]) // Only recalculate when the actual IDs change
+  }, [mediaIds, hasMediaIds])
 
-  // Use useQueries to fetch all batches in parallel and cache them independently
+  const entityIdBatches = useMemo(() => {
+    if (!hasEntityIds) return []
+    const chunks: number[][] = []
+    for (let i = 0; i < entityIds.length; i += BATCH_SIZE) {
+      chunks.push(entityIds.slice(i, i + BATCH_SIZE))
+    }
+    return chunks
+  }, [entityIds, hasEntityIds])
+
+  // Build query list - separate queries for media IDs and entity IDs
   const queries = useQueries({
-    queries: batches.map((batch, _index) => ({
-      queryKey: isEntityBased
-        ? ['batch-images-entity', mediaType, batch.sort().join(',')]
-        : ['batch-images', batch.sort().join(',')],
-      queryFn: async () => {
-        if (batch.length === 0) {
-          return { media_images: {} }
-        }
-
-        if (isEntityBased) {
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          const response = await imagesApi.getBatchEntityImages(batch, mediaType!)
-          // customInstance returns { data, status, headers }, extract the data
-          return (response as unknown as { data: { media_images: Record<number, Image[]> } }).data
-        } else {
+    queries: [
+      // Media ID batches (movies, episodes)
+      ...mediaIdBatches.map((batch) => ({
+        queryKey: ['batch-images', batch.sort().join(',')],
+        queryFn: async () => {
+          if (batch.length === 0) {
+            return { media_images: {} }
+          }
           const response = await imagesApi.getBatchMediaImages(batch)
-          // customInstance returns { data, status, headers }, extract the data
           return (response as unknown as { data: { media_images: Record<number, Image[]> } }).data
-        }
-      },
-      staleTime: 1000 * 60 * 5, // 5 minutes - each batch stays cached
-    })),
+        },
+        staleTime: 5 * 60 * 1000,
+        enabled: hasMediaIds,
+      })),
+      // Entity ID batches (TV shows, music)
+      ...entityIdBatches.map((batch) => ({
+        queryKey: ['batch-images-entity', mediaType, batch.sort().join(',')],
+        queryFn: async () => {
+          if (batch.length === 0 || !mediaType) {
+            return { media_images: {} }
+          }
+          const response = await imagesApi.getBatchEntityImages(batch, mediaType)
+          return (response as unknown as { data: { media_images: Record<number, Image[]> } }).data
+        },
+        staleTime: 5 * 60 * 1000,
+        enabled: isEntityBased,
+      })),
+    ],
   })
 
   // Merge all batch results into a single images map

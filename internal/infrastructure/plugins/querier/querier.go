@@ -80,6 +80,8 @@ func (q *DBMediaQuerier) SearchMedia(ctx context.Context, title string, year int
 		return q.searchMovies(ctx, pattern, year, limit)
 	case "tv", "tv_show":
 		return q.searchTVShows(ctx, pattern, year, limit)
+	case "tv_episode":
+		return q.searchTVEpisodesByShowTitle(ctx, pattern, limit)
 	default:
 		// Search across all types and merge results
 		return q.searchAll(ctx, title, pattern, year, limit)

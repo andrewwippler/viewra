@@ -25,7 +25,7 @@ const registry: ProviderRegistry = {
  * registerSearchProvider(mySearchProvider)
  * ```
  */
-export function registerSearchProvider(provider: SearchProvider): void {
+export const registerSearchProvider = (provider: SearchProvider): void => {
   registry.providers.push(provider)
 
   // Sort by priority (higher first)
@@ -38,7 +38,7 @@ export function registerSearchProvider(provider: SearchProvider): void {
  * Returns the highest-priority available provider.
  * If no providers available, returns null.
  */
-export function getSearchProvider(): SearchProvider | null {
+export const getSearchProvider = (): SearchProvider | null => {
   // Find first available provider
   const provider = registry.providers.find((p) => p.isAvailable())
 
@@ -48,13 +48,13 @@ export function getSearchProvider(): SearchProvider | null {
 /**
  * Get all registered providers (for debugging)
  */
-export function getAllProviders(): SearchProvider[] {
+export const getAllProviders = (): SearchProvider[] => {
   return [...registry.providers]
 }
 
 /**
  * Clear all providers (for testing)
  */
-export function clearProviders(): void {
+export const clearProviders = (): void => {
   registry.providers = []
 }

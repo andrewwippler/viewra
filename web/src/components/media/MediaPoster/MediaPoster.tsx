@@ -19,12 +19,32 @@ import {
 import { useBatchImagesIfAvailable } from '@/lib/hooks/useBatchImages'
 import {
   getPosterImage,
+  getPosterImageWithFallback,
   getEpisodeThumbnail,
   getAlbumCover,
   getArtistImage,
   getImageUrl,
   type ImagePreset,
+  type MediaType as ImageMediaType,
 } from '@/lib/types/images'
+
+// Convert component MediaType to ImageMediaType
+const toImageMediaType = (mediaType: string): ImageMediaType => {
+  switch (mediaType) {
+    case 'tv-show':
+      return 'tv_show'
+    case 'tv-season':
+      return 'tv_season'
+    case 'tv-episode':
+      return 'tv_episode'
+    case 'music-album':
+      return 'music_album'
+    case 'music-artist':
+      return 'music_artist'
+    default:
+      return mediaType as ImageMediaType
+  }
+}
 
 export type MediaType = 'media' | 'movie' | 'tv-show' | 'tv-season' | 'tv-episode' | 'music-album' | 'music-artist'
 
@@ -140,7 +160,7 @@ export const MediaPoster = ({
     isLoading = activeQuery.isLoading
   }
 
-  // Get image - use appropriate type based on media type
+  // Get image - use appropriate type based on media type with fallbacks
   const image =
     mediaType === 'tv-episode'
       ? images && images.length > 0
@@ -155,7 +175,7 @@ export const MediaPoster = ({
             ? getArtistImage(images)
             : null
           : images && images.length > 0
-            ? getPosterImage(images) || getAlbumCover(images)
+            ? getPosterImageWithFallback(images, toImageMediaType(mediaType))
             : null
   const imageUrl = image ? getImageUrl(image.id, preset) : null
 

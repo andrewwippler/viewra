@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./tv.css";
 
 /* Configure class-based dark mode */
 @variant dark (.dark &);
@@ -629,4 +630,76 @@ video::cue {
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Chrome, Safari, Opera */
+}
+
+/* ======================
+   FULLSCREEN FALLBACK FOR CHROME 79 / WEBOS TV
+   CSS-based fullscreen for browsers where Fullscreen API requires user gesture
+   ====================== */
+
+.fullscreen-fallback {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important; /* Maximum z-index */
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  object-fit: contain !important;
+  background: #000 !important;
+}
+
+.fullscreen-fallback video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+
+/* Ensure video container fills screen in fallback mode */
+.fullscreen-fallback .video-player-container,
+.fullscreen-fallback .video-player-wrapper {
+  width: 100% !important;
+  height: 100% !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+}
+
+/* Hide UI elements in fallback fullscreen */
+.fullscreen-fallback .player-controls,
+.fullscreen-fallback .player-overlay,
+.fullscreen-fallback .player-header {
+  display: none !important;
+}
+
+/* Show minimal exit hint */
+.fullscreen-fallback::after {
+  content: 'Press ESC to exit fullscreen';
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+  pointer-events: none;
+  animation: fadeInOut 3s ease-in-out;
+  z-index: 2147483648;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0; }
+  20%, 80% { opacity: 1; }
+}
+
+/* Ensure body doesn't scroll in fallback fullscreen */
+body.fullscreen-active {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100% !important;
+  height: 100vh !important;
 }

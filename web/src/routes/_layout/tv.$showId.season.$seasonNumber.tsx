@@ -1,17 +1,18 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card, CardContent, Button } from '@/components/ui'
 import { EpisodeCard } from '@/components/tv'
 import { VideoPlayerContainer } from '@/components/media'
 import { PageHeader, LoadingPage, ErrorPage, EmptyState } from '@/components/common'
 import { tvApi } from '@/lib/api/tv'
 import { useMediaPlayback, BatchProgressProvider } from '@/lib/hooks'
-import type { TVEpisodeResponse } from '@/lib/types/tv'
+import type { TVEpisodeResponse, TVShowDetailResponse } from '@/lib/types/tv'
 import { logger } from '@/lib/utils/logger'
 
 const SeasonDetail = () => {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { showId, seasonNumber } = Route.useParams()
   const search = Route.useSearch() as { episodeId?: number; t?: number }
   const urlEpisodeId = search.episodeId
@@ -19,6 +20,9 @@ const SeasonDetail = () => {
   const showIdNumber = parseInt(showId, 10)
 
   const { playbackState, playMedia, stopPlayback, changeQuality } = useMediaPlayback()
+
+  // Auto-play countdown state - keeps player visible after episode ends
+  const [showAutoPlayEnded, setShowAutoPlayEnded] = useState(false)
 
   const {
     data: showData,
@@ -47,7 +51,8 @@ const SeasonDetail = () => {
   }, [episodesData])
   const isLoading = isLoadingShow || isLoadingEpisodes
   const error = showError || episodesError
-  const showTitle = (showData?.data && 'title' in showData.data) ? showData.data.title || '' : ''
+  const show = (showData?.data && 'title' in showData.data) ? showData.data as TVShowDetailResponse : null
+  const showTitle = show?.title || ''
 
   // Filter episodes for this season and sort by episode number
   const seasonEpisodes = useMemo(() => {
@@ -76,6 +81,14 @@ const SeasonDetail = () => {
     return seasonEpisodes[currentIndex + 1]
   }, [playingEpisode, seasonEpisodes])
 
+  // Get previous episode
+  const prevEpisode = useMemo(() => {
+    if (!playingEpisode) {return null}
+    const currentIndex = seasonEpisodes.findIndex((ep) => ep.id === playingEpisode.id)
+    if (currentIndex <= 0) {return null}
+    return seasonEpisodes[currentIndex - 1]
+  }, [playingEpisode, seasonEpisodes])
+
   // Ref to prevent auto-play from triggering during close
   const isClosingRef = useRef(false)
 
@@ -101,6 +114,15 @@ const SeasonDetail = () => {
     }
   }, [urlEpisodeId])
 
+  // Detect playback end to activate auto-play countdown
+  const prevPlayingRef = useRef(playbackState.isPlaying)
+  useEffect(() => {
+    if (prevPlayingRef.current && !playbackState.isPlaying && nextEpisode && !isClosingRef.current) {
+      setShowAutoPlayEnded(true)
+    }
+    prevPlayingRef.current = playbackState.isPlaying
+  }, [playbackState.isPlaying, nextEpisode])
+
   const handlePlayEpisode = async (episode: TVEpisodeResponse, startTime?: number) => {
     logger.debug('Playing episode:', episode.show_title, `S${  episode.season  }E${  episode.episode}`)
 
@@ -119,7 +141,15 @@ const SeasonDetail = () => {
 
   const handlePlayNextEpisode = async () => {
     if (nextEpisode) {
+      setShowAutoPlayEnded(false)
       await handlePlayEpisode(nextEpisode)
+    }
+  }
+
+  const handlePlayPrevEpisode = async () => {
+    if (prevEpisode) {
+      setShowAutoPlayEnded(false)
+      await handlePlayEpisode(prevEpisode)
     }
   }
 
@@ -140,6 +170,7 @@ const SeasonDetail = () => {
   const handleClosePlayer = () => {
     // Set closing flag to prevent auto-play effect from re-triggering
     isClosingRef.current = true
+    setShowAutoPlayEnded(false)
     stopPlayback()
     // Clear URL parameters if present
     if (urlEpisodeId) {
@@ -154,31 +185,28 @@ const SeasonDetail = () => {
     navigate({ to: `/tv/${showId}` })
   }
 
-  // Render video player with next episode button overlay
-  const nextEpisodeButton = nextEpisode ? (
-    <div className="fixed bottom-24 right-8 z-50">
-      <button
-        onClick={handlePlayNextEpisode}
-        className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold"
-      >
-        <span>Next Episode</span>
-        <span>→</span>
-      </button>
-    </div>
-  ) : undefined
-
   const videoPlayer = (
     <VideoPlayerContainer
       playbackState={playbackState}
       media={playingEpisode}
       onClose={handleClosePlayer}
       onTimeUpdate={handleTimeUpdate}
-      overlay={nextEpisodeButton}
       onQualityChange={changeQuality}
+      showOnEnd={showAutoPlayEnded}
+      nextEpisodeInfo={nextEpisode ? {
+        title: nextEpisode.title || nextEpisode.episode_title || '',
+        season: nextEpisode.season ?? 0,
+        episode: nextEpisode.episode ?? 0,
+        episodeTitle: nextEpisode.episode_title,
+      } : undefined}
+      onAutoPlayNext={handlePlayNextEpisode}
+      onAutoPlayCancel={() => setShowAutoPlayEnded(false)}
+      onPlayNext={nextEpisode ? handlePlayNextEpisode : undefined}
+      onPlayPrev={prevEpisode ? handlePlayPrevEpisode : undefined}
     />
   )
 
-  if (playbackState.isPlaying && playingEpisode) {
+  if ((playbackState.isPlaying || showAutoPlayEnded) && playingEpisode) {
     return videoPlayer
   }
 
@@ -221,6 +249,26 @@ const SeasonDetail = () => {
         description={`${seasonEpisodes.length} ${seasonEpisodes.length === 1 ? 'Episode' : 'Episodes'}`}
         actions={<Button onClick={handleBackClick}>← Back to Show</Button>}
       />
+
+      {/* Show description */}
+      {show?.plot && (
+        <Card className="mb-6">
+          <CardContent>
+            <p className="text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed">
+              {show.plot}
+            </p>
+            {show.genre && show.genre.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {show.genre.map((g) => (
+                  <span key={g} className="px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
+                    {g}
+                  </span>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Episodes Grid */}
       <BatchProgressProvider mediaIds={episodeIds}>

@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Library, Film, Tv, Music, RefreshCw, AlertCircle } from 'lucide-react'
+import { useCallback } from 'react'
 import { SearchHero, WidgetSection, WidgetLocation, HeroBackdrop } from '@/components/home'
 import { useSearchHeroData, useHomeSections, BatchImagesProvider, BatchProgressProvider } from '@/lib/hooks'
 import { cn } from '@/lib/utils'
-import type { MediaRowData, ContinueWatchingData } from '@/components/home/widgets/widget.types'
+import { progressApi } from '@/lib/api/progress'
+import type { MediaRowData, ContinueWatchingData, ContinueWatchingItem } from '@/components/home/widgets/widget.types'
 
 /**
  * Home - Main landing page with search and widget-based content rows
@@ -26,29 +28,62 @@ export const Home = () => {
   // Extract hero data from response metadata
   const heroData = homeSections?.meta?.hero
 
-  // Extract all media IDs from sections for batch loading
-  const mediaIds = useMemo(() => {
-    const ids: number[] = []
+  // Handle removing an item from continue watching
+  const handleRemoveContinueWatching = useCallback(async (item: ContinueWatchingItem) => {
+    const mediaId = item.entity_type === 'tv_show' && item.episode_context?.episode_media_id
+      ? item.episode_context.episode_media_id
+      : item.entity_id
+    try {
+      await progressApi.deleteProgress(mediaId)
+      refetch()
+    } catch {
+      // Silently fail - the item might already be gone on next refetch
+    }
+  }, [refetch])
+
+  // Extract all media IDs and entity IDs from sections for batch loading
+  const { mediaIds, tvShowEntityIds } = useMemo(() => {
+    const media: number[] = []
+    const tvShows: number[] = []
+    
     for (const section of sections) {
       // Handle MediaRowData (movies, shows, and recommendation items)
       const mediaData = section.data as MediaRowData
       if (mediaData?.movies) {
-        ids.push(...mediaData.movies.map((m) => m.id))
+        media.push(...mediaData.movies.map((m) => m.id))
       }
       if (mediaData?.shows) {
-        ids.push(...mediaData.shows.filter((s) => s.id).map((s) => s.id!))
+        // TV shows are entities, not media items - use entity IDs
+        tvShows.push(...mediaData.shows.filter((s) => s.id !== null && s.id !== undefined).map((s) => s.id as number))
       }
       if (mediaData?.items) {
-        ids.push(...mediaData.items.map((i) => i.entity_id))
+        // Separate recommendation items by entity type
+        for (const item of mediaData.items) {
+          if (item.entity_type === 'tv_show') {
+            tvShows.push(item.entity_id)
+          } else {
+            // Movies and other types use media IDs
+            media.push(item.entity_id)
+          }
+        }
       }
 
       // Handle ContinueWatchingData with items array
       const continueData = section.data as ContinueWatchingData
       if (continueData?.items) {
-        ids.push(...continueData.items.map((i) => i.entity_id))
+        for (const item of continueData.items) {
+          if (item.entity_type === 'tv_show' && item.episode_context?.episode_media_id) {
+            // TV episodes use episode media ID
+            media.push(item.episode_context.episode_media_id)
+          } else if (item.entity_type === 'tv_show') {
+            tvShows.push(item.entity_id)
+          } else {
+            media.push(item.entity_id)
+          }
+        }
       }
     }
-    return ids
+    return { mediaIds: media, tvShowEntityIds: tvShows }
   }, [sections])
 
   // Show loading skeleton
@@ -68,7 +103,7 @@ export const Home = () => {
   }
 
   return (
-    <BatchImagesProvider mediaIds={mediaIds}>
+    <BatchImagesProvider mediaIds={mediaIds} entityIds={tvShowEntityIds} mediaType="tv_show">
       <BatchProgressProvider mediaIds={mediaIds}>
         <div className="relative h-full overflow-auto">
           {/* Hero Backdrop */}
@@ -92,7 +127,11 @@ export const Home = () => {
             {/* Content Sections */}
             <div className="p-8 pt-4 space-y-10">
               {/* All widget sections (continue watching, recently added, favorites, etc.) */}
-              <WidgetSection sections={sections} location={WidgetLocation.HomepageSections} />
+              <WidgetSection
+                sections={sections}
+                location={WidgetLocation.HomepageSections}
+                onRemoveContinueWatching={handleRemoveContinueWatching}
+              />
             </div>
           </div>
         </div>

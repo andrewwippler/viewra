@@ -12,27 +12,27 @@ import (
 
 // ResponseApplier coordinates applying enrichment results to the database.
 type ResponseApplier struct {
-	deps                  *Deps
-	metadataApplier       *MetadataApplier
-	creditsApplier        *CreditsApplier
-	studiosApplier        *StudiosApplier
-	keywordsApplier       *KeywordsApplier
-	similarTitlesApplier  *SimilarTitlesApplier
-	imageProcessor        *ImageProcessor
-	logger                *slog.Logger
+	deps                 *Deps
+	metadataApplier      *MetadataApplier
+	creditsApplier       *CreditsApplier
+	studiosApplier       *StudiosApplier
+	keywordsApplier      *KeywordsApplier
+	similarTitlesApplier *SimilarTitlesApplier
+	imageProcessor       *ImageProcessor
+	logger               *slog.Logger
 }
 
 // NewResponseApplier creates a new ResponseApplier.
 func NewResponseApplier(deps *Deps, metadataApplier *MetadataApplier, creditsApplier *CreditsApplier, studiosApplier *StudiosApplier, keywordsApplier *KeywordsApplier, similarTitlesApplier *SimilarTitlesApplier, imageProcessor *ImageProcessor, logger *slog.Logger) *ResponseApplier {
 	return &ResponseApplier{
-		deps:                  deps,
-		metadataApplier:       metadataApplier,
-		creditsApplier:        creditsApplier,
-		studiosApplier:        studiosApplier,
-		keywordsApplier:       keywordsApplier,
-		similarTitlesApplier:  similarTitlesApplier,
-		imageProcessor:        imageProcessor,
-		logger:                logger,
+		deps:                 deps,
+		metadataApplier:      metadataApplier,
+		creditsApplier:       creditsApplier,
+		studiosApplier:       studiosApplier,
+		keywordsApplier:      keywordsApplier,
+		similarTitlesApplier: similarTitlesApplier,
+		imageProcessor:       imageProcessor,
+		logger:               logger,
 	}
 }
 
@@ -120,7 +120,10 @@ func (a *ResponseApplier) Apply(ctx context.Context, job *enrichment.QueueJob, m
 			Provider:   provider,
 			ExternalID: id,
 		}
-		if err := a.deps.ExternalIDRepo.Upsert(ctx, extID); err != nil {
+		// Perform external ID upsert with an independent short timeout so a slow DB
+		// or the job's timeout doesn't prevent storing supplementary IDs.
+		upsertCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		if err := a.deps.ExternalIDRepo.Upsert(upsertCtx, extID); err != nil {
 			// Log but don't fail - external IDs are supplementary data
 			a.logger.Warn("failed to store external ID",
 				slog.String("provider", provider),
@@ -128,6 +131,7 @@ func (a *ResponseApplier) Apply(ctx context.Context, job *enrichment.QueueJob, m
 				slog.Int64("entity_id", mediaID),
 				slog.Any("error", err))
 		}
+		cancel()
 	}
 
 	return nil

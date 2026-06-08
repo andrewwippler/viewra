@@ -25,6 +25,17 @@ func (s *TranscodeSession) buildFFmpegArgs(params StartParams) []string {
 		"profile_fallbacks", params.Profile.FallbackCodecs,
 		"client_codecs", params.ClientSupportedCodecs,
 		"hw_accel", params.HWAccel)
+	
+	// Log the FFmpeg encoder that will be used
+	if params.Strategy == "transcode" {
+		videoEncoder, videoPreset := hls.GetVideoCodecAndPresetForCodec(hls.HardwareAccel(params.HWAccel), targetCodec)
+		s.logger.Debug("Selected FFmpeg encoder for transcoding",
+			"session_id", s.ID,
+			"encoder", videoEncoder,
+			"preset", videoPreset,
+			"hw_accel", params.HWAccel,
+			"target_codec", targetCodec)
+	}
 
 	// Create FFmpeg options
 	ffmpegOpts := hls.Options{

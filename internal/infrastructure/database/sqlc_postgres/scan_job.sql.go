@@ -173,17 +173,17 @@ const deleteOldScanJobs = `-- name: DeleteOldScanJobs :exec
 DELETE FROM scan_jobs
 WHERE library_id = $1
   AND status IN ('completed', 'failed')
-  AND created_at < (CURRENT_TIMESTAMP - ($2::text || ' days')::interval)
+  AND created_at < (CURRENT_TIMESTAMP - ($2 || ' minutes')::interval)
 `
 
 type DeleteOldScanJobsParams struct {
-	LibraryID     int64  `json:"library_id"`
-	RetentionDays string `json:"retention_days"`
+	LibraryID        int64  `json:"library_id"`
+	RetentionInterval string `json:"retention_interval"`
 }
 
-// sqlc.arg(retention_days): the number of days to retain completed/failed jobs
+// sqlc.arg(retention_interval): the interval to retain completed/failed jobs (e.g., '-30')
 func (q *Queries) DeleteOldScanJobs(ctx context.Context, arg DeleteOldScanJobsParams) error {
-	_, err := q.db.ExecContext(ctx, deleteOldScanJobs, arg.LibraryID, arg.RetentionDays)
+	_, err := q.db.ExecContext(ctx, deleteOldScanJobs, arg.LibraryID, arg.RetentionInterval)
 	return err
 }
 

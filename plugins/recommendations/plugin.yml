@@ -16,7 +16,6 @@ display_category: recommendations
 # What this plugin provides (required)
 capabilities:
   - recommendations
-  - widgets
 
 # What this plugin requires from other plugins
 requires:

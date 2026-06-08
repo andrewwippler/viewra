@@ -27,6 +27,7 @@ export interface TVShowDetailResponse {
   plot?: string
   imdb_id?: string
   tmdb_id?: number
+  tvdb_id?: number
   content_rating?: string
   season_count?: number
   episode_count?: number

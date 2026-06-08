@@ -214,6 +214,45 @@ func (q *DBMediaQuerier) tvEpisodeRowToDetails(row unified.GetEpisodeWithShowTit
 	return info
 }
 
+// searchTVEpisodesByShowTitle searches for TV episodes where the parent show
+// title matches the given pattern. Returns results as MediaInfo (basic info).
+func (q *DBMediaQuerier) searchTVEpisodesByShowTitle(ctx context.Context, pattern string, limit int) ([]*MediaInfo, error) {
+	// Find matching TV shows
+	shows, err := q.querier.SearchTVShowsGlobal(ctx, unified.SearchTVShowsGlobalParams{
+		Title:         pattern,
+		OriginalTitle: sql.NullString{String: pattern, Valid: true},
+		Limit:         int64(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var results []*MediaInfo
+	for _, show := range shows {
+		if len(results) >= limit {
+			break
+		}
+		episodes, err := q.querier.ListTVEpisodesByShow(ctx, show.ID)
+		if err != nil {
+			continue
+		}
+		remaining := limit - len(results)
+		for _, ep := range episodes {
+			if remaining <= 0 {
+				break
+			}
+			results = append(results, &MediaInfo{
+				ID:        ep.MediaID,
+				MediaType: "tv_episode",
+				Title:     ep.Title,
+				LibraryID: ep.LibraryID,
+			})
+			remaining--
+		}
+	}
+	return results, nil
+}
+
 func (q *DBMediaQuerier) listTVShowDetailsByLibrary(ctx context.Context, libraryID int64, limit, offset int) ([]*MediaDetailsInfo, int, error) {
 	results, err := q.querier.ListTVShowsByLibraryPaginated(ctx, unified.ListTVShowsByLibraryPaginatedParams{
 		LibraryID: libraryID,

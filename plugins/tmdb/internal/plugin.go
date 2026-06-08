@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"sync"
 
 	"github.com/mantonx/viewra/pkg/plugin/sdk"
@@ -234,6 +235,7 @@ func (p *TMDbPlugin) Enrich(ctx context.Context, req *sdk.EnrichRequest) (*sdk.E
 	case "tv", "tv_show":
 		return p.enrichTV(ctx, client, req)
 	default:
+		p.logger.Debug("skipping TMDb enrichment for unsupported media type", "media_type", req.MediaType)
 		return sdk.Skip("unsupported media type: " + req.MediaType), nil
 	}
 }
@@ -369,18 +371,32 @@ func (p *TMDbPlugin) handleEnrich(ctx context.Context, req *sdk.HTTPRequest) (*s
 	return sdk.JSONResponse(http.StatusOK, result)
 }
 
+// imdbIDRegex matches IMDb ID format (tt followed by digits)
+var imdbIDRegex = regexp.MustCompile(`^tt\d+$`)
+
+// detectInputType determines if the input is an IMDb ID or a title search.
+func detectInputType(input string) string {
+	if imdbIDRegex.MatchString(input) {
+		return "IMDB_LOOKUP"
+	}
+	return "TITLE_SEARCH"
+}
+
+// handleLookup handles the /lookup endpoint with dual-input logic:
+// - IMDb ID (e.g., "tt0111161") -> uses /find endpoint for exact match
+// - Title (e.g., "The Shawshank Redemption") -> uses search, enriches top results with IMDb IDs
 func (p *TMDbPlugin) handleLookup(ctx context.Context, req *sdk.HTTPRequest) (*sdk.HTTPResponse, error) {
 	if req.Method != "GET" {
 		return sdk.JSONError(http.StatusMethodNotAllowed, "method not allowed")
 	}
 
-	title := req.Query["title"]
+	query := req.Query["title"]
 	mediaType := req.Query["type"]
 	if mediaType == "" {
 		mediaType = "movie"
 	}
 
-	if title == "" {
+	if query == "" {
 		return sdk.JSONError(http.StatusBadRequest, "title query param is required")
 	}
 
@@ -392,27 +408,182 @@ func (p *TMDbPlugin) handleLookup(ctx context.Context, req *sdk.HTTPRequest) (*s
 		return sdk.JSONError(http.StatusServiceUnavailable, "TMDb client not initialized")
 	}
 
-	var results any
-	var err error
+	inputType := detectInputType(query)
+
+	response := LookupResponse{
+		InputType: inputType,
+		Query:     query,
+		Type:      mediaType,
+	}
+
+	switch inputType {
+	case "IMDB_LOOKUP":
+		return p.handleIMDBLookup(ctx, client, mediaType, query, &response)
+	case "TITLE_SEARCH":
+		return p.handleTitleSearch(ctx, client, mediaType, query, &response)
+	default:
+		return sdk.JSONError(http.StatusBadRequest, "invalid input type")
+	}
+}
+
+// handleIMDBLookup uses TMDb's /find endpoint to get exact match by IMDb ID.
+func (p *TMDbPlugin) handleIMDBLookup(ctx context.Context, client *Client, mediaType, imdbID string, response *LookupResponse) (*sdk.HTTPResponse, error) {
+	findResp, err := client.FindByIMDbID(ctx, imdbID)
+	if err != nil {
+		p.recordError()
+		return sdk.JSONError(http.StatusInternalServerError, fmt.Sprintf("IMDb lookup failed: %v", err))
+	}
+
+	// Check movie results first
+	if mediaType == "movie" || mediaType == "all" {
+		if len(findResp.MovieResults) > 0 {
+			movie := findResp.MovieResults[0]
+			// Fetch full details to get images, etc.
+			details, err := client.GetMovieDetails(ctx, movie.ID)
+			if err != nil {
+				p.logger.Warn("failed to fetch movie details", "tmdb_id", movie.ID, "error", err)
+				// Fall back to search result data
+				response.SingleResult = &EnrichedMovieSearchResult{
+					MovieSearchResult: movie,
+					IMDbID:            imdbID,
+				}
+			} else {
+				response.SingleResult = &EnrichedMovieSearchResult{
+					MovieSearchResult: MovieSearchResult{
+						ID:               details.ID,
+						Title:            details.Title,
+						OriginalTitle:    details.OriginalTitle,
+						Overview:         details.Overview,
+						ReleaseDate:      details.ReleaseDate,
+						PosterPath:       details.PosterPath,
+						BackdropPath:     details.BackdropPath,
+						VoteAverage:      details.VoteAverage,
+						VoteCount:        details.VoteCount,
+						OriginalLanguage: details.OriginalLanguage,
+					},
+					IMDbID: imdbID,
+				}
+			}
+			return sdk.JSONResponse(http.StatusOK, response)
+		}
+	}
+
+	// Check TV results
+	if mediaType == "tv" || mediaType == "tv_show" || mediaType == "all" {
+		if len(findResp.TVResults) > 0 {
+			tv := findResp.TVResults[0]
+			details, err := client.GetTVDetails(ctx, tv.ID)
+			if err != nil {
+				p.logger.Warn("failed to fetch TV details", "tmdb_id", tv.ID, "error", err)
+				response.SingleTVResult = &EnrichedTVSearchResult{
+					TVSearchResult: tv,
+					IMDbID:         imdbID,
+				}
+			} else {
+				response.SingleTVResult = &EnrichedTVSearchResult{
+					TVSearchResult: TVSearchResult{
+						ID:               details.ID,
+						Name:             details.Name,
+						OriginalName:     details.OriginalName,
+						Overview:         details.Overview,
+						FirstAirDate:     details.FirstAirDate,
+						PosterPath:       details.PosterPath,
+						BackdropPath:     details.BackdropPath,
+						VoteAverage:      details.VoteAverage,
+						VoteCount:        details.VoteCount,
+						OriginalLanguage: details.OriginalLanguage,
+					},
+					IMDbID: imdbID,
+				}
+			}
+			return sdk.JSONResponse(http.StatusOK, response)
+		}
+	}
+
+	// No results found
+	return sdk.JSONResponse(http.StatusOK, map[string]any{
+		"input_type": "IMDB_LOOKUP",
+		"query":      imdbID,
+		"type":       mediaType,
+		"message":    "IMDb ID not found in TMDb",
+		"success":    false,
+	})
+}
+
+// handleTitleSearch performs text search and enriches top results with IMDb IDs.
+func (p *TMDbPlugin) handleTitleSearch(ctx context.Context, client *Client, mediaType, query string, response *LookupResponse) (*sdk.HTTPResponse, error) {
+	const maxEnrichResults = 5 // Enrich top 5 results with IMDb IDs
 
 	switch mediaType {
 	case "movie":
-		results, err = client.SearchMovies(ctx, title, 0)
+		searchResp, err := client.SearchMovies(ctx, query, 0)
+		if err != nil {
+			p.recordError()
+			return sdk.JSONError(http.StatusInternalServerError, fmt.Sprintf("movie search failed: %v", err))
+		}
+
+		// Enrich top results with IMDb IDs
+		enriched := make([]EnrichedMovieSearchResult, 0, min(len(searchResp.Results), maxEnrichResults))
+		for i, result := range searchResp.Results {
+			if i >= maxEnrichResults {
+				break
+			}
+			imdbID := ""
+			if extIDs, err := client.GetMovieExternalIDs(ctx, result.ID); err == nil && extIDs != nil {
+				imdbID = extIDs.IMDbID
+			} else if err != nil {
+				p.logger.Debug("failed to fetch external IDs for movie", "tmdb_id", result.ID, "error", err)
+			}
+			enriched = append(enriched, EnrichedMovieSearchResult{
+				MovieSearchResult: result,
+				IMDbID:            imdbID,
+			})
+		}
+		response.MovieResults = enriched
+
 	case "tv", "tv_show":
-		results, err = client.SearchTV(ctx, title, 0)
+		searchResp, err := client.SearchTV(ctx, query, 0)
+		if err != nil {
+			p.recordError()
+			return sdk.JSONError(http.StatusInternalServerError, fmt.Sprintf("TV search failed: %v", err))
+		}
+
+		// Enrich top results with IMDb IDs
+		enriched := make([]EnrichedTVSearchResult, 0, min(len(searchResp.Results), maxEnrichResults))
+		for i, result := range searchResp.Results {
+			if i >= maxEnrichResults {
+				break
+			}
+			imdbID := ""
+			if extIDs, err := client.GetTVExternalIDs(ctx, result.ID); err == nil && extIDs != nil {
+				imdbID = extIDs.IMDbID
+			} else if err != nil {
+				p.logger.Debug("failed to fetch external IDs for TV", "tmdb_id", result.ID, "error", err)
+			}
+			enriched = append(enriched, EnrichedTVSearchResult{
+				TVSearchResult: result,
+				IMDbID:         imdbID,
+			})
+		}
+		response.TVResults = enriched
+
 	default:
 		return sdk.JSONError(http.StatusBadRequest, "invalid type, must be 'movie' or 'tv'")
 	}
 
-	if err != nil {
-		return sdk.JSONError(http.StatusInternalServerError, err.Error())
-	}
+	response.Query = query
+	response.Type = mediaType
+	response.InputType = "TITLE_SEARCH"
 
-	return sdk.JSONResponse(http.StatusOK, map[string]any{
-		"query":   title,
-		"type":    mediaType,
-		"results": results,
-	})
+	return sdk.JSONResponse(http.StatusOK, response)
+}
+
+// min returns the smaller of two integers.
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // truncate shortens a string to maxLen characters, adding "..." if truncated.

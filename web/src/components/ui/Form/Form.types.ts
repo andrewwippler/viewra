@@ -5,13 +5,20 @@ import type { DeepKeys, DeepValue, FieldApi } from '@tanstack/react-form'
  * Uses `any` for validator type parameters since adapters don't need that level of type detail.
  */
  
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- RJSF validator adapter
+type AnyFieldValidator = any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- RJSF form validator adapter
+type AnyFormValidator = any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- RJSF submit meta
+type AnySubmitMeta = any
+
 export type AnyFieldApi<TFormData, TName extends DeepKeys<TFormData>> = FieldApi<
   TFormData,
   TName,
   DeepValue<TFormData, TName>,
-  any, any, any, any, any, any, any, any, any, // Field validators
-  any, any, any, any, any, any, any, any, any, any, // Form validators
-  any // Submit meta
+  AnyFieldValidator, AnyFieldValidator, AnyFieldValidator, AnyFieldValidator, AnyFieldValidator, AnyFieldValidator, AnyFieldValidator, AnyFieldValidator, AnyFieldValidator, // Field validators
+  AnyFormValidator, AnyFormValidator, AnyFormValidator, AnyFormValidator, AnyFormValidator, AnyFormValidator, AnyFormValidator, AnyFormValidator, AnyFormValidator, AnyFormValidator, // Form validators
+  AnySubmitMeta // Submit meta
 >
 
 /**

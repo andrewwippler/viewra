@@ -6,14 +6,14 @@ import { semanticSearchProvider } from '../provider'
 /**
  * Hook to check if semantic search plugin is available
  */
-export function useSemanticSearchAvailable() {
+export const useSemanticSearchAvailable = () => {
   return useQuery({
     queryKey: ['semantic-search', 'available'],
     queryFn: async () => {
       try {
         const status = await semanticSearchApi.getStatus()
         return { available: true, status }
-      } catch (error) {
+      } catch {
         return { available: false, status: null }
       }
     },
@@ -25,12 +25,12 @@ export function useSemanticSearchAvailable() {
 /**
  * Hook to perform semantic search
  */
-export function useSemanticSearch(
+export const useSemanticSearch = (
   params: SearchParams,
   options?: {
     enabled?: boolean
   }
-) {
+) => {
   return useQuery<SemanticSearchResponse>({
     queryKey: ['semantic-search', 'search', params],
     queryFn: () => semanticSearchApi.search(params),
@@ -61,7 +61,7 @@ export function useSemanticSearch(
  * })
  * ```
  */
-export function useSemanticSearchChips() {
+export const useSemanticSearchChips = () => {
   const [excludedIntents, setExcludedIntents] = useState<string[]>([])
 
   // Callback when a chip is removed from the UI
@@ -126,14 +126,14 @@ export function useSemanticSearchChips() {
 /**
  * Hook to find similar items
  */
-export function useSimilarItems(
+export const useSimilarItems = (
   entityType: string,
   entityId: number,
   limit?: number,
   options?: {
     enabled?: boolean
   }
-) {
+) => {
   return useQuery<SemanticSearchResponse>({
     queryKey: ['semantic-search', 'similar', entityType, entityId, limit],
     queryFn: () => semanticSearchApi.findSimilar(entityType, entityId, limit),

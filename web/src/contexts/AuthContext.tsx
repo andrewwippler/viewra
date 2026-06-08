@@ -355,5 +355,7 @@ const useAuth = (): AuthContextValue => {
   return context
 }
 
+/* eslint-disable react-refresh/only-export-components */
 export { AuthProvider, useAuth }
 export type { User, AuthTokens, AuthState, AuthContextValue }
+/* eslint-enable react-refresh/only-export-components */

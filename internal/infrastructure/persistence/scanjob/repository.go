@@ -153,12 +153,12 @@ func (r *Repository) Delete(ctx context.Context, id int64) error {
 
 // DeleteOld deletes old completed/failed scan jobs for a library
 func (r *Repository) DeleteOld(ctx context.Context, libraryID int64, retentionMinutes int) error {
-	// The unified querier uses SQLite modifier format: '-N minutes'
-	// For PostgreSQL, the generated code handles the conversion internally
-	modifier := fmt.Sprintf("-%d minutes", retentionMinutes)
+	// For PostgreSQL, the SQL uses: (param || ' minutes')::interval
+	// For SQLite, it uses: datetime('now', CAST(param || ' minutes' AS TEXT))
+	// Both expect just the number part (e.g., "30" for 30 minutes)
 	return r.Q().DeleteOldScanJobs(ctx, unified.DeleteOldScanJobsParams{
-		LibraryID:     libraryID,
-		RetentionDays: modifier,
+		LibraryID:        libraryID,
+		RetentionInterval: fmt.Sprintf("-%d", retentionMinutes),
 	})
 }
 

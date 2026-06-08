@@ -35,10 +35,10 @@ export interface UseSearchOptions extends SearchOptions {
  * // data.enhancement - optional UI from plugin (e.g., intent chips)
  * ```
  */
-export function useSearch<T = unknown>(
+export const useSearch = <T = unknown>(
   query: string,
   options?: UseSearchOptions
-) {
+) => {
   const minLength = options?.minLength ?? 2
 
   return useQuery<SearchResult<T>>({
@@ -62,7 +62,7 @@ export function useSearch<T = unknown>(
  *
  * Returns true if a plugin provides search, false if only built-in is available
  */
-export function useHasEnhancedSearch(): boolean {
+export const useHasEnhancedSearch = (): boolean => {
   const provider = getSearchProvider()
 
   // Enhanced search available if we have a provider that's not the built-in

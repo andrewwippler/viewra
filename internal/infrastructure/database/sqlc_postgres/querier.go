@@ -138,7 +138,7 @@ type Querier interface {
 	DeleteMusicTrack(ctx context.Context, mediaID int64) error
 	DeleteOldPlaybackSessions(ctx context.Context, startTime int64) error
 	DeleteOldQualitySwitchEvents(ctx context.Context, timestamp int64) error
-	// sqlc.arg(retention_days): the number of days to retain completed/failed jobs
+	// sqlc.arg(retention_interval): the interval to retain completed/failed jobs (e.g., '-30')
 	DeleteOldScanJobs(ctx context.Context, arg DeleteOldScanJobsParams) error
 	DeleteOldSchedulerExecutions(ctx context.Context, createdAt time.Time) (int64, error)
 	// Delete images for entities that no longer exist (tv_show, tv_season, music_album, music_artist).

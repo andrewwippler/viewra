@@ -85,7 +85,7 @@ export const DatabaseMigrationWizard = ({ isOpen, onClose, currentDriver }: Prop
           migrationId: result.data.migrationId ?? null,
         }))
       }
-    } catch (_err) {
+    } catch {
       // Error handled by mutation
     }
   }

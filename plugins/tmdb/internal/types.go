@@ -77,6 +77,29 @@ type TVSearchResponse struct {
 	Results      []TVSearchResult `json:"results"`
 }
 
+// EnrichedMovieSearchResult extends MovieSearchResult with IMDb ID.
+type EnrichedMovieSearchResult struct {
+	MovieSearchResult
+	IMDbID string `json:"imdb_id,omitempty"`
+}
+
+// EnrichedTVSearchResult extends TVSearchResult with IMDb ID.
+type EnrichedTVSearchResult struct {
+	TVSearchResult
+	IMDbID string `json:"imdb_id,omitempty"`
+}
+
+// LookupResponse is the unified response for the /lookup endpoint.
+type LookupResponse struct {
+	InputType     string                      `json:"input_type"`      // "IMDB_LOOKUP" or "TITLE_SEARCH"
+	Query         string                      `json:"query"`           // Original input
+	Type          string                      `json:"type"`            // "movie" or "tv"
+	MovieResults  []EnrichedMovieSearchResult `json:"movie_results,omitempty"`
+	TVResults     []EnrichedTVSearchResult    `json:"tv_results,omitempty"`
+	SingleResult  *EnrichedMovieSearchResult  `json:"single_result,omitempty"`  // For IMDB_LOOKUP exact match
+	SingleTVResult *EnrichedTVSearchResult    `json:"single_tv_result,omitempty"` // For IMDB_LOOKUP exact match
+}
+
 // TVDetails contains full TV show information from TMDb.
 type TVDetails struct {
 	ID                  int                 `json:"id"`

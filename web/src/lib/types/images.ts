@@ -3,7 +3,7 @@
  * TypeScript interfaces for media image data
  */
 
-export type MediaType = 'movie' | 'tv_show' | 'tv_season' | 'tv_episode' | 'music_album' | 'music_artist'
+export type MediaType = 'media' | 'movie' | 'tv_show' | 'tv_season' | 'tv_episode' | 'music_album' | 'music_artist'
 
 export type ImageType =
   | 'poster'
@@ -144,4 +144,36 @@ export const getAlbumCover = (images: Image[]): Image | undefined => {
  */
 export const getArtistImage = (images: Image[]): Image | undefined => {
   return findImageByType(images, 'folder') || findImageByType(images, 'fanart')
+}
+
+/**
+ * Helper to get the primary poster image with fallbacks based on media type
+ * Different media types have different fallback chains:
+ * - Movies: poster -> fanart -> landscape -> banner
+ * - TV Shows: poster -> fanart -> banner -> landscape
+ * - Music: cover -> folder -> fanart
+ * - Episodes: thumb -> poster -> fanart
+ */
+export const getPosterImageWithFallback = (
+  images: Image[],
+  mediaType: MediaType
+): Image | undefined => {
+  const fallbackChains: Record<MediaType, ImageType[]> = {
+    media: ['poster', 'fanart', 'banner', 'landscape'],
+    movie: ['poster', 'fanart', 'landscape', 'banner'],
+    tv_show: ['poster', 'fanart', 'banner', 'clearlogo', 'landscape'],
+    tv_season: ['poster', 'fanart', 'banner'],
+    tv_episode: ['thumb', 'poster', 'fanart'],
+    music_album: ['cover', 'folder', 'fanart'],
+    music_artist: ['folder', 'fanart', 'logo'],
+  }
+
+  const chain = fallbackChains[mediaType] || ['poster', 'fanart', 'banner', 'landscape']
+
+  for (const type of chain) {
+    const img = findImageByType(images, type)
+    if (img) return img
+  }
+
+  return undefined
 }

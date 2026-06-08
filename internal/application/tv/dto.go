@@ -18,9 +18,15 @@ type TVShowSummary struct {
 	Plot          string    `json:"plot,omitempty"`
 	IMDbID        string    `json:"imdb_id,omitempty"`
 	TMDbID        int       `json:"tmdb_id,omitempty"`
+	TVDbID        int       `json:"tvdb_id,omitempty"`
 	ContentRating string    `json:"content_rating,omitempty"`
 	SeasonCount   int       `json:"season_count"`
 	EpisodeCount  int       `json:"episode_count"`
+	Rating        float32   `json:"rating,omitempty"`
+	RatingVotes   int       `json:"rating_votes,omitempty"`
+	Tagline       string    `json:"tagline,omitempty"`
+	SortTitle     string    `json:"sort_title,omitempty"`
+	FirstAirDate  string    `json:"first_air_date,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
@@ -34,9 +40,15 @@ type TVShowDetailResponse struct {
 	Plot          string   `json:"plot,omitempty"`
 	IMDbID        string   `json:"imdb_id,omitempty"`
 	TMDbID        int      `json:"tmdb_id,omitempty"`
+	TVDbID        int      `json:"tvdb_id,omitempty"`
 	ContentRating string   `json:"content_rating,omitempty"`
 	SeasonCount   int      `json:"season_count"`
 	EpisodeCount  int      `json:"episode_count"`
+	Rating        float32  `json:"rating,omitempty"`
+	RatingVotes   int      `json:"rating_votes,omitempty"`
+	Tagline       string   `json:"tagline,omitempty"`
+	SortTitle     string   `json:"sort_title,omitempty"`
+	FirstAirDate  string   `json:"first_air_date,omitempty"`
 }
 
 // TVEpisodeResponse represents a TV episode with all its metadata
@@ -173,9 +185,15 @@ func ToTVShowSummary(show *media.TVShow) TVShowSummary {
 		Plot:          show.Plot,
 		IMDbID:        show.IMDbID,
 		TMDbID:        show.TMDbID,
+		TVDbID:        show.TVDbID,
 		ContentRating: show.ContentRating,
 		SeasonCount:   0, // Not available from TVShow, only from TVShowWithCounts
 		EpisodeCount:  0,
+		Rating:        show.Rating,
+		RatingVotes:   show.RatingVotes,
+		Tagline:       show.Tagline,
+		SortTitle:     show.SortTitle,
+		FirstAirDate:  show.FirstAirDate,
 		CreatedAt:     show.CreatedAt,
 	}
 }
@@ -191,9 +209,15 @@ func ToTVShowSummaryWithCounts(show *media.TVShowWithCounts) TVShowSummary {
 		Plot:          show.Plot,
 		IMDbID:        show.IMDbID,
 		TMDbID:        show.TMDbID,
+		TVDbID:        show.TVDbID,
 		ContentRating: show.ContentRating,
 		SeasonCount:   int(show.SeasonCount),
 		EpisodeCount:  int(show.EpisodeCount),
+		Rating:        show.Rating,
+		RatingVotes:   show.RatingVotes,
+		Tagline:       show.Tagline,
+		SortTitle:     show.SortTitle,
+		FirstAirDate:  show.FirstAirDate,
 		CreatedAt:     show.CreatedAt,
 	}
 }

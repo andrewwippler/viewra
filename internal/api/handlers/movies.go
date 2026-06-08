@@ -97,14 +97,14 @@ func (h *MoviesHandler) List(c *gin.Context) {
 
 // Get handles GET /api/movies/:id
 // @Summary Get a movie by ID
-// @Description Returns details of a specific movie including all metadata
+// @Description Returns detailed information for a specific movie
 // @Tags movies
+// @Accept json
 // @Produce json
 // @Param id path int true "Movie ID"
 // @Success 200 {object} movies.MovieResponse
 // @Failure 400 {object} APIError
 // @Failure 404 {object} APIError
-// @Failure 500 {object} APIError
 // @Router /api/movies/{id} [get]
 func (h *MoviesHandler) Get(c *gin.Context) {
 	id, err := parseID(c.Param("id"))
@@ -112,13 +112,11 @@ func (h *MoviesHandler) Get(c *gin.Context) {
 		respondError(c, http.StatusBadRequest, "INVALID_MOVIE_ID", err.Error())
 		return
 	}
-
 	resp, err := h.getMovie.Execute(c.Request.Context(), id)
 	if err != nil {
 		handleError(c, err)
 		return
 	}
-
 	c.JSON(http.StatusOK, resp)
 }
 

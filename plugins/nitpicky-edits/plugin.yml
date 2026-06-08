@@ -1,0 +1,31 @@
+# Nitpicky Edits Plugin
+id: nitpicky-edits
+name: Nitpicky Edits
+version: 1.0.0
+description: Manual metadata identification, database cleanup, watch marking and other admin editing tools for your media library
+
+author: ViewRA Team
+license: MIT
+homepage: https://github.com/mantonx/viewra
+
+min_host_version: "0.1.0"
+
+display_category: enrichers
+
+capabilities:
+  - admin
+  - external_ids
+
+media_types:
+  - movie
+  - tv
+  - tv_show
+
+permissions:
+  - network
+  - storage:database
+  - data:media:read
+  - data:media:write
+  - data:metadata:write
+  - data:progress:read
+  - data:progress:write

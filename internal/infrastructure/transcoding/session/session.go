@@ -244,6 +244,10 @@ func (s *TranscodeSession) Start(params StartParams) error {
 						Build())
 				}
 			}
+			// Stop the watchdog since FFmpeg has exited
+			if s.watchdog != nil {
+				s.watchdog.Stop()
+			}
 		})
 	}()
 

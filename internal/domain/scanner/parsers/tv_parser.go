@@ -12,20 +12,34 @@ import (
 
 // TV show filename patterns in order of preference (most specific to least specific)
 var tvPatterns = []*regexp.Regexp{
+	// Code-first format: filename starts with S01E01 or S01-E01 variants (show inferred from path)
+	// Allows separator between S and E: S01E01, S01-E01, S1E1, etc.
+	regexp.MustCompile(`(?i)^[\s._-]*[Ss](\d{1,4})[\s._-]*[Ee](\d{1,3}[A-Za-z]?)(?:[\s._-]*(?:[Ee-](\d{1,3})))?(?:[\s._-]+(.+?))?$`),
+
 	// S01E01 format with optional episode title and multi-episode support
-	// Examples: "Show.Name.S01E01.mkv", "Show Name - S01E01 - Episode Title.mp4"
-	//           "Show - S01E01E02 - Title.mkv", "Show - S01E01-02 - Title.mkv"
+	// Examples: "Show.Name.S01E01.mkv", "Show Name - S01E01 - Episode Title.mp4", "Show - S01-E01 - Title.mkv"
 	// Note: Supports 1-4 digit seasons to handle year-based seasons like S1933E21 (Looney Tunes)
 	// Multi-episode: matches both S01E01E02 format and S01E01-02 format
-	regexp.MustCompile(`(?i)^(.+?)[\s._-]+[Ss](\d{1,4})[Ee](\d{1,3})(?:[\s._-]*(?:[Ee-](\d{1,3}))?)?(?:[\s._-]+(.+?))?(?:\.\w+)?$`),
+	regexp.MustCompile(`(?i)^(.+?)[\s._-]+[Ss](\d{1,4})[\s._-]*[Ee](\d{1,3}[A-Za-z]?)(?:[\s._-]*(?:[Ee-](\d{1,3}))?)?(?:[\s._-]+(.+?))?$`),
 
 	// Season X Episode Y format
 	// Examples: "Show.Name.Season.1.Episode.01.mkv"
-	regexp.MustCompile(`(?i)^(.+?)[\s._-]+Season[\s._-]*(\d{1,4})[\s._-]+Episode[\s._-]*(\d{1,3})(?:[\s._-]+(.+?))?(?:\.\w+)?$`),
+	regexp.MustCompile(`(?i)^(.+?)[\s._-]+Season[\s._-]*(\d{1,4})[\s._-]+Episode[\s._-]*(\d{1,3})[\s._-]*(.+?)$`),
 
 	// 1x01 format
 	// Examples: "Show Name 1x01.mkv", "Show.Name.1x01.Episode.Title.mp4"
 	regexp.MustCompile(`(?i)^(.+?)[\s._-]+(\d{1,4})x(\d{1,3})(?:[\s._-]+(.+?))?(?:\.\w+)?$`),
+
+	// Show Name - EpisodeNumber - Title format (old TV show format)
+	// Examples: "Green Acres - 096 - Eb's Romance.mp4", "I Love Lucy - 001 - Title.mp4"
+	// Matches show name followed by 2-4 digit episode number and optional title
+	// Season extracted from directory context
+	regexp.MustCompile(`(?i)^(.+?)[\s._-]+(\d{2,4})[\s._-]+(.+?)$`),
+
+	// Show code/abbreviation prefix: "ABC - Title.mp4" or "PMC - Episode Title.mp4"
+	// Used when show name is abbreviated in filename but full name is in directory
+	// Pattern captures: (1) = show code/prefix, (2) = title (rest after dash/separator)
+	regexp.MustCompile(`(?i)^([A-Za-z]{1,6})[\s._-]+(.+?)$`),
 
 	// Episode number only (less reliable, requires directory context)
 	// Examples: "Show Name/Season 1/01 - Episode Title.mkv"
@@ -65,7 +79,7 @@ func ParseTVEpisode(path string) (*scanner.TVEpisodeInfo, error) {
 		}
 
 		// Extract components based on which pattern matched
-		info, err := extractTVInfoFromMatches(matches, pattern)
+		info, err := extractTVInfoFromMatches(matches, pattern, path)
 		if err != nil {
 			continue
 		}
@@ -92,8 +106,21 @@ func ParseTVEpisode(path string) (*scanner.TVEpisodeInfo, error) {
 			info.EpisodeTitle = cleanEpisodeTitle(info.EpisodeTitle)
 		}
 
+		// If episode number is still 0 after extraction, assign a sensible default
+		// This handles files with show code/abbreviation patterns or title-only patterns
+		// BUT: Don't apply this to files in Specials directories - they should use hash-based numbering
+		if info.Episode == 0 && !isInSpecialsDirectory(path) {
+			// If no season was found either, default to Season 1
+			if info.Season == 0 {
+				info.Season = 1
+			}
+			// Default to episode 1 for files without numbering
+			// Files in "Full Episodes" or similar directories often enumerate in file order
+			info.Episode = 1
+		}
+
 		// Validate the extracted info
-		if info.ShowName == "" || info.Episode == 0 {
+		if info.ShowName == "" {
 			continue
 		}
 
@@ -113,53 +140,145 @@ func ParseTVEpisode(path string) (*scanner.TVEpisodeInfo, error) {
 }
 
 // extractTVInfoFromMatches converts regex matches to TVEpisodeInfo
-func extractTVInfoFromMatches(matches []string, pattern *regexp.Regexp) (*scanner.TVEpisodeInfo, error) {
+func extractTVInfoFromMatches(matches []string, pattern *regexp.Regexp, path string) (*scanner.TVEpisodeInfo, error) {
 	info := &scanner.TVEpisodeInfo{}
 
-	// Different patterns have different group counts and meanings
-	switch len(matches) {
-	case 6: // S01E01 pattern with optional end episode and title
-		info.ShowName = matches[1]
-		season, _ := strconv.Atoi(matches[2])
-		episode, _ := strconv.Atoi(matches[3])
-		info.Season = season
-		info.Episode = episode
+	// Matches layout (indices may vary depending on pattern). Use safe access.
+	// Pattern types determine group meanings:
+	// Code-first pattern (S01E01):      (1)=season, (2)=episode, (3)=episodeEnd, (4)=title
+	// Show+SxxExx pattern:              (1)=show, (2)=season, (3)=episode, (4)=episodeEnd, (5)=title
+	// Season X Episode Y pattern:       (1)=show, (2)=season, (3)=episode, (4)=title
+	// 1x01 pattern:                     (1)=show, (2)=season, (3)=episode, (4)=title
+	// Show - EpisodeNumber - Title:     (1)=show, (2)=episode, (3)=title
+	// Show-code pattern (ABC - Title):  (1)=code, (2)=title
+	// Episode-number-only pattern:      (1)=show, (2)=episode, (3)=title
 
-		// Check for multi-episode format (S01E01E02)
-		if matches[4] != "" {
-			endEp, _ := strconv.Atoi(matches[4])
-			info.EpisodeEnd = endEp
+	// Helper to safely get match by index
+	get := func(i int) string {
+		if i >= 0 && i < len(matches) {
+			return matches[i]
 		}
+		return ""
+	}
 
-		// Extract episode title if present
-		if matches[5] != "" {
-			info.EpisodeTitle = matches[5]
+	// Determine which pattern matched by checking the number of groups and content
+
+	// Show - EpisodeNumber - Title pattern: has 4 groups, group 2 is 2-4 digits (episode number)
+	// Check this BEFORE show-code pattern to avoid matching "Green Acres" as "Green" (show code)
+	if len(matches) == 4 {
+		group1 := get(1)
+		group2 := get(2)
+		// Check if group 2 is 2-4 digit number (likely episode number, not part of title)
+		if regexp.MustCompile(`^\d{2,4}$`).MatchString(group2) {
+			// This is "Show - EpisodeNumber - Title" format
+			info.ShowName = group1
+			if ep, err := strconv.Atoi(group2); err == nil {
+				info.Episode = ep
+			}
+			info.EpisodeTitle = get(3)
+			// Season will be extracted from directory context
+			return info, nil
 		}
+	}
 
-	case 5: // Season X Episode Y or 1x01 format
-		info.ShowName = matches[1]
-		season, _ := strconv.Atoi(matches[2])
-		episode, _ := strconv.Atoi(matches[3])
-		info.Season = season
-		info.Episode = episode
-
-		// Extract episode title if present
-		if matches[4] != "" {
-			info.EpisodeTitle = matches[4]
+	// Show-code pattern: exactly 3 parts (full match + 2 groups) and group 1 is short alphabetic
+	// BUT: Don't treat as show-code pattern if we're in a Specials directory - let parseSpecialWithoutEpisodeNumber handle it
+	if len(matches) == 3 && !isInSpecialsDirectory(path) {
+		group1 := get(1)
+		// Check if this is a show-code pattern (short alphabetic prefix like "PMC", "ABC")
+		if regexp.MustCompile(`^[A-Za-z]{1,6}$`).MatchString(group1) {
+			// Show code pattern: use code as note, title from group2
+			// Season/episode will be filled from directory context later
+			info.EpisodeTitle = get(2)
+			// Return now - season/episode will be extracted from path
+			return info, nil
 		}
+	}
 
-	case 4: // Episode number only (need season from directory)
-		info.ShowName = matches[1]
-		episode, _ := strconv.Atoi(matches[2])
-		info.Episode = episode
+	// If we have a 3-group match but we're in a Specials directory and it doesn't look like a show code
+	// then this pattern shouldn't have matched - return error to try next pattern
+	if len(matches) == 3 && isInSpecialsDirectory(path) {
+		return nil, fmt.Errorf("skipping 3-group pattern for specials file")
+	}
 
-		// Extract episode title if present
-		if matches[3] != "" {
-			info.EpisodeTitle = matches[3]
+	// For other patterns, identify by checking group content and full match
+	possibleShow := get(1)
+	containsLetters := regexp.MustCompile(`[A-Za-z]`).MatchString(possibleShow)
+	fullMatch := get(0)
+	isSeasonEpisodeYFormat := strings.Contains(strings.ToLower(fullMatch), "season") && strings.Contains(strings.ToLower(fullMatch), "episode")
+
+	var seasonStr, episodeStr, epEndStr, titleStr string
+
+	// Special handling for "Season X Episode Y" pattern which has 5 elements but only 4 groups
+	if isSeasonEpisodeYFormat && len(matches) == 5 {
+		// Season X Episode Y pattern: (1)=show, (2)=season, (3)=episode, (4)=title
+		info.ShowName = possibleShow
+		seasonStr = get(2)
+		episodeStr = get(3)
+		titleStr = get(4)
+		epEndStr = "" // Not used for this pattern
+	} else if possibleShow != "" && containsLetters && !regexp.MustCompile(`^\d+$`).MatchString(possibleShow) {
+		// Pattern with show name prefix (most SxxExx patterns)
+		info.ShowName = possibleShow
+		seasonStr = get(2)
+		episodeStr = get(3)
+		epEndStr = get(4)
+		titleStr = get(5)
+	} else {
+		// Code-first pattern: group1=season, group2=episode
+		seasonStr = get(1)
+		episodeStr = get(2)
+		epEndStr = get(3)
+		titleStr = get(4)
+	}
+
+	// Parse season
+	if seasonStr != "" {
+		if s, err := strconv.Atoi(regexp.MustCompile(`\d+`).FindString(seasonStr)); err == nil {
+			info.Season = s
 		}
+	}
 
-	default:
-		return nil, fmt.Errorf("unexpected match count: %d", len(matches))
+	// Parse episode (allow trailing letter suffixes like 07B)
+	if episodeStr != "" {
+		epDigits := regexp.MustCompile(`\d+`).FindString(episodeStr)
+		if epDigits != "" {
+			if e, err := strconv.Atoi(epDigits); err == nil {
+				info.Episode = e
+			}
+		}
+		// If episodeStr contains a letter suffix, append it to episode title marker if no explicit title
+		if m := regexp.MustCompile(`[A-Za-z]$`).FindString(episodeStr); m != "" {
+			if titleStr == "" {
+				titleStr = m
+			} else {
+				titleStr = m + " " + titleStr
+			}
+		}
+	}
+
+	// Parse episode end if present
+	if epEndStr != "" {
+		if ed := regexp.MustCompile(`\d+`).FindString(epEndStr); ed != "" {
+			if ee, err := strconv.Atoi(ed); err == nil {
+				info.EpisodeEnd = ee
+			}
+		}
+	}
+
+	// Title
+	if titleStr != "" {
+		info.EpisodeTitle = titleStr
+	}
+
+	// If we still have no show name and no digit-only match was possible, try extracting from path
+	if info.ShowName == "" {
+		// Will be filled by directory path lookup after extraction
+	}
+
+	// Basic validation
+	if info.Episode == 0 {
+		return nil, fmt.Errorf("no episode number extracted")
 	}
 
 	return info, nil

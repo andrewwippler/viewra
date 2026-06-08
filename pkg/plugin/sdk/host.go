@@ -84,6 +84,28 @@ func (c *DataClient) GetMediaDetails(ctx context.Context, mediaID int64, mediaTy
 	return protoToMediaDetails(resp), nil
 }
 
+// SearchMedia searches for media by title and optional year/media type.
+func (c *DataClient) SearchMedia(ctx context.Context, title string, year int, mediaType string, limit int) ([]*Media, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	resp, err := c.client.SearchMedia(ctx, &pluginv1.SearchQuery{
+		Title:     title,
+		Year:      int32(year),
+		MediaType: mediaType,
+		Limit:     int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]*Media, len(resp.Items))
+	for i, item := range resp.Items {
+		items[i] = protoToMedia(item)
+	}
+	return items, nil
+}
+
 // ListMediaByLibrary lists all media in a library with pagination.
 func (c *DataClient) ListMediaByLibrary(ctx context.Context, libraryID int64, limit, offset int) (*MediaList, error) {
 	resp, err := c.client.ListMediaByLibrary(ctx, &pluginv1.ListMediaRequest{

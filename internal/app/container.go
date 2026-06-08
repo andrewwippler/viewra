@@ -20,7 +20,9 @@ import (
 	appplugins "github.com/mantonx/viewra/internal/application/plugins"
 	appscheduler "github.com/mantonx/viewra/internal/application/scheduler"
 	"github.com/mantonx/viewra/internal/application/transcode"
+	"github.com/mantonx/viewra/internal/application/enrichment/builtin"
 	"github.com/mantonx/viewra/internal/infrastructure/plugins"
+	pluginv1 "github.com/mantonx/viewra/api/proto/plugin"
 )
 
 // Container holds all application dependencies
@@ -103,7 +105,7 @@ func NewContainer(db *sql.DB, dbDriver string, cfg *appconfig.Config, logger *sl
 
 	// Load and register external plugins (but don't start pipeline yet)
 	if svcs.PluginManager != nil && svcs.PipelineManager != nil {
-		loadExternalPlugins(context.Background(), svcs, repos, cases, logger)
+		loadExternalPlugins(context.Background(), svcs, repos, cases, cfg, logger)
 	}
 
 	// NOTE: Background services (enrichment pipeline, file monitor, etc.) are
@@ -269,7 +271,7 @@ func seedDevUser(
 
 // loadExternalPlugins discovers, loads, and registers external plugins with the pipeline.
 // External plugins are registered as disabled by default - users must explicitly enable them.
-func loadExternalPlugins(ctx context.Context, svcs *services.Services, repos *repositories.Repositories, cases *usecases.UseCases, logger *slog.Logger) {
+func loadExternalPlugins(ctx context.Context, svcs *services.Services, repos *repositories.Repositories, cases *usecases.UseCases, cfg *appconfig.Config, logger *slog.Logger) {
 	pm := svcs.PluginManager
 	pipeline := svcs.PipelineManager
 	registry := svcs.EnricherRegistry
@@ -360,4 +362,61 @@ func loadExternalPlugins(ctx context.Context, svcs *services.Services, repos *re
 	if len(allPlugins) > 0 {
 		pm.PrintTable(os.Stderr, fmt.Sprintf("Plugins (%d loaded)", len(allPlugins)))
 	}
+
+	// Inject database configuration into the nitpicky-edits plugin
+	// so it can perform direct DB operations without user re-entering settings.
+	injectDBConfig(ctx, pm, cfg, logger)
+
+	// Register composite "metadata" enricher (runs nfo → local-images → tmdb)
+	nfo, _ := pipeline.GetEnricher("nfo")
+	localImages, _ := pipeline.GetEnricher("local-images")
+	tmdb, _ := pipeline.GetEnricher("tmdb")
+	if nfo != nil && localImages != nil && tmdb != nil {
+		metadataEnricher := builtin.NewMetadataEnricher(nfo, localImages, tmdb)
+		pipeline.RegisterEnricher(metadataEnricher)
+		logger.Info("registered metadata composite enricher")
+	}
+}
+
+// injectDBConfig sends database connection details to the nitpicky-edits plugin
+// so it can perform direct database operations without user re-entering settings.
+func injectDBConfig(ctx context.Context, pm *plugins.Manager, cfg *appconfig.Config, logger *slog.Logger) {
+	instance, ok := pm.GetPlugin("nitpicky-edits")
+	if !ok || instance.CoreClient == nil {
+		return
+	}
+
+	var dataSource string
+	switch cfg.Database.Driver {
+	case "sqlite", "sqlite3":
+		dataSource = cfg.Database.DBName
+	case "postgres", "postgresql":
+		dataSource = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+			cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password,
+			cfg.Database.DBName, cfg.Database.SSLMode)
+	default:
+		dataSource = cfg.Database.DBName
+	}
+
+	dbConfig := map[string]interface{}{
+		"db_driver":      cfg.Database.Driver,
+		"db_data_source": dataSource,
+	}
+
+	configBytes, err := json.Marshal(dbConfig)
+	if err != nil {
+		logger.Warn("failed to marshal DB config for nitpicky-edits plugin", "error", err)
+		return
+	}
+
+	resp, err := instance.CoreClient.Configure(ctx, &pluginv1.Settings{Json: configBytes})
+	if err != nil {
+		logger.Warn("failed to configure nitpicky-edits plugin with DB config", "error", err)
+		return
+	}
+	if !resp.Success {
+		logger.Warn("nitpicky-edits plugin rejected DB config", "error", resp.Error)
+		return
+	}
+	logger.Info("injected database config into nitpicky-edits plugin", "driver", cfg.Database.Driver)
 }

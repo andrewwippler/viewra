@@ -39,9 +39,10 @@ test-integration/
 *.aac
 *.ogg
 
-# Database and runtime data
-data/
+# Don't send config, secrets, or db to the Docker build context
 *.db
+data/config.yaml
+data/encryption.key
 *.sqlite
 *.sqlite3
 

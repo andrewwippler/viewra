@@ -272,8 +272,8 @@ export const MediaBrowsePage = <T extends { id: number; title?: string; name?: s
             bVal = (b as T & { rating?: number; imdb_rating?: number }).rating || (b as T & { rating?: number; imdb_rating?: number }).imdb_rating || 0
             break
           default:
-            aVal = (a.title || a.name || '').toLowerCase()
-            bVal = (b.title || b.name || '').toLowerCase()
+             aVal = (a.title || a.name || '').toLowerCase()
+             bVal = (b.title || b.name || '').toLowerCase()
         }
 
         if (aVal < bVal) {

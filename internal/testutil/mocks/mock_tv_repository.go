@@ -23,12 +23,15 @@ type TVRepository struct {
 	nextSeasonID  int64
 
 	// Error injection
-	CreateErr                error
-	GetErr                   error
-	ListErr                  error
-	UpdateErr                error
-	SearchErr                error
-	CountErr                 error
+	CreateErr                 error
+	GetErr                    error
+	ListErr                   error
+	UpdateErr                 error
+	DeleteErr                 error
+	DeleteSeasonErr           error
+	DeleteShowErr             error
+	SearchErr                 error
+	CountErr                  error
 	ListRecentlyAddedShowsErr error
 }
 
@@ -199,6 +202,54 @@ func (r *TVRepository) UpdateTVEpisode(ctx context.Context, episode *media.TVEpi
 	}
 
 	r.episodes[episode.ID] = episode
+	return nil
+}
+
+func (r *TVRepository) DeleteTVEpisode(ctx context.Context, id int64) error {
+	if r.DeleteErr != nil {
+		return r.DeleteErr
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.episodes[id]; !exists {
+		return sql.ErrNoRows
+	}
+
+	delete(r.episodes, id)
+	return nil
+}
+
+func (r *TVRepository) DeleteTVSeason(ctx context.Context, id int64) error {
+	if r.DeleteSeasonErr != nil {
+		return r.DeleteSeasonErr
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.seasons[id]; !exists {
+		return sql.ErrNoRows
+	}
+
+	delete(r.seasons, id)
+	return nil
+}
+
+func (r *TVRepository) DeleteTVShow(ctx context.Context, id int64) error {
+	if r.DeleteShowErr != nil {
+		return r.DeleteShowErr
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.shows[id]; !exists {
+		return sql.ErrNoRows
+	}
+
+	delete(r.shows, id)
 	return nil
 }
 

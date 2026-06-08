@@ -52,9 +52,15 @@ func (uc *ListTVShowsUseCase) Execute(ctx context.Context, libraryID int64) (Lis
 			Plot:          show.Plot,
 			IMDbID:        show.IMDbID,
 			TMDbID:        show.TMDbID,
+			TVDbID:        show.TVDbID,
 			ContentRating: show.ContentRating,
 			SeasonCount:   int(show.SeasonCount),
 			EpisodeCount:  int(show.EpisodeCount),
+			Rating:        show.Rating,
+			RatingVotes:   show.RatingVotes,
+			Tagline:       show.Tagline,
+			SortTitle:     show.SortTitle,
+			FirstAirDate:  show.FirstAirDate,
 			CreatedAt:     show.CreatedAt,
 		}
 	}
@@ -95,9 +101,15 @@ func (uc *ListTVShowsUseCase) ExecuteWithPagination(ctx context.Context, library
 			Plot:          show.Plot,
 			IMDbID:        show.IMDbID,
 			TMDbID:        show.TMDbID,
+			TVDbID:        show.TVDbID,
 			ContentRating: show.ContentRating,
 			SeasonCount:   int(show.SeasonCount),
 			EpisodeCount:  int(show.EpisodeCount),
+			Rating:        show.Rating,
+			RatingVotes:   show.RatingVotes,
+			Tagline:       show.Tagline,
+			SortTitle:     show.SortTitle,
+			FirstAirDate:  show.FirstAirDate,
 			CreatedAt:     show.CreatedAt,
 		}
 	}
@@ -139,9 +151,15 @@ func (uc *ListTVShowsUseCase) ExecuteWithSearch(ctx context.Context, libraryID i
 			Plot:          show.Plot,
 			IMDbID:        show.IMDbID,
 			TMDbID:        show.TMDbID,
+			TVDbID:        show.TVDbID,
 			ContentRating: show.ContentRating,
 			SeasonCount:   int(show.SeasonCount),
 			EpisodeCount:  int(show.EpisodeCount),
+			Rating:        show.Rating,
+			RatingVotes:   show.RatingVotes,
+			Tagline:       show.Tagline,
+			SortTitle:     show.SortTitle,
+			FirstAirDate:  show.FirstAirDate,
 			CreatedAt:     show.CreatedAt,
 		}
 	}

@@ -47,8 +47,14 @@ func (uc *GetTVShowUseCase) Execute(ctx context.Context, showID int64) (*TVShowD
 		Plot:          show.Plot,
 		IMDbID:        show.IMDbID,
 		TMDbID:        show.TMDbID,
+		TVDbID:        show.TVDbID,
 		ContentRating: show.ContentRating,
 		SeasonCount:   len(seasons),
 		EpisodeCount:  totalEpisodes,
+		Rating:        show.Rating,
+		RatingVotes:   show.RatingVotes,
+		Tagline:       show.Tagline,
+		SortTitle:     show.SortTitle,
+		FirstAirDate:  show.FirstAirDate,
 	}, nil
 }

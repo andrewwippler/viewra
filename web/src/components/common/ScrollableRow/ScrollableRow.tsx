@@ -25,7 +25,7 @@ export const ScrollableRow = ({ children, className, gap = 4 }: ScrollableRowPro
 
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current
-    if (!el) return
+    if (!el) { return }
 
     const { scrollLeft, scrollWidth, clientWidth } = el
     setCanScrollLeft(scrollLeft > 4)
@@ -34,7 +34,7 @@ export const ScrollableRow = ({ children, className, gap = 4 }: ScrollableRowPro
 
   useEffect(() => {
     const el = scrollRef.current
-    if (!el) return
+    if (!el) { return }
 
     const timeoutId = setTimeout(updateScrollState, 100)
     const resizeObserver = new ResizeObserver(updateScrollState)
@@ -53,7 +53,7 @@ export const ScrollableRow = ({ children, className, gap = 4 }: ScrollableRowPro
 
   const scroll = (direction: 'left' | 'right') => {
     const el = scrollRef.current
-    if (!el) return
+    if (!el) { return }
 
     const scrollAmount = el.clientWidth * 0.8
     el.scrollBy({

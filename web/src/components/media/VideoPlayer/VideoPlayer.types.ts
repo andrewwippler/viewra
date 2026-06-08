@@ -17,4 +17,14 @@ export interface VideoPlayerProps {
   onQualityChange?: (qualityId: string, currentPosition: number) => Promise<void>
   /** Saved playback preferences from previous session */
   savedPreferences?: SavedPreferences | null
+  /** Info about the next episode (for auto-play overlay) */
+  nextEpisodeInfo?: { title: string; season: number; episode: number; episodeTitle?: string }
+  /** Called when next episode should start (auto-play) */
+  onAutoPlayNext?: () => void
+  /** Called when user cancels auto-play */
+  onAutoPlayCancel?: () => void
+  /** Navigate to next episode */
+  onPlayNext?: () => void
+  /** Navigate to previous episode */
+  onPlayPrev?: () => void
 }

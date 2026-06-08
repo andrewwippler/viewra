@@ -26,6 +26,7 @@ import { SubtitleOverlay } from './SubtitleOverlay'
 import type { VideoPlayerProps } from './VideoPlayer.types'
 import { useGetApiMediaIdTracks } from '@/lib/api/generated/media/media'
 import { getDeviceProfileHash } from '@/lib/capabilities'
+import { isWebOSTV, getAutoFullscreenPreference, enterFullscreen, exitCSSFullscreen, isInCSSFullscreen } from '@/utils/device'
 
 export const VideoPlayer = ({
   mediaId,
@@ -39,6 +40,11 @@ export const VideoPlayer = ({
   selectedQualityId = null,
   onQualityChange: onQualityChangeCallback,
   savedPreferences = null,
+  nextEpisodeInfo,
+  onAutoPlayNext,
+  onAutoPlayCancel,
+  onPlayNext,
+  onPlayPrev,
 }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null)
   const videoContainerRef = useRef<HTMLDivElement>(null)
@@ -64,6 +70,18 @@ export const VideoPlayer = ({
   const [subtitleSeekKey, setSubtitleSeekKey] = useState(0)
   // Backend session ID for analytics correlation (from X-Session-ID header)
   const [backendSessionId, setBackendSessionId] = useState<string | null>(null)
+
+  // Auto-play countdown state
+  const [autoPlayCountdown, setAutoPlayCountdown] = useState<number | null>(null)
+  const autoPlayTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const autoPlayCountdownShownRef = useRef(false)
+
+  const clearAutoPlayTimer = () => {
+    if (autoPlayTimerRef.current) {
+      clearInterval(autoPlayTimerRef.current)
+      autoPlayTimerRef.current = null
+    }
+  }
 
   // Fetch tracks (audio and subtitle) from API
   const { data: tracksData } = useGetApiMediaIdTracks(mediaId)
@@ -254,6 +272,21 @@ export const VideoPlayer = ({
     onEnded: () => {
       setIsPlaying(false)
       endSession()
+      // Fallback: start countdown if not already triggered by near-end detection
+      if (onAutoPlayNext && !autoPlayCountdownShownRef.current) {
+        autoPlayCountdownShownRef.current = true
+        setAutoPlayCountdown(10)
+        clearAutoPlayTimer()
+        autoPlayTimerRef.current = setInterval(() => {
+          setAutoPlayCountdown((prev) => {
+            if (prev === null || prev <= 1) {
+              clearAutoPlayTimer()
+              return null
+            }
+            return prev - 1
+          })
+        }, 1000)
+      }
     },
     onBufferingStart: () => setIsBuffering(true),
     onBufferingEnd: (stallDuration) => {
@@ -309,6 +342,112 @@ export const VideoPlayer = ({
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [mediaId, currentTime, videoDuration, selectedQualityId, currentAudioStreamIndex, currentSubtitle])
+
+  // Auto-fullscreen for WebOS TV / Chrome 79 devices
+  useEffect(() => {
+    const video = videoRef.current
+    const container = videoContainerRef.current
+    if (!video || !container) return
+
+    const autoFullscreenEnabled = getAutoFullscreenPreference()
+    const isWebOS = isWebOSTV()
+
+    // Only auto-fullscreen if:
+    // 1. User preference enables it
+    // 2. We're on WebOS TV or user explicitly enabled it
+    // 3. Video is playing
+    if (!autoFullscreenEnabled) return
+    if (!isWebOS) return // Only auto-fullscreen on WebOS TV by default
+    if (!isPlaying) return
+
+    let cancelled = false
+
+    // Small delay to ensure video metadata is loaded
+    const timer = setTimeout(() => {
+      if (cancelled) return
+      
+      // Check if already in fullscreen (native or CSS fallback)
+      if (document.fullscreenElement || isInCSSFullscreen(videoContainerRef.current!)) {
+        return
+      }
+
+      const container = videoContainerRef.current
+      if (!container) return
+
+      // Try to enter fullscreen
+      const fullscreenPromise = enterFullscreen(container)
+      
+      fullscreenPromise.catch(() => {
+        // If native fullscreen fails, CSS fallback is applied by enterFullscreen
+        // The CSS fallback adds .fullscreen-fallback class
+      })
+    }, 500)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [isPlaying])
+
+  // Auto-play countdown effect: decrement each second, fire onAutoPlayNext when 0
+  const autoPlayNextRef = useRef(onAutoPlayNext)
+  autoPlayNextRef.current = onAutoPlayNext
+  const autoPlayCancelRef = useRef(onAutoPlayCancel)
+  autoPlayCancelRef.current = onAutoPlayCancel
+
+  // Reset auto-play shown ref when switching episodes
+  useEffect(() => {
+    autoPlayCountdownShownRef.current = false
+  }, [mediaId])
+
+  // Time-based trigger: show countdown overlay near the end of the episode
+  const UP_NEXT_THRESHOLD = 20
+  useEffect(() => {
+    if (!onAutoPlayNext) {return}
+    if (autoPlayCountdownShownRef.current) {return}
+    if (videoDuration <= 0 || currentTime <= 0) {return}
+    const remaining = videoDuration - currentTime
+    if (remaining > UP_NEXT_THRESHOLD || remaining <= 0) {return}
+
+    autoPlayCountdownShownRef.current = true
+    setAutoPlayCountdown(10)
+    clearAutoPlayTimer()
+    autoPlayTimerRef.current = setInterval(() => {
+      setAutoPlayCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearAutoPlayTimer()
+          return null
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }, [currentTime, videoDuration, onAutoPlayNext])
+
+  useEffect(() => {
+    if (autoPlayCountdown === null) {
+      clearAutoPlayTimer()
+      return
+    }
+    if (autoPlayCountdown <= 0) {
+      clearAutoPlayTimer()
+      autoPlayNextRef.current?.()
+      setAutoPlayCountdown(null)
+      return
+    }
+    const timer = setTimeout(() => {
+      setAutoPlayCountdown((prev) => (prev ?? 0) - 1)
+    }, 1000)
+    autoPlayTimerRef.current = timer
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [autoPlayCountdown])
+
+  const handleCancelAutoPlay = () => {
+    clearAutoPlayTimer()
+    setAutoPlayCountdown(null)
+    autoPlayCancelRef.current?.()
+  }
 
   // Apply saved audio track preference when tracks load
   // Use a ref to ensure we only apply once per media
@@ -536,7 +675,35 @@ export const VideoPlayer = ({
           onSpeedChange={handleSpeedChange}
           onSkip={handleSkip}
           onToggleStats={() => setShowDebugOverlay((prev) => !prev)}
+          onPlayNext={onPlayNext}
+          onPlayPrev={onPlayPrev}
         />
+
+        {/* Auto-play countdown overlay - bottom-right card */}
+        {autoPlayCountdown !== null && onAutoPlayNext && (
+          <div className="absolute bottom-20 right-4 z-20">
+            <div className="bg-gray-900/95 backdrop-blur-md rounded-xl p-4 shadow-2xl border border-white/10 min-w-[220px] max-w-[280px]">
+              <p className="text-white/70 text-xs font-medium uppercase tracking-wider mb-1">
+                Next episode
+              </p>
+              {nextEpisodeInfo && (
+                <p className="text-white text-sm font-medium mb-2 line-clamp-1">
+                  S{nextEpisodeInfo.season}:E{nextEpisodeInfo.episode}
+                  {nextEpisodeInfo.episodeTitle ? ` - ${nextEpisodeInfo.episodeTitle}` : ''}
+                </p>
+              )}
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-primary-400 font-bold text-lg tabular-nums">{autoPlayCountdown}s</p>
+                <button
+                  onClick={handleCancelAutoPlay}
+                  className="px-3 py-1.5 text-xs bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors cursor-pointer font-medium whitespace-nowrap"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

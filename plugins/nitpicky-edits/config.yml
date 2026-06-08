@@ -1,0 +1,6 @@
+# Nitpicky Edits Plugin Configuration
+# Admin editing tools for your media library
+
+# Require edit mode to be explicitly enabled before showing edit controls
+# When true, users must click "Edit" to see identify/delete/mark-watched buttons
+edit_mode_required: true

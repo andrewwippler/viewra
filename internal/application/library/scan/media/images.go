@@ -31,10 +31,39 @@ func EnqueueTVParentEntities(ctx context.Context, deps *Deps, showTitle string, 
 	// Get show ID by title (show was created/ensured by CreateTVEpisode)
 	show, err := deps.MediaRepos.TV.GetTVShowByTitle(ctx, libraryID, showTitle)
 	if err != nil {
-		deps.Logger.Warn("failed to get TV show for enrichment",
+		// Title-based lookup failed. Attempt a file-based lookup as a fallback.
+		deps.Logger.Debug("tv show title lookup failed, trying file-based lookup",
 			"show_title", showTitle,
+			"file_path", episodeFilePath,
 			"error", err)
-		return
+
+		// Try to find the media record for this file and derive the show from the episode record.
+		mediaRec, merr := deps.MediaRepos.Media.GetByFilePath(ctx, libraryID, episodeFilePath)
+		if merr == nil && mediaRec != nil {
+			ep, e2 := deps.MediaRepos.TV.GetTVEpisodeByID(ctx, mediaRec.ID)
+			if e2 == nil {
+				// Fetch the show by ID found on the episode record
+				sshow, e3 := deps.MediaRepos.TV.GetTVShowByID(ctx, ep.ShowID)
+				if e3 == nil {
+					show = sshow
+				} else {
+					deps.Logger.Warn("failed to get TV show by episode's show_id for enrichment",
+						"file_path", episodeFilePath,
+						"error", e3)
+					return
+				}
+			} else {
+				deps.Logger.Debug("failed to get TV episode by media id during enrichment lookup",
+					"media_id", mediaRec.ID,
+					"error", e2)
+				return
+			}
+		} else {
+			deps.Logger.Warn("failed to get TV show for enrichment",
+				"show_title", showTitle,
+				"error", err)
+			return
+		}
 	}
 
 	// Enqueue show for enrichment (once per show per scan session)

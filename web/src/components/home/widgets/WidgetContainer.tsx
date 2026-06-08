@@ -2,11 +2,12 @@ import { cn } from '@/lib/utils'
 import { SearchHero } from './SearchHero'
 import { MediaRow } from './MediaRow'
 import { ContinueRow } from './ContinueRow'
-import { WidgetType, type HomeSection, type SearchHeroData, type MediaRowData, type TrendingRowData, type ContinueWatchingData } from './widget.types'
+import { WidgetType, type HomeSection, type SearchHeroData, type MediaRowData, type TrendingRowData, type ContinueWatchingData, type ContinueWatchingItem } from './widget.types'
 
 interface WidgetContainerProps {
   section: HomeSection
   className?: string
+  onRemoveContinueWatching?: (item: ContinueWatchingItem) => void
 }
 
 /**
@@ -15,7 +16,7 @@ interface WidgetContainerProps {
  * Maps widget types to their corresponding components and passes
  * the appropriate data structure.
  */
-export const WidgetContainer = ({ section, className }: WidgetContainerProps) => {
+export const WidgetContainer = ({ section, className, onRemoveContinueWatching }: WidgetContainerProps) => {
   switch (section.type) {
     case WidgetType.SearchHero:
       return (
@@ -39,6 +40,7 @@ export const WidgetContainer = ({ section, className }: WidgetContainerProps) =>
         <ContinueRow
           data={section.data as ContinueWatchingData}
           className={className}
+          onItemRemove={onRemoveContinueWatching}
         />
       )
 
@@ -53,6 +55,7 @@ interface WidgetSectionProps {
   sections: HomeSection[]
   location: 'homepage-top' | 'homepage-sections'
   className?: string
+  onRemoveContinueWatching?: (item: ContinueWatchingItem) => void
 }
 
 /**
@@ -60,7 +63,7 @@ interface WidgetSectionProps {
  *
  * Filters sections by location and renders them in priority order.
  */
-export const WidgetSection = ({ sections, location, className }: WidgetSectionProps) => {
+export const WidgetSection = ({ sections, location, className, onRemoveContinueWatching }: WidgetSectionProps) => {
   // Filter sections by location and sort by priority (highest first)
   const locationSections = sections
     .filter((s) => s.location === location)
@@ -73,7 +76,7 @@ export const WidgetSection = ({ sections, location, className }: WidgetSectionPr
   return (
     <div className={cn('space-y-8', className)}>
       {locationSections.map((section) => (
-        <WidgetContainer key={section.id} section={section} />
+        <WidgetContainer key={section.id} section={section} onRemoveContinueWatching={onRemoveContinueWatching} />
       ))}
     </div>
   )

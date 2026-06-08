@@ -452,14 +452,14 @@ const Movies = () => {
             onClick={() => handlePlayMovie(movie.id)}
           />
         )}
-        renderListItem={(movie) => (
-          <MovieListItem
-            key={movie.id}
-            movie={movie as Movie}
-            onClick={() => handlePlayMovie(movie.id)}
-          />
-        )}
-        onItemSelect={(movie) => handlePlayMovie(movie.id)}
+            renderListItem={(movie) => (
+              <MovieListItem
+                key={movie.id}
+                movie={movie as Movie}
+                onClick={() => navigate({ to: `/movies/${movie.id}` })}
+              />
+            )}
+        onItemSelect={(movie) => navigate({ to: `/movies/${movie.id}` })}
         getItemSearchText={(movie) => movie.title || ''}
         initialSearch={search.q || ''}
         initialSort={search.sort || 'title-asc'}
@@ -494,7 +494,7 @@ const Movies = () => {
               <MovieCard
                 key={movie.id}
                 movie={movie as Movie}
-                onClick={() => handlePlayMovie(movie.id)}
+                onClick={() => navigate({ to: `/movies/${movie.id}` })}
               />
             )}
             skeletonAspectRatio="2/3"

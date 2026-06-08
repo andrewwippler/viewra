@@ -87,11 +87,11 @@ DELETE FROM scan_jobs
 WHERE id = $1;
 
 -- name: DeleteOldScanJobs :exec
--- sqlc.arg(retention_days): the number of days to retain completed/failed jobs
+-- sqlc.arg(retention_interval): the interval to retain completed/failed jobs (e.g., '-30 minutes')
 DELETE FROM scan_jobs
 WHERE library_id = sqlc.arg(library_id)
   AND status IN ('completed', 'failed')
-  AND created_at < (CURRENT_TIMESTAMP - (sqlc.arg(retention_days)::text || ' days')::interval);
+  AND created_at < (CURRENT_TIMESTAMP - (sqlc.arg(retention_interval) || ' minutes')::interval);
 
 -- name: CountScanJobsByLibrary :one
 SELECT COUNT(*) FROM scan_jobs

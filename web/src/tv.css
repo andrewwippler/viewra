@@ -1,0 +1,281 @@
+/**
+ * TV Interface Styles
+ * 
+ * Styles optimized for 10-foot viewing distance on TV platforms
+ * with remote control navigation (webOS, Tizen, etc.)
+ */
+
+/* ============================================
+   FOCUS STATES - High visibility for remote control
+   ============================================ */
+
+/* Primary focus indicator - LG red (brand color) */
+.focusable:focus,
+.focusable.focused,
+.focusable.sn-focused {
+  outline: 4px solid #cf1020 !important;
+  outline-offset: 2px;
+  transform: scale(1.03);
+  transition: transform 0.15s ease-out, outline 0.1s ease-out;
+  box-shadow: 0 0 20px rgba(207, 16, 32, 0.5), 
+              0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+/* Focus visible only on focus (for mouse users) */
+.focusable:focus:not(:focus-visible) {
+  outline: none;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ============================================
+   INTERACTIVE ELEMENT SIZING - 48px minimum
+   ============================================ */
+
+/* Ensure minimum touch target size */
+.focusable,
+button,
+[role="button"],
+a,
+input,
+select,
+textarea {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Primary navigation items should be larger */
+nav .focusable,
+.nav-item,
+.menu-item,
+.tab-button {
+  min-height: 60px;
+  min-width: 60px;
+}
+
+/* Card-like elements for media items */
+.media-card,
+.poster-card,
+.list-item {
+  min-height: 200px;
+  min-width: 160px;
+}
+
+/* ============================================
+   TV INTERFACE NORMALIZATION
+   ============================================ */
+
+/* Remove mobile/desktop effects that pollute TV UI - ONLY on TV devices */
+@media (device-type: tv) {
+  body,
+  .focusable {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    tap-highlight-color: transparent;
+    cursor: none !important; /* Hide cursor on TV devices */
+  }
+}
+
+/* Restore cursor for text inputs */
+input,
+textarea,
+[contenteditable="true"] {
+  cursor: text !important;
+}
+
+/* Remove selection bands */
+::selection {
+  background: transparent;
+}
+
+::-moz-selection {
+  background: transparent;
+}
+
+/* ============================================
+   SCROLL CONTAINERS - TV-friendly scrolling
+   ============================================ */
+
+/* Smooth scrolling with momentum */
+.scroll-container,
+.carousel,
+.horizontal-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+}
+
+/* Hide scrollbars but keep functionality */
+.scroll-container::-webkit-scrollbar,
+.carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-container,
+.carousel {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ============================================
+   MODAL AND OVERLAY BACKDROP
+   ============================================ */
+
+/* Ensure modals are centered and visible */
+.modal-backdrop,
+.dialog-backdrop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================
+   INPUT FIELDS - TV keyboard optimization
+   ============================================ */
+
+/* Ensure inputs are large enough */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="number"],
+textarea {
+  font-size: 18px;
+  padding: 12px 16px;
+  min-height: 56px;
+  border-radius: 8px;
+}
+
+/* Focus state for inputs */
+input:focus,
+textarea:focus {
+  border-color: #cf1020;
+  box-shadow: 0 0 0 3px rgba(207, 16, 32, 0.3);
+}
+
+/* ============================================
+   BUTTONS - TV-friendly sizing
+   ============================================ */
+
+button,
+.btn,
+.button {
+  min-height: 56px;
+  padding: 14px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
+}
+
+button:focus,
+.btn:focus {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Primary action buttons */
+.btn-primary,
+.button-primary {
+  background: linear-gradient(135deg, #cf1020 0%, #a50d18 100%);
+  color: white;
+}
+
+/* ============================================
+   GRID AND LIST LAYOUTS
+   ============================================ */
+
+/* Ensure grid items are focusable */
+.grid-item,
+.list-row,
+.media-row > * {
+  cursor: pointer;
+}
+
+/* Grid layout for media browsers */
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 24px;
+  padding: 24px;
+}
+
+/* ============================================
+   BACK BUTTON HANDLING
+   ============================================ */
+
+/* Handle back navigation without exiting app */
+[data-sn-enabled] {
+  /* Trap back button within the app */
+}
+
+/* ============================================
+   ANIMATIONS - Reduced for performance
+   ============================================ */
+
+/* Prefer reduced motion on TV */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+   DARK MODE - TV optimized
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  .focusable:focus,
+  .focusable.focused,
+  .focusable.sn-focused {
+    box-shadow: 0 0 24px rgba(207, 16, 32, 0.6),
+                0 0 48px rgba(207, 16, 32, 0.3);
+  }
+}
+
+/* ============================================
+   LOADING AND PROGRESS STATES
+   ============================================ */
+
+/* Skeleton loading for TV */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* TV-safe spacing */
+.tv-padding { padding: 24px; }
+.tv-margin { margin: 24px; }
+
+/* Focus ring for custom components */
+.tv-focus-ring {
+  box-shadow: 0 0 0 3px rgba(207, 16, 32, 0.4);
+}
+
+/* Hide elements that shouldn't be visible on TV */
+@media (device-type: tv) {
+  .hide-on-tv {
+    display: none !important;
+  }
+}

@@ -90,8 +90,8 @@ class SemanticSearchProvider implements SearchProvider<Movie> {
       return this.available
     }
 
-    // Default to true, will be checked async
-    return true
+    // Not confirmed available yet — async check still running or failed
+    return false
   }
 
   /**

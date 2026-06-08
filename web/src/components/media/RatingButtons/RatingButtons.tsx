@@ -72,7 +72,7 @@ export const RatingButtons = ({
   const isPending = isSettingRating || isDeletingRating
 
   const handleRate = (rating: RatingType) => {
-    if (isPending) return
+    if (isPending) { return }
 
     if (currentRating === rating) {
       // Toggle off - delete the rating

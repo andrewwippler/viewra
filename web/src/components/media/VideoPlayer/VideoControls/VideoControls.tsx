@@ -67,6 +67,8 @@ export const VideoControls = ({
   onSpeedChange,
   onSkip,
   onToggleStats,
+  onPlayNext,
+  onPlayPrev,
 }: VideoControlsProps) => {
   // Find the currently selected quality option
   const selectedQuality = availableQualities.find(q => q.id === selectedQualityId) ?? null
@@ -314,6 +316,19 @@ export const VideoControls = ({
               </svg>
             </button>
 
+            {/* Previous Episode */}
+            {onPlayPrev && (
+              <button
+                onClick={onPlayPrev}
+                className="hover:bg-white/20 p-2 rounded-lg transition-colors cursor-pointer"
+                aria-label="Previous episode"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+                </svg>
+              </button>
+            )}
+
             {/* Play/Pause */}
             <button
               onClick={onPlayPause}
@@ -330,6 +345,19 @@ export const VideoControls = ({
                 </svg>
               )}
             </button>
+
+            {/* Next Episode */}
+            {onPlayNext && (
+              <button
+                onClick={onPlayNext}
+                className="hover:bg-white/20 p-2 rounded-lg transition-colors cursor-pointer"
+                aria-label="Next episode"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+                </svg>
+              </button>
+            )}
 
             {/* Skip 10 seconds */}
             <button

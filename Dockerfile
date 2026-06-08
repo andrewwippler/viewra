@@ -79,6 +79,14 @@ COPY --from=frontend /build/web/dist ./web/dist
 
 # Build with cache mounts
 ARG VERSION=dev
+
+# Install swag for Swagger generation
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go install github.com/swaggo/swag/cmd/swag@latest
+
+# Generate Swagger documentation (required for build)
+RUN swag init -g cmd/viewra/main.go -o docs/swagger --parseDependency --parseInternal
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=1 go build \
@@ -162,6 +170,12 @@ RUN chmod +x /app/entrypoint.sh /app/healthcheck.sh
 
 # Copy migrations
 COPY migrations/ /app/migrations/
+
+# Copy pre-built plugins (built by build.sh: make build-plugins)
+# Not under /data/ -- PVC mounts there, hiding image contents
+COPY data/plugins/ /app/plugins/
+
+ENV PLUGINS_DIR=/app/plugins
 
 # Create data directory
 RUN mkdir -p /data && chown viewra:viewra /data

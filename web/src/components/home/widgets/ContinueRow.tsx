@@ -7,6 +7,7 @@ import type { ContinueWatchingData, ContinueWatchingItem } from './widget.types'
 interface ContinueRowProps {
   data: ContinueWatchingData
   className?: string
+  onItemRemove?: (item: ContinueWatchingItem) => void
 }
 
 /**
@@ -16,7 +17,7 @@ interface ContinueRowProps {
  * Uses horizontal 16:9 cards with progress bars when the new format is available,
  * falls back to the legacy MediaRow format for backward compatibility.
  */
-export const ContinueRow = ({ data, className }: ContinueRowProps) => {
+export const ContinueRow = ({ data, className, onItemRemove }: ContinueRowProps) => {
   const navigate = useNavigate()
 
   // Check if we have the new items format with progress data
@@ -71,6 +72,7 @@ export const ContinueRow = ({ data, className }: ContinueRowProps) => {
             item={item}
             onClick={() => handleItemClick(item)}
             onPlay={() => handleItemPlay(item)}
+            onRemove={onItemRemove ? () => onItemRemove(item) : undefined}
           />
         ))}
       </ScrollableRow>

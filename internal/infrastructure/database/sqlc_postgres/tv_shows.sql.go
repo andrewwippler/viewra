@@ -62,6 +62,24 @@ INSERT INTO tv_episodes (
     $11, $12, $13, $14, $15, $16, $17,
     $18, $19, $20
 )
+ON CONFLICT (show_id, season_number, episode_number) DO UPDATE SET
+    media_id = EXCLUDED.media_id,
+    season_id = EXCLUDED.season_id,
+    absolute_number = EXCLUDED.absolute_number,
+    dvd_season = EXCLUDED.dvd_season,
+    dvd_episode = EXCLUDED.dvd_episode,
+    episode_title = EXCLUDED.episode_title,
+    original_title = EXCLUDED.original_title,
+    air_date = EXCLUDED.air_date,
+    plot = EXCLUDED.plot,
+    content_rating = EXCLUDED.content_rating,
+    maturity_rating = EXCLUDED.maturity_rating,
+    imdb_id = EXCLUDED.imdb_id,
+    tmdb_id = EXCLUDED.tmdb_id,
+    tvdb_id = EXCLUDED.tvdb_id,
+    rating = EXCLUDED.rating,
+    rating_votes = EXCLUDED.rating_votes,
+    runtime_minutes = EXCLUDED.runtime_minutes
 `
 
 type CreateTVEpisodeParams struct {
