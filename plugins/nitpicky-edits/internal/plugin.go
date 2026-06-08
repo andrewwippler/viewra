@@ -91,6 +91,22 @@ func (p *Plugin) Configure(settings []byte) error {
 	if err := json.Unmarshal(settings, &cfg); err != nil {
 		return fmt.Errorf("failed to parse settings: %w", err)
 	}
+
+	// Handle DB config injection (from host at startup)
+	if cfg.DBDriver != "" && cfg.DBDataSource != "" {
+		p.config.DBDriver = cfg.DBDriver
+		p.config.DBDataSource = cfg.DBDataSource
+		if p.db == nil {
+			db, err := openDB(p.config)
+			if err != nil {
+				return fmt.Errorf("failed to open database from config: %w", err)
+			}
+			p.db = db
+			p.logger.Info("database connection established",
+				"db_driver", p.config.DBDriver)
+		}
+	}
+
 	if cfg.EditModeRequired != p.config.EditModeRequired {
 		p.config.EditModeRequired = cfg.EditModeRequired
 		p.logger.Info("edit_mode_required updated", "value", cfg.EditModeRequired)

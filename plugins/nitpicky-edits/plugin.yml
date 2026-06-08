@@ -13,7 +13,6 @@ min_host_version: "0.1.0"
 display_category: enrichers
 
 capabilities:
-  - admin
   - external_ids
 
 media_types:
