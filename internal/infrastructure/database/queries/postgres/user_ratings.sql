@@ -73,7 +73,7 @@ DELETE FROM user_ratings
 WHERE user_id = $1;
 
 -- name: HasUserRatings :one
-SELECT CASE WHEN EXISTS(SELECT 1 FROM user_ratings WHERE user_id = $1) THEN 1::bigint ELSE 0::bigint END AS has_ratings;
+SELECT CASE WHEN EXISTS(SELECT 1 FROM user_ratings WHERE user_id = $1) THEN true ELSE false END AS has_ratings;
 
 -- name: CountUserRatingsByRating :one
 SELECT COUNT(*) AS count

@@ -9,9 +9,10 @@
 export type GithubComMantonxViewraInternalApplicationLibraryUpdateLibraryRequestType =
   (typeof GithubComMantonxViewraInternalApplicationLibraryUpdateLibraryRequestType)[keyof typeof GithubComMantonxViewraInternalApplicationLibraryUpdateLibraryRequestType]
 
-// eslint-disable-next-line @typescript-eslint/no-redeclare
+ 
 export const GithubComMantonxViewraInternalApplicationLibraryUpdateLibraryRequestType = {
   movies: 'movies',
   tv: 'tv',
   music: 'music',
+  live_tv: 'live_tv',
 } as const

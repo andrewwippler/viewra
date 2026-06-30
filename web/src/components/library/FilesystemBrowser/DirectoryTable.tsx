@@ -70,14 +70,14 @@ const DirectoryTable = ({
               d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
             />
           </svg>
-          <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">No subdirectories found</p>
+          <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">This folder is empty</p>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4">
-            This folder has no subdirectories. You can still select this folder, or navigate up to choose a different location.
+            No files or folders found. Navigate up to choose a different location.
           </p>
           <div className="flex gap-2 justify-center">
             {canNavigateUp && (
               <Button variant="secondary" size="sm" onClick={onNavigateUp}>
-                ← Go Up
+                Go Up
               </Button>
             )}
             <Button variant="secondary" size="sm" onClick={onSelectCurrent}>
@@ -127,19 +127,19 @@ const DirectoryTable = ({
           {directories.map((dir, index) => (
             <tr
               key={dir.path}
-              onClick={() => dir.readable && onNavigate(dir.path || '')}
+              onClick={() => dir.is_dir && dir.readable && onNavigate(dir.path || '')}
               onMouseEnter={() => onSelectIndex(index)}
               className={`
-                ${dir.readable ? 'hover:bg-primary-50/50 dark:hover:bg-primary-500/10 cursor-pointer' : 'opacity-50 cursor-not-allowed'}
+                ${dir.is_dir && dir.readable ? 'hover:bg-primary-50/50 dark:hover:bg-primary-500/10 cursor-pointer' : 'opacity-50 cursor-not-allowed'}
                 ${selectedIndex === index ? 'bg-primary-50 dark:bg-primary-500/15 ring-2 ring-inset ring-primary-400/50 dark:ring-primary-500/30' : ''}
                 transition-all duration-150
               `}
               role="button"
-              tabIndex={dir.readable ? 0 : -1}
+              tabIndex={dir.is_dir && dir.readable ? 0 : -1}
               aria-label={`${dir.name}${!dir.readable ? ' (not readable)' : ''}`}
               aria-disabled={!dir.readable}
               onKeyDown={(e) => {
-                if ((e.key === 'Enter' || e.key === ' ') && dir.readable && dir.path) {
+                if ((e.key === 'Enter' || e.key === ' ') && dir.is_dir && dir.readable && dir.path) {
                   e.preventDefault()
                   onNavigate(dir.path)
                 }
@@ -147,20 +147,37 @@ const DirectoryTable = ({
             >
               <td className="px-4 py-3 whitespace-nowrap">
                 <div className="flex items-center">
-                  <svg
-                    className={`h-5 w-5 mr-2 ${dir.readable ? 'text-primary-500 dark:text-primary-400' : 'text-neutral-400 dark:text-neutral-600'}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                    />
-                  </svg>
+                  {dir.is_dir ? (
+                    <svg
+                      className={`h-5 w-5 mr-2 ${dir.readable ? 'text-primary-500 dark:text-primary-400' : 'text-neutral-400 dark:text-neutral-600'}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="h-5 w-5 mr-2 text-neutral-400 dark:text-neutral-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                      />
+                    </svg>
+                  )}
                   <span className="text-sm font-medium text-neutral-900 dark:text-neutral-50">{dir.name}</span>
                 </div>
               </td>

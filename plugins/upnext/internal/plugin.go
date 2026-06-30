@@ -195,6 +195,10 @@ func (p *UpNextPlugin) handleUpNext(ctx context.Context, req *sdk.HTTPRequest) (
 
 		ep := show.ep
 
+		if ep.showTitle == "" {
+			continue
+		}
+
 		// Search for the show to get its ID (for navigation and backdrop images)
 		showResults, showErr := dataClient.SearchMedia(ctx, ep.showTitle, 0, "tv", 1)
 		var showID int64

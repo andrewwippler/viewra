@@ -141,11 +141,7 @@ func (r *UserRepository) Count(ctx context.Context) (int64, error) {
 
 // ExistsAny returns true if any users exist.
 func (r *UserRepository) ExistsAny(ctx context.Context) (bool, error) {
-	count, err := r.Q().ExistsAnyUser(ctx)
-	if err != nil {
-		return false, err
-	}
-	return count > 0, nil
+	return r.Q().ExistsAnyUser(ctx)
 }
 
 // UpdatePassword updates a user's password hash.

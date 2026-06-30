@@ -399,8 +399,9 @@ func injectDBConfig(ctx context.Context, pm *plugins.Manager, cfg *appconfig.Con
 	}
 
 	dbConfig := map[string]interface{}{
-		"db_driver":      cfg.Database.Driver,
-		"db_data_source": dataSource,
+		"db_driver":          cfg.Database.Driver,
+		"db_data_source":     dataSource,
+		"edit_mode_required": true,
 	}
 
 	configBytes, err := json.Marshal(dbConfig)

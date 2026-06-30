@@ -111,6 +111,38 @@ func recentlyAddedRowToDomain(row unified.ListRecentlyAddedMoviesRow) *media.Mov
 	)
 }
 
+// randomMoviesRowToDomain converts a ListRandomMoviesRow to domain Movie
+func randomMoviesRowToDomain(row unified.ListRandomMoviesRow) *media.Movie {
+	return toMovieDomain(
+		row.MediaID_2, row.LibraryID, row.Title, row.Type, row.FilePath,
+		row.FileSize, row.ContainerFormat, row.Duration, row.Width, row.Height,
+		row.Codec, row.AudioCodec, row.BitRate, row.FrameRate, row.IsExtra == 1,
+		row.CreatedAt, row.UpdatedAt,
+		row.Year, row.ReleaseDate, row.Genre, row.Director, row.Cast,
+		row.ContentRating, row.MaturityRating, row.ContentAdvisories,
+		row.Plot, row.Tagline, row.OriginalTitle, row.SortTitle,
+		row.ImdbID, row.TmdbID, row.RuntimeMinutes, row.Budget,
+		row.Revenue, row.OriginalLanguage, row.CountryOfOrigin, row.AwardsSummary,
+		row.Rating, row.RatingVotes,
+	)
+}
+
+// moviesWithoutVariantGroupRowToDomain converts a GetMoviesWithoutVariantGroupRow to domain Movie
+func moviesWithoutVariantGroupRowToDomain(row unified.GetMoviesWithoutVariantGroupRow) *media.Movie {
+	return toMovieDomain(
+		row.MediaID_2, row.LibraryID, row.Title, row.Type, row.FilePath,
+		row.FileSize, row.ContainerFormat, row.Duration, row.Width, row.Height,
+		row.Codec, row.AudioCodec, row.BitRate, row.FrameRate, row.IsExtra != 0,
+		row.CreatedAt, row.UpdatedAt,
+		row.Year, row.ReleaseDate, row.Genre, row.Director, row.Cast,
+		row.ContentRating, row.MaturityRating, row.ContentAdvisories,
+		row.Plot, row.Tagline, row.OriginalTitle, row.SortTitle,
+		row.ImdbID, row.TmdbID, row.RuntimeMinutes, row.Budget,
+		row.Revenue, row.OriginalLanguage, row.CountryOfOrigin, row.AwardsSummary,
+		row.Rating, row.RatingVotes,
+	)
+}
+
 // toMovieDomain is the single source of truth for converting database fields to domain Movie.
 // All row-specific converters delegate to this function.
 // NOTE: This function has 37 parameters - this is unavoidable due to sqlc generating separate

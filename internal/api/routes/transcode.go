@@ -27,6 +27,9 @@ func RegisterTranscodeRoutes(router *gin.RouterGroup, handler *handlers.Transcod
 	// GET /api/media/:id/hls/subtitle/:trackIndex/subtitles.vtt - Serve subtitle WebVTT file
 	router.GET("/media/:id/hls/subtitle/:trackIndex/subtitles.vtt", handler.ServeSubtitle)
 
+	// GET /api/media/:id/hls/heartbeat - Keep transcode session alive (pause heartbeat)
+	router.GET("/media/:id/hls/heartbeat", handler.ServeHeartbeat)
+
 	// GET /api/media/:id/hls/:quality/playlist.m3u8 - Serve HLS playlist (with on-demand transcoding)
 	router.GET("/media/:id/hls/:quality/playlist.m3u8", handler.ServePlaylist)
 

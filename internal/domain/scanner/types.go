@@ -24,6 +24,21 @@ const (
 	ScanPhaseCompleted   ScanPhase = "completed"   // Scan finished
 )
 
+// Copy returns a deep copy of the ScanJob for safe concurrent access.
+func (j *ScanJob) Copy() *ScanJob {
+	if j == nil {return nil}
+	c := *j
+	if j.CompletedAt != nil {
+		t := *j.CompletedAt
+		c.CompletedAt = &t
+	}
+	if j.TargetPaths != nil {
+		c.TargetPaths = make([]string, len(j.TargetPaths))
+		copy(c.TargetPaths, j.TargetPaths)
+	}
+	return &c
+}
+
 // ScanJob represents a library scanning operation
 type ScanJob struct {
 	ID              int64
@@ -116,6 +131,10 @@ type ScanResult struct {
 	HDRFormat      string
 	ColorSpace     string
 	ColorPrimaries string
+
+	// Language is the ISO 639-2/B language code for this file.
+	// Extracted from filename if present; falls back to ffprobe audio track analysis.
+	Language string
 
 	// Multi-language audio and subtitle tracks
 	AudioTracks    []AudioTrackInfo
@@ -241,6 +260,10 @@ type MovieInfo struct {
 
 	// Edition is the movie edition (e.g., "Extended Cut", "Director's Cut", "Remastered")
 	Edition string
+
+	// Language is the ISO 639-2/B language code extracted from the filename (e.g., "eng", "fre").
+	// Empty if not found in filename — ffprobe audio track analysis will be used as fallback.
+	Language string
 }
 
 // TVEpisodeInfo contains metadata parsed from a TV show filename

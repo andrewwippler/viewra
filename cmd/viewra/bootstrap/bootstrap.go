@@ -69,23 +69,64 @@ func Initialize() (*Application, error) {
 	// Add Swagger documentation endpoint
 	container.Server.Router().GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	// Serve embedded frontend in production (if available)
-	if web.IsEmbedded() {
-		distFS, err := web.FS()
-		if err != nil {
-			lgr.Warn("Frontend embedded but failed to load", "error", err)
-		} else {
-			lgr.Info("Serving embedded frontend at http://localhost:8080/")
-			httpFS := http.FS(distFS)
+	// Serve /web/manifest.json for Jellyfin WebOS app compatibility
+	// The jellyfin-webos app hardcodes /web/manifest.json to discover the web client URL.
+	container.Server.Router().GET("/web/manifest.json", func(c *gin.Context) {
+		c.Data(http.StatusOK, "application/json", []byte(`{
+			"shortname": "ViewRA",
+			"name": "ViewRA Media Server",
+			"start_url": "/webos/"
+		}`))
+	})
 
-			// Pre-read index.html for SPA fallback
-			indexHTML, err := distFS.Open("index.html")
+	// Serve embedded frontends in production (if available)
+	if web.IsEmbedded() {
+		// --- Web frontend (served at /) ---
+		webFS, err := web.WebFS()
+		if err != nil {
+			lgr.Warn("Web frontend embedded but failed to load", "error", err)
+		} else {
+			lgr.Info("Serving web frontend at http://localhost:8080/")
+			webHTTPFS := http.FS(webFS)
+
+			indexHTML, err := webFS.Open("index.html")
 			if err != nil {
-				lgr.Error("Failed to read index.html", "error", err)
+				lgr.Error("Failed to read web index.html", "error", err)
 			}
-			indexContent, _ := io.ReadAll(indexHTML)
+			webIndexContent, _ := io.ReadAll(indexHTML)
 			indexHTML.Close()
 
+			// --- TV frontend (served at /webos/) ---
+			tvFS, tvErr := web.TvFS()
+			var tvHTTPFS http.FileSystem
+			var tvIndexContent []byte
+			if tvErr != nil {
+				lgr.Warn("TV frontend embedded but failed to load", "error", tvErr)
+			} else {
+				tvHTTPFS = http.FS(tvFS)
+				tvIdx, openErr := tvFS.Open("index.html")
+				if openErr != nil {
+					lgr.Error("Failed to read tv/index.html", "error", openErr)
+				} else {
+					tvIndexContent, _ = io.ReadAll(tvIdx)
+					tvIdx.Close()
+				}
+			}
+
+			// Register TV frontend route BEFORE NoRoute
+			if tvHTTPFS != nil {
+				router := container.Server.Router()
+				router.GET("/webos/*any", func(c *gin.Context) {
+					path := c.Param("any")
+					if strings.Contains(path, ".") {
+						c.FileFromFS(path, tvHTTPFS)
+						return
+					}
+					c.Data(http.StatusOK, "text/html; charset=utf-8", tvIndexContent)
+				})
+			}
+
+			// Web frontend SPA fallback (catches all other paths)
 			container.Server.Router().NoRoute(func(c *gin.Context) {
 				path := c.Request.URL.Path
 				// Skip ViewRA API paths (default 404)
@@ -102,25 +143,27 @@ func Initialize() (*Application, error) {
 					return
 				}
 				// Redirect /web/index.html → /web/ so SPA loads at correct base route
-				// Without this, TanStack Router sees route /index.html (post-basepath strip) → no match → blank page
 				if strings.HasSuffix(path, "index.html") {
 					c.Redirect(http.StatusMovedPermanently, "./")
 					return
 				}
 				// Try to serve the file directly (for assets like .js, .css, images)
-				// Strip /web/ prefix if present (frontend is served at root)
 				if strings.Contains(path, ".") {
 					fsPath := strings.TrimPrefix(path, "/web")
-					c.FileFromFS(fsPath, httpFS)
+					c.FileFromFS(fsPath, webHTTPFS)
 					return
 				}
+				// Log unmatched paths for debugging (catches e.g. /web/manifest.json before fix)
+				lgr.Debug("frontend: serving SPA for unmatched path",
+					"method", c.Request.Method,
+					"path", c.Request.URL.String(),
+				)
 				// For SPA routes (no extension), serve index.html content directly
-				c.Data(http.StatusOK, "text/html; charset=utf-8", indexContent)
+				c.Data(http.StatusOK, "text/html; charset=utf-8", webIndexContent)
 			})
 		}
 	} else {
 		lgr.Info("Frontend not embedded - development mode (use Vite on :5173)")
-		// In dev mode, still log unhandled Jellyfin endpoints
 		container.Server.Router().NoRoute(func(c *gin.Context) {
 			if isJellyfinPath(c.Request.URL.Path) {
 				lgr.Warn("jellyfin: unhandled endpoint",

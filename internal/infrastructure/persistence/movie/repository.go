@@ -237,6 +237,15 @@ func (r *Repository) ListRecentlyAdded(ctx context.Context, limit int) ([]*media
 	return mapSlice(rows, recentlyAddedRowToDomain), nil
 }
 
+// ListRandomMovies returns random movies across all libraries
+func (r *Repository) ListRandomMovies(ctx context.Context, limit int) ([]*media.Movie, error) {
+	rows, err := r.Q().ListRandomMovies(ctx, int64(limit))
+	if err != nil {
+		return nil, err
+	}
+	return mapSlice(rows, randomMoviesRowToDomain), nil
+}
+
 // ListDistinctGenres returns distinct genres across all movies
 func (r *Repository) ListDistinctGenres(ctx context.Context, limit int) ([]string, error) {
 	return r.Q().ListDistinctMovieGenres(ctx, int64(limit))
@@ -261,6 +270,17 @@ func (r *Repository) FindByTitleAndYear(ctx context.Context, libraryID int64, ti
 		return 0, "", r.ConvertNotFoundError(err)
 	}
 	return row.MediaID, row.FilePath, nil
+}
+
+// GetMoviesWithoutVariantGroup retrieves all movies in a library that don't have
+// a variant_group_id set. Used for post-scan reconciliation of variant groups.
+func (r *Repository) GetMoviesWithoutVariantGroup(ctx context.Context, libraryID int64) ([]*media.Movie, error) {
+	rows, err := r.Q().GetMoviesWithoutVariantGroup(ctx, libraryID)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapSlice(rows, moviesWithoutVariantGroupRowToDomain), nil
 }
 
 // mapSlice converts a slice of one type to another using the provided mapper function.

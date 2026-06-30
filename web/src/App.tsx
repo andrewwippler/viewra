@@ -20,13 +20,9 @@ const queryClient = new QueryClient({
   },
 })
 
-// Detect if served under /web/ prefix (e.g., when loaded by Jellyfin WebOS wrapper)
-const basepath = window.location.pathname.startsWith('/web') ? '/web' : undefined
-
 // Create a new router instance
 const router = createRouter({
   routeTree,
-  basepath,
   context: {
     queryClient,
   },

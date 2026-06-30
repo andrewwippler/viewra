@@ -44,7 +44,7 @@ export const BatchImagesProvider = ({ mediaIds, entityIds, mediaType, children }
   const BATCH_SIZE = 50
 
   const mediaIdBatches = useMemo(() => {
-    if (!hasMediaIds) return []
+    if (!hasMediaIds) {return []}
     const chunks: number[][] = []
     for (let i = 0; i < mediaIds.length; i += BATCH_SIZE) {
       chunks.push(mediaIds.slice(i, i + BATCH_SIZE))
@@ -53,7 +53,7 @@ export const BatchImagesProvider = ({ mediaIds, entityIds, mediaType, children }
   }, [mediaIds, hasMediaIds])
 
   const entityIdBatches = useMemo(() => {
-    if (!hasEntityIds) return []
+    if (!hasEntityIds) {return []}
     const chunks: number[][] = []
     for (let i = 0; i < entityIds.length; i += BATCH_SIZE) {
       chunks.push(entityIds.slice(i, i + BATCH_SIZE))

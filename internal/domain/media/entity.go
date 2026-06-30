@@ -34,6 +34,9 @@ type Media struct {
 	ColorSpace     string // Color space (bt709, bt2020nc, etc.)
 	ColorPrimaries string // Color primaries (bt709, bt2020, etc.)
 
+	Language       string   // ISO 639-2/B language code (e.g., "eng", "fre"), empty for primary
+	VariantGroupID *int64   // Points to primary media.id if this is a language variant of another file
+
 	DateAdded    time.Time  // When the file was first added to the library
 	DateModified *time.Time // Last modification time of the file on disk (nil if unknown)
 	CreatedAt    time.Time  // When the database record was created

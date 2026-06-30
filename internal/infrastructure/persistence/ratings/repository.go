@@ -133,11 +133,7 @@ func (r *Repository) DeleteAllForUser(ctx context.Context, userID string) error 
 
 // HasRatings returns true if the user has any ratings.
 func (r *Repository) HasRatings(ctx context.Context, userID string) (bool, error) {
-	result, err := r.querier.HasUserRatings(ctx, userID)
-	if err != nil {
-		return false, err
-	}
-	return result != 0, nil
+	return r.querier.HasUserRatings(ctx, userID)
 }
 
 // CountByRating returns the count of ratings of a specific type for a user.

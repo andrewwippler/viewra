@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -714,6 +715,7 @@ func TestPtrTime(t *testing.T) {
 
 // mockProgressUpdater implements ProgressUpdater for testing
 type mockProgressUpdater struct {
+	mu             sync.Mutex
 	updateCalled   int
 	lastJobID      int64
 	lastProgress   *scanner.Progress
@@ -721,6 +723,8 @@ type mockProgressUpdater struct {
 }
 
 func (m *mockProgressUpdater) UpdateProgress(ctx context.Context, jobID int64, progress *scanner.Progress) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.updateCalled++
 	m.lastJobID = jobID
 	m.lastProgress = progress
@@ -932,8 +936,11 @@ func TestProgressUpdate_UpdateAsync(t *testing.T) {
 	// Give the goroutine time to complete
 	time.Sleep(50 * time.Millisecond)
 
-	if updater.updateCalled != 1 {
-		t.Errorf("UpdateProgress called %d times, want 1", updater.updateCalled)
+	updater.mu.Lock()
+	called := updater.updateCalled
+	updater.mu.Unlock()
+	if called != 1 {
+		t.Errorf("UpdateProgress called %d times, want 1", called)
 	}
 }
 
@@ -952,7 +959,10 @@ func TestProgressUpdate_UpdateAsync_Error(t *testing.T) {
 	// Give the goroutine time to complete
 	time.Sleep(50 * time.Millisecond)
 
-	if updater.updateCalled != 1 {
-		t.Errorf("UpdateProgress called %d times, want 1", updater.updateCalled)
+	updater.mu.Lock()
+	called := updater.updateCalled
+	updater.mu.Unlock()
+	if called != 1 {
+		t.Errorf("UpdateProgress called %d times, want 1", called)
 	}
 }

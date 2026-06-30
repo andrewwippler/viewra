@@ -9,7 +9,7 @@
 export type GithubComMantonxViewraInternalApplicationSystemMigrationPhaseStatus =
   (typeof GithubComMantonxViewraInternalApplicationSystemMigrationPhaseStatus)[keyof typeof GithubComMantonxViewraInternalApplicationSystemMigrationPhaseStatus]
 
-// eslint-disable-next-line @typescript-eslint/no-redeclare
+ 
 export const GithubComMantonxViewraInternalApplicationSystemMigrationPhaseStatus = {
   PhaseStatusPending: 'pending',
   PhaseStatusInProgress: 'in_progress',

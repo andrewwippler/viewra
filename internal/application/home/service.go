@@ -66,6 +66,12 @@ type TrendingService interface {
 	HasProvider() bool
 }
 
+// UnwatchedMoviesService provides unwatched movies data.
+type UnwatchedMoviesService interface {
+	// GetUnwatchedMoviesFull returns movies the user hasn't watched yet with full typed data.
+	GetUnwatchedMoviesFull(ctx context.Context, userID string, limit int) ([]MediaItemWithTime, error)
+}
+
 // Service aggregates widgets from all plugins and builds the home response.
 type Service struct {
 	widgetRegistry     *registry.WidgetRegistry
@@ -79,6 +85,7 @@ type Service struct {
 	favorites          FavoritesService
 	genres             GenresService
 	trending           TrendingService
+	unwatchedMovies    UnwatchedMoviesService
 	logger             *slog.Logger
 }
 
@@ -95,6 +102,7 @@ func NewService(
 	favorites FavoritesService,
 	genres GenresService,
 	trending TrendingService,
+	unwatchedMovies UnwatchedMoviesService,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -109,6 +117,7 @@ func NewService(
 		favorites:          favorites,
 		genres:             genres,
 		trending:           trending,
+		unwatchedMovies:    unwatchedMovies,
 		logger:             logger,
 	}
 }
@@ -494,6 +503,8 @@ func (s *Service) getBuiltinWidgetData(ctx context.Context, widget *registry.Reg
 		return s.getTrendingData(ctx)
 	case "search-hero-fallback":
 		return s.getSearchHeroFallbackData(ctx)
+	case "unwatched-movies":
+		return s.getUnwatchedMoviesData(ctx, userID)
 	default:
 		// Fallback for unknown widgets
 		return map[string]any{
@@ -664,6 +675,30 @@ func (s *Service) getTrendingData(ctx context.Context) (map[string]any, error) {
 		"window":         result.Window,
 		"total_matched":  result.TotalMatched,
 		"total_trending": result.TotalTrending,
+	}, nil
+}
+
+// getUnwatchedMoviesData gets unwatched movies data with full typed objects.
+func (s *Service) getUnwatchedMoviesData(ctx context.Context, userID string) (map[string]any, error) {
+	if s.unwatchedMovies == nil {
+		return map[string]any{"title": "Unwatched Movies", "movies": []any{}}, nil
+	}
+
+	items, err := s.unwatchedMovies.GetUnwatchedMoviesFull(ctx, userID, 20)
+	if err != nil {
+		return nil, err
+	}
+
+	movieItems := make([]any, 0, len(items))
+	for _, item := range items {
+		if item.Type == "movie" && item.Movie != nil {
+			movieItems = append(movieItems, item.Movie)
+		}
+	}
+
+	return map[string]any{
+		"title":  "Unwatched Movies",
+		"movies": movieItems,
 	}, nil
 }
 

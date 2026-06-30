@@ -42,6 +42,76 @@ export const DropdownSelector = <T,>({
     }
   }, [showPanel])
 
+  // TV mode: keyboard navigation within dropdown panel
+  useEffect(() => {
+    if (!__TV_MODE__) {return}
+    if (!showPanel) {return}
+
+    const panel = panelRef.current
+    if (!panel) {return}
+
+    const getOptions = (): HTMLElement[] => {
+      const options = panel.querySelectorAll<HTMLElement>('[role="option"]')
+      return Array.from(options).filter((el) => {
+        const rect = el.getBoundingClientRect()
+        return rect.width > 0 && rect.height > 0
+      })
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const options = getOptions()
+      if (options.length === 0) {return}
+
+      const currentIndex = options.indexOf(document.activeElement as HTMLElement)
+
+      switch (e.keyCode) {
+        case 40: // ArrowDown
+        case 39: // ArrowRight
+          e.preventDefault()
+          e.stopPropagation()
+          {
+            const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % options.length
+            options[nextIndex].focus()
+          }
+          break
+        case 38: // ArrowUp
+        case 37: // ArrowLeft
+          e.preventDefault()
+          e.stopPropagation()
+          {
+            const nextIndex = currentIndex === -1 ? options.length - 1 : (currentIndex - 1 + options.length) % options.length
+            options[nextIndex].focus()
+          }
+          break
+        case 13: // Enter
+          if (currentIndex >= 0) {
+            e.preventDefault()
+            e.stopPropagation()
+            options[currentIndex].click()
+          }
+          break
+        case 27: // Escape
+          e.preventDefault()
+          e.stopPropagation()
+          setShowPanel(false)
+          if (buttonRef.current) {
+            buttonRef.current.focus()
+          }
+          break
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown, { capture: true })
+    const firstOption = getOptions()[0]
+    if (firstOption) {
+      firstOption.focus()
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, { capture: true })
+    }
+  }, [showPanel])
+
   return (
     <div className="relative">
       {/* Dropdown button */}

@@ -54,6 +54,23 @@ type MovieResponse struct {
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	// Language variants
+	Variants []MediaVariantResponse `json:"variants,omitempty"`
+}
+
+// MediaVariantResponse represents a language variant of a media item
+type MediaVariantResponse struct {
+	ID         int64  `json:"id"`
+	Language   string `json:"language"`
+	FilePath   string `json:"file_path"`
+	FileSize   int64  `json:"file_size"`
+	Duration   int    `json:"duration"`
+	Width      int    `json:"width"`
+	Height     int    `json:"height"`
+	VideoCodec string `json:"video_codec,omitempty"`
+	AudioCodec string `json:"audio_codec,omitempty"`
+	ContainerFormat string `json:"container_format,omitempty"`
 }
 
 // ListMoviesResponse represents a list of movies

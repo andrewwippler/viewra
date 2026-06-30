@@ -5,7 +5,8 @@ import { AudioPlayer } from '@/components/music'
 import { ErrorBoundary } from '@/components/common'
 import { MaintenanceBanner } from '@/components/settings'
 import { useAuth } from '@/contexts'
-import { Home, Library, Film, Tv, Music, Clock, Eye, LogOut, User, Users, KeyRound, Settings2, SlidersHorizontal, Puzzle } from 'lucide-react'
+import { isWebOSTV } from '@/utils/device'
+import { Home, Library, Film, Tv, Music, Radio, Clock, Eye, LogOut, User, Users, KeyRound, Settings2, SlidersHorizontal, Puzzle, Trash2 } from 'lucide-react'
 
 // Component that listens to route changes and notifies the audio player
 const RouteChangeListener = () => {
@@ -24,6 +25,8 @@ const Layout = () => {
   const navigate = useNavigate()
   const { isAuthenticated, isLoading, needsSetup, user, logout } = useAuth()
 
+  const isTv = __TV_MODE__ && isWebOSTV()
+
   // Redirect to login/setup if not authenticated
   // MUST be before any early return — React hooks require same call count per render.
   useLayoutEffect(() => {
@@ -31,6 +34,13 @@ const Layout = () => {
       navigate({ to: needsSetup ? '/setup' : '/login' })
     }
   }, [isAuthenticated, isLoading, needsSetup, navigate])
+
+  // Redirect to TV UI when web build loads on a WebOS device
+  useEffect(() => {
+    if (!__TV_MODE__ && isWebOSTV() && isAuthenticated) {
+      navigate({ to: '/webos' })
+    }
+  }, [navigate, isAuthenticated])
 
   // Show loading while checking auth
   if (isLoading) {
@@ -56,7 +66,8 @@ const Layout = () => {
       <MaintenanceBanner />
 
       <div className="flex h-screen app-background">
-        {/* Sidebar */}
+        {/* Sidebar - hidden on TV mode */}
+        {!isTv && (
         <aside className="w-64 glass-sidebar text-neutral-900 dark:text-white flex flex-col relative overflow-hidden">
           {/* Subtle ambient glow at top */}
           <div className="sidebar-glow" />
@@ -109,6 +120,15 @@ const Layout = () => {
             >
               <Music className="w-5 h-5" />
               <span>Music</span>
+            </Link>
+            <Link
+              to="/livetv"
+              search={{ libraryId: undefined }}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors"
+              activeProps={{ className: 'bg-neutral-100 dark:bg-white/10' }}
+            >
+              <Radio className="w-5 h-5" />
+              <span>Live TV</span>
             </Link>
 
             <div className="mt-8 pt-4 border-t border-neutral-200/50 dark:border-white/5">
@@ -166,6 +186,14 @@ const Layout = () => {
                     <span>Plugins</span>
                   </Link>
                   <Link
+                    to="/settings/nitpicky"
+                    className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors"
+                    activeProps={{ className: 'bg-neutral-100 dark:bg-white/10' }}
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    <span>Storage Cleanup</span>
+                  </Link>
+                  <Link
                     to="/settings/system"
                     className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors"
                     activeProps={{ className: 'bg-neutral-100 dark:bg-white/10' }}
@@ -199,6 +227,7 @@ const Layout = () => {
             </div>
           </div>
         </aside>
+        )}
 
         {/* Main content */}
         <main className="flex-1 overflow-auto">
@@ -218,5 +247,7 @@ const Layout = () => {
 }
 
 export const Route = createFileRoute('/_layout')({
+  beforeLoad: () => {
+  },
   component: Layout,
 })

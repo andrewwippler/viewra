@@ -14,7 +14,7 @@ type StartScanResponse = scan.StartScanResponse
 type CreateLibraryRequest struct {
 	Name string `json:"name" validate:"required,min=1,max=100"`
 	Path string `json:"path" validate:"required"`
-	Type string `json:"type" validate:"required,oneof=movies tv music"`
+	Type string `json:"type" validate:"required,oneof=movies tv music live_tv"`
 }
 
 // UpdateLibraryRequest represents the input for updating a library
@@ -22,7 +22,7 @@ type UpdateLibraryRequest struct {
 	ID                int64                     `json:"id" validate:"required"`
 	Name              string                    `json:"name" validate:"omitempty,min=1,max=100"`
 	Path              string                    `json:"path" validate:"omitempty"`
-	Type              string                    `json:"type" validate:"omitempty,oneof=movies tv music"`
+	Type              string                    `json:"type" validate:"omitempty,oneof=movies tv music live_tv"`
 	MonitoringEnabled *bool                     `json:"monitoring_enabled,omitempty"`
 	MonitoringConfig  *library.MonitoringConfig `json:"monitoring_config,omitempty"`
 }

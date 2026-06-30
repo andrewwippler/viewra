@@ -5,14 +5,16 @@ INSERT INTO media (
     codec, audio_codec, codec_profile, bit_rate, frame_rate, scan_type, hdr_format,
     color_space, color_primaries, thumbnail_path, type, source_type,
     resolution_label, quality_score, is_3d, stereo_mode, has_dash,
-    dash_manifest_path, transcoding_status, is_extra, date_modified
+    dash_manifest_path, transcoding_status, is_extra, date_modified,
+    language, variant_group_id
 ) VALUES (
     ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
-    ?, ?, ?, ?
+    ?, ?, ?, ?,
+    ?, ?
 ) RETURNING *;
 
 -- name: GetMediaByID :one
@@ -70,6 +72,8 @@ SET library_id = ?,
     transcoding_status = ?,
     is_extra = ?,
     date_modified = ?,
+    language = ?,
+    variant_group_id = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
@@ -93,3 +97,8 @@ WHERE library_id = ? AND type = ?;
 -- name: GetFilePathCache :many
 SELECT id, file_path FROM media
 WHERE library_id = ?;
+
+-- name: GetVariantsByGroupID :many
+SELECT * FROM media
+WHERE variant_group_id = ?
+ORDER BY language;

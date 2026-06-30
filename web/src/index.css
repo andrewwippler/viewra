@@ -278,6 +278,7 @@ body {
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   margin: 0;
   min-height: 100vh;
+  background: #0a0a0a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -702,4 +703,12 @@ body.fullscreen-active {
   position: fixed !important;
   width: 100% !important;
   height: 100vh !important;
+}
+
+/* Suppress TV-style focus outlines in web build.
+   The TV build adds [data-tv] to <html>, so these overrides don't apply there.
+   The login page is outside .app-background, so it keeps native focus indicators. */
+html:not([data-tv]) .app-background :focus {
+  outline: none !important;
+  box-shadow: none !important;
 }

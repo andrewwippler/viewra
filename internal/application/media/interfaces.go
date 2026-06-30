@@ -23,3 +23,8 @@ type StreamInfoExecutor interface {
 type GetTracksExecutor interface {
 	Execute(ctx context.Context, mediaID int64) (*GetTracksResponse, error)
 }
+
+// DeleteMediaExecutor defines the interface for deleting media
+type DeleteMediaExecutor interface {
+	Execute(ctx context.Context, mediaID int64) error
+}

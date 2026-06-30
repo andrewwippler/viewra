@@ -39,6 +39,7 @@ type MediaRepository struct {
 	GetAudioTracksErr       error
 	GetSubtitleTracksErr    error
 	GetFilePathCacheErr     error
+	GetVariantsByGroupIDErr error
 }
 
 // NewMediaRepository creates a new mock media repository.
@@ -447,4 +448,25 @@ func (m *MediaRepository) DeleteSubtitleTracksByMediaID(ctx context.Context, med
 
 	delete(m.subtitleTracks, mediaID)
 	return nil
+}
+
+// GetVariantsByGroupID retrieves all media entries in a variant group.
+func (m *MediaRepository) GetVariantsByGroupID(ctx context.Context, groupID int64) ([]*media.Media, error) {
+	if m.GetVariantsByGroupIDErr != nil {
+		return nil, m.GetVariantsByGroupIDErr
+	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var variants []*media.Media
+	for _, item := range m.media {
+		if item.VariantGroupID != nil && *item.VariantGroupID == groupID {
+			variants = append(variants, item)
+		}
+	}
+	if variants == nil {
+		return []*media.Media{}, nil
+	}
+	return variants, nil
 }

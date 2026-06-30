@@ -39,7 +39,7 @@ export const MarkWatchedButton = ({
     e.preventDefault()
     e.stopPropagation()
 
-    if (isLoading) return
+    if (isLoading) {return}
 
     const newState = !optimisticWatched
     setOptimisticWatched(newState)

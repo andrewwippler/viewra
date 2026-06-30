@@ -3,6 +3,7 @@ package library
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,8 +13,9 @@ import (
 
 // mockScanJobRepository is a mock implementation of scanner.ScanJobRepository
 type mockScanJobRepository struct {
-	jobs      map[int64]*scanner.ScanJob
-	nextID    int64
+	mu               sync.RWMutex
+	jobs             map[int64]*scanner.ScanJob
+	nextID           int64
 	getByIDErr       error
 	getLatestErr     error
 	listByLibraryErr error
@@ -27,6 +29,8 @@ func newMockScanJobRepository() *mockScanJobRepository {
 }
 
 func (m *mockScanJobRepository) Create(ctx context.Context, job *scanner.ScanJob) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	job.ID = m.nextID
 	m.nextID++
 	m.jobs[job.ID] = job
@@ -37,17 +41,22 @@ func (m *mockScanJobRepository) GetByID(ctx context.Context, id int64) (*scanner
 	if m.getByIDErr != nil {
 		return nil, m.getByIDErr
 	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	job, ok := m.jobs[id]
 	if !ok {
 		return nil, scanner.ErrNotFound
 	}
-	return job, nil
+	return job.Copy(), nil
 }
 
 func (m *mockScanJobRepository) GetLatestByLibrary(ctx context.Context, libraryID int64) (*scanner.ScanJob, error) {
 	if m.getLatestErr != nil {
 		return nil, m.getLatestErr
 	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	var latest *scanner.ScanJob
 	for _, job := range m.jobs {
@@ -61,7 +70,7 @@ func (m *mockScanJobRepository) GetLatestByLibrary(ctx context.Context, libraryI
 	if latest == nil {
 		return nil, scanner.ErrNotFound
 	}
-	return latest, nil
+	return latest.Copy(), nil
 }
 
 func (m *mockScanJobRepository) ListByLibrary(ctx context.Context, libraryID int64, limit int32) ([]*scanner.ScanJob, error) {
@@ -69,10 +78,13 @@ func (m *mockScanJobRepository) ListByLibrary(ctx context.Context, libraryID int
 		return nil, m.listByLibraryErr
 	}
 
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	var jobs []*scanner.ScanJob
 	for _, job := range m.jobs {
 		if job.LibraryID == libraryID {
-			jobs = append(jobs, job)
+			jobs = append(jobs, job.Copy())
 		}
 	}
 
@@ -85,16 +97,21 @@ func (m *mockScanJobRepository) ListByLibrary(ctx context.Context, libraryID int
 }
 
 func (m *mockScanJobRepository) ListRunning(ctx context.Context) ([]*scanner.ScanJob, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	var running []*scanner.ScanJob
 	for _, job := range m.jobs {
 		if job.Status == scanner.ScanStatusRunning {
-			running = append(running, job)
+			running = append(running, job.Copy())
 		}
 	}
 	return running, nil
 }
 
 func (m *mockScanJobRepository) UpdateProgress(ctx context.Context, id int64, progress *scanner.Progress) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	job, ok := m.jobs[id]
 	if !ok {
 		return scanner.ErrNotFound
@@ -108,6 +125,8 @@ func (m *mockScanJobRepository) UpdateProgress(ctx context.Context, id int64, pr
 }
 
 func (m *mockScanJobRepository) UpdateStatus(ctx context.Context, id int64, status scanner.ScanStatus) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	job, ok := m.jobs[id]
 	if !ok {
 		return scanner.ErrNotFound
@@ -117,22 +136,32 @@ func (m *mockScanJobRepository) UpdateStatus(ctx context.Context, id int64, stat
 }
 
 func (m *mockScanJobRepository) Complete(ctx context.Context, job *scanner.ScanJob) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	existing, ok := m.jobs[job.ID]
 	if !ok {
 		return scanner.ErrNotFound
 	}
-	existing.Status = job.Status
-	existing.Progress = job.Progress
-	existing.FilesFound = job.FilesFound
-	existing.FilesProcessed = job.FilesProcessed
-	existing.BytesProcessed = job.BytesProcessed
-	existing.ErrorCount = job.ErrorCount
-	existing.CompletedAt = job.CompletedAt
-	existing.ErrorMessage = job.ErrorMessage
+	// Create a copy and store it to avoid racing with readers holding the old pointer
+	updated := existing.Copy()
+	updated.Status = job.Status
+	updated.Progress = job.Progress
+	updated.FilesFound = job.FilesFound
+	updated.FilesProcessed = job.FilesProcessed
+	updated.BytesProcessed = job.BytesProcessed
+	updated.ErrorCount = job.ErrorCount
+	updated.WarningCount = job.WarningCount
+	updated.CompletedAt = job.CompletedAt
+	updated.ErrorMessage = job.ErrorMessage
+	updated.Phase = job.Phase
+	updated.DiscoveryDone = job.DiscoveryDone
+	m.jobs[job.ID] = updated
 	return nil
 }
 
 func (m *mockScanJobRepository) Delete(ctx context.Context, id int64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	delete(m.jobs, id)
 	return nil
 }

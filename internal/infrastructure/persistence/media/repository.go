@@ -89,6 +89,15 @@ func (r *Repository) GetFilePathCache(ctx context.Context, libraryID int64) (map
 	return cache, nil
 }
 
+// GetVariantsByGroupID retrieves all media items that share a variant group ID
+func (r *Repository) GetVariantsByGroupID(ctx context.Context, groupID int64) ([]*media.Media, error) {
+	rows, err := r.Q().GetVariantsByGroupID(ctx, sql.NullInt64{Int64: groupID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+	return mapSlice(rows, mediumToDomain), nil
+}
+
 // ListByType retrieves all media items of a specific type in a library
 func (r *Repository) ListByType(ctx context.Context, libraryID int64, mediaType media.MediaType) ([]*media.Media, error) {
 	rows, err := r.Q().ListMediaByType(ctx, unified.ListMediaByTypeParams{

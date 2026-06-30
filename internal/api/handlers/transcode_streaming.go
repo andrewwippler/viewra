@@ -57,6 +57,9 @@ func (h *TranscodeHandler) ServePlaylist(c *gin.Context) {
 		}
 	}
 
+	// Parse preferred audio language (ISO 639-2 code, e.g., "eng", "spa", "fra")
+	preferredAudioLanguage := c.Query("audioLanguage")
+
 	// Parse client codec capabilities from query params first (passed from master playlist)
 	// Fall back to headers if not present (direct requests)
 	supportedVideoCodecs := parseCommaSeparatedHeader(c.Query("codecs"))
@@ -70,14 +73,15 @@ func (h *TranscodeHandler) ServePlaylist(c *gin.Context) {
 
 	// Use the serve manifest use case
 	response, err := h.serveManifestUseCase.Execute(c.Request.Context(), transcode.ServeManifestRequest{
-		MediaID:              mediaID,
-		Quality:              quality,
-		OutputDir:            h.outputDir,
-		StartPosition:        startPosition,
-		AudioTrackIndex:      audioTrackIndex,
-		SupportedVideoCodecs: supportedVideoCodecs,
-		SupportedContainers:  supportedContainers,
-		StrategyHint:         strategyHint,
+		MediaID:                 mediaID,
+		Quality:                 quality,
+		OutputDir:               h.outputDir,
+		StartPosition:           startPosition,
+		AudioTrackIndex:         audioTrackIndex,
+		PreferredAudioLanguage:  preferredAudioLanguage,
+		SupportedVideoCodecs:    supportedVideoCodecs,
+		SupportedContainers:     supportedContainers,
+		StrategyHint:            strategyHint,
 	})
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
@@ -97,18 +101,24 @@ func (h *TranscodeHandler) ServePlaylist(c *gin.Context) {
 			c.Header("X-Session-ID", response.SessionID)
 		}
 
-		// If audio track is specified, we need to rewrite segment URLs to include the parameter
-		// This ensures HLS.js requests segments with the correct audio track
-		if audioTrackIndex > 0 {
-			content, err := rewritePlaylistWithAudioTrack(response.ManifestPath, audioTrackIndex)
-			if err != nil {
-				respondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to process playlist")
-				return
-			}
-			c.Data(http.StatusOK, "application/vnd.apple.mpegurl", content)
-		} else {
-			c.File(response.ManifestPath)
+		// Process the playlist before serving:
+		// 1. Ensure #EXT-X-PLAYLIST-TYPE:EVENT is present (segment muxer omits it)
+		// 2. Fix #EXT-X-MEDIA-SEQUENCE to 0 (segment muxer increments it, confusing HLS.js)
+		// 3. Inject audio track parameter into segment URLs if multi-audio
+		content, err := processPlaylistForServing(response.ManifestPath, audioTrackIndex)
+		if err != nil {
+			respondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to process playlist")
+			return
 		}
+		c.Data(http.StatusOK, "application/vnd.apple.mpegurl", content)
+
+		// Heartbeat: Update session last accessed time on playlist request.
+		// HLS.js periodically refreshes the playlist during playback, which keeps
+		// the session alive even when segment requests are briefly paused.
+		if session, err := h.sessionManager.GetSession(mediaID, quality, audioTrackIndex); err == nil {
+			session.UpdateLastAccessed()
+		}
+		h.queue.RecordAccess(mediaID, quality)
 
 	case transcode.StrategyDirectPlay:
 		// Video is compatible - redirect to direct stream
@@ -172,6 +182,7 @@ func (h *TranscodeHandler) ServeHLSSegment(c *gin.Context) {
 			return
 		}
 		session.UpdateLastAccessed()
+		h.queue.RecordAccess(mediaID, quality)
 		c.Header("Content-Type", "video/mp4")
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.File(initPath)
@@ -194,6 +205,7 @@ func (h *TranscodeHandler) ServeHLSSegment(c *gin.Context) {
 
 	// Update session last accessed time
 	session.UpdateLastAccessed()
+	h.queue.RecordAccess(mediaID, quality)
 
 	// Serve the segment with appropriate content type
 	// fMP4 segments use video/mp4, MPEG-TS uses video/mp2t
@@ -281,18 +293,26 @@ func (h *TranscodeHandler) ServeMasterPlaylist(c *gin.Context) {
 	// If true, client has an HDR-capable display and can play HDR content natively
 	clientSupportsHDR := c.Query("hdrDisplay") == "true"
 
+	// Parse preferred audio language (ISO 639-2 code, e.g., "eng", "spa", "fra")
+	preferredAudioLanguage := c.Query("audioLanguage")
+
+	// Parse preferred subtitle language (ISO 639-2 code or "off")
+	preferredSubtitleLanguage := c.Query("subtitleLanguage")
+
 	// Use the serve master playlist use case
 	response, err := h.serveMasterPlaylistUseCase.Execute(c.Request.Context(), transcode.ServeMasterPlaylistRequest{
-		MediaID:              mediaID,
-		SupportedVideoCodecs: supportedVideoCodecs,
-		SupportedContainers:  supportedContainers,
-		StartPosition:        c.Query("start"),
-		AudioTrackIndex:      audioTrackIndex,
-		ScreenWidth:          screenWidth,
-		ScreenHeight:         screenHeight,
-		Bandwidth:            bandwidth,
-		QualityOverride:      qualityOverride,
-		ClientSupportsHDR:    clientSupportsHDR,
+		MediaID:                  mediaID,
+		SupportedVideoCodecs:     supportedVideoCodecs,
+		SupportedContainers:      supportedContainers,
+		StartPosition:            c.Query("start"),
+		AudioTrackIndex:          audioTrackIndex,
+		PreferredAudioLanguage:   preferredAudioLanguage,
+		PreferredSubtitleLanguage: preferredSubtitleLanguage,
+		ScreenWidth:              screenWidth,
+		ScreenHeight:             screenHeight,
+		Bandwidth:                bandwidth,
+		QualityOverride:          qualityOverride,
+		ClientSupportsHDR:        clientSupportsHDR,
 	})
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
@@ -394,9 +414,57 @@ func (h *TranscodeHandler) ServeSubtitle(c *gin.Context) {
 	c.String(http.StatusOK, vttContent)
 }
 
-// rewritePlaylistWithAudioTrack reads an HLS playlist and appends ?audioTrack=X to segment URLs.
-// This ensures HLS.js requests segments with the correct audio track parameter.
-func rewritePlaylistWithAudioTrack(playlistPath string, audioTrackIndex int) ([]byte, error) {
+// ServeHeartbeat handles keepalive requests from the frontend.
+// Updates the session's last accessed time to prevent idle timeout
+// during pauses or brief network interruptions.
+//
+// @Summary Keep transcode session alive
+// @Description Lightweight endpoint to prevent idle session timeout during pauses
+// @Tags transcode
+// @Param id path int true "Media ID"
+// @Param quality query string true "Quality level (e.g., 1080p-10m)"
+// @Param audioTrack query int false "Audio track index"
+// @Success 200 "Session alive"
+// @Success 404 "Session not found"
+// @Failure 400 {object} handlers.APIError
+// @Router /api/media/{id}/hls/heartbeat [get]
+func (h *TranscodeHandler) ServeHeartbeat(c *gin.Context) {
+	mediaID, err := parseID(c.Param("id"))
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "BAD_REQUEST", "Invalid media ID")
+		return
+	}
+
+	quality := c.Query("quality")
+	if quality == "" {
+		c.Status(http.StatusOK)
+		return
+	}
+
+	audioTrackIndex := -1
+	if audioTrackStr := c.Query("audioTrack"); audioTrackStr != "" {
+		if idx, err := parseInt(audioTrackStr); err == nil && idx >= 0 {
+			audioTrackIndex = int(idx)
+		}
+	}
+
+	session, err := h.sessionManager.GetSession(mediaID, quality, audioTrackIndex)
+	if err != nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
+	session.UpdateLastAccessed()
+	h.queue.RecordAccess(mediaID, quality)
+
+	c.Status(http.StatusOK)
+}
+
+// processPlaylistForServing reads an HLS playlist and sanitises it for HLS.js:
+//  1. Injects #EXT-X-PLAYLIST-TYPE:EVENT if missing (segment muxer with +live omits it)
+//  2. Forces #EXT-X-MEDIA-SEQUENCE:0 (segment muxer increments it, causing live-sync confusion)
+//  3. Appends ?audioTrack=X to segment URLs when multi-audio is in use
+func processPlaylistForServing(playlistPath string, audioTrackIndex int) ([]byte, error) {
 	file, err := os.Open(playlistPath)
 	if err != nil {
 		return nil, err
@@ -406,22 +474,54 @@ func rewritePlaylistWithAudioTrack(playlistPath string, audioTrackIndex int) ([]
 	var result strings.Builder
 	scanner := bufio.NewScanner(file)
 
+	hasPlaylistType := false
+	hasMediaSequence := false
+	needsNewline := false
+
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// Check if this line is a segment URL (not a comment/directive)
-		// Segment URLs are lines that don't start with # and end with .ts or .m4s
-		if !strings.HasPrefix(line, "#") && (strings.HasSuffix(line, ".ts") || strings.HasSuffix(line, ".m4s")) {
-			// Append audio track query parameter
+		// Track whether the playlist already has EXT-X-PLAYLIST-TYPE
+		if strings.HasPrefix(line, "#EXT-X-PLAYLIST-TYPE:") {
+			hasPlaylistType = true
+		}
+
+		// Override media sequence to always start at 0
+		if strings.HasPrefix(line, "#EXT-X-MEDIA-SEQUENCE:") {
+			line = "#EXT-X-MEDIA-SEQUENCE:0"
+			hasMediaSequence = true
+		}
+
+		// Append audio track parameter to segment URLs
+		if audioTrackIndex > 0 &&
+			!strings.HasPrefix(line, "#") &&
+			(strings.HasSuffix(line, ".ts") || strings.HasSuffix(line, ".m4s")) {
 			line = fmt.Sprintf("%s?audioTrack=%d", line, audioTrackIndex)
 		}
 
+		if needsNewline {
+			result.WriteString("\n")
+		}
 		result.WriteString(line)
-		result.WriteString("\n")
+		needsNewline = true
 	}
 
 	if err := scanner.Err(); err != nil {
 		return nil, err
+	}
+
+	// Inject #EXT-X-PLAYLIST-TYPE:EVENT right after #EXTM3U if missing
+	if !hasPlaylistType {
+		content := result.String()
+		content = strings.Replace(content, "#EXTM3U", "#EXTM3U\n#EXT-X-PLAYLIST-TYPE:EVENT", 1)
+		return []byte(content), nil
+	}
+
+	// Ensure media sequence line exists (should always be present)
+	if !hasMediaSequence {
+		content := result.String()
+		content = strings.Replace(content, "#EXTM3U", "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:0", 1)
+		return []byte(content), nil
 	}
 
 	return []byte(result.String()), nil

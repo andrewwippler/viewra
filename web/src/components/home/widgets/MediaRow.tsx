@@ -227,6 +227,8 @@ const TrendingCard = ({ item, onClick }: TrendingCardProps) => {
             <img
               src={item.poster_path}
               alt={item.title}
+              width="2"
+              height="3"
               className="w-full h-full object-cover"
               loading="lazy"
             />

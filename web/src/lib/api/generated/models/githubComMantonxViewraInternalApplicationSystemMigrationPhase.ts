@@ -9,7 +9,7 @@
 export type GithubComMantonxViewraInternalApplicationSystemMigrationPhase =
   (typeof GithubComMantonxViewraInternalApplicationSystemMigrationPhase)[keyof typeof GithubComMantonxViewraInternalApplicationSystemMigrationPhase]
 
-// eslint-disable-next-line @typescript-eslint/no-redeclare
+ 
 export const GithubComMantonxViewraInternalApplicationSystemMigrationPhase = {
   PhaseMaintenanceMode: 'maintenance_mode',
   PhaseBackup: 'backup',

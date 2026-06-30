@@ -107,8 +107,16 @@ func (v *PathValidator) Validate(path string) error {
 	return nil
 }
 
-// isReadable checks if a directory is readable
+// isReadable checks if a path is readable (directory entries or file open)
 func isReadable(path string) bool {
-	_, err := os.ReadDir(path)
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	if info.IsDir() {
+		_, err := os.ReadDir(path)
+		return err == nil
+	}
+	_, err = os.Open(path)
 	return err == nil
 }

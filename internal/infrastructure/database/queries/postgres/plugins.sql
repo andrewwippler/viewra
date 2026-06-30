@@ -86,7 +86,7 @@ UPDATE plugins SET
 WHERE id = $1;
 
 -- name: PluginExists :one
-SELECT CASE WHEN EXISTS(SELECT 1 FROM plugins WHERE id = $1) THEN 1::bigint ELSE 0::bigint END as plugin_exists;
+SELECT CASE WHEN EXISTS(SELECT 1 FROM plugins WHERE id = $1) THEN true ELSE false END as plugin_exists;
 
 -- name: UpsertPlugin :exec
 INSERT INTO plugins (

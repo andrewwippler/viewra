@@ -668,6 +668,7 @@ func TestNewService(t *testing.T) {
 		fav,
 		genres,
 		trending,
+		nil, // unwatchedMovies
 		nil, // logger
 	)
 

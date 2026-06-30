@@ -237,6 +237,7 @@ func (c *Coordinator) ProcessFile(ctx context.Context, fileInfo scanner.FileInfo
 		if movieInfo, err := c.parser.ParseMovie(fileInfo.Path); err == nil && movieInfo != nil {
 			result.Title = movieInfo.Title
 			result.Year = &movieInfo.Year
+			result.Language = movieInfo.Language
 		}
 
 	case scanner.MediaTypeTrack:
@@ -318,6 +319,9 @@ func (c *Coordinator) ProcessFile(ctx context.Context, fileInfo scanner.FileInfo
 							IsBitmap:     t.IsBitmap,
 						}
 					}
+
+					// Derive file language from audio tracks if not already set by filename
+					c.detectLanguageFromTracks(&result)
 				}
 			}
 		}
@@ -350,6 +354,57 @@ func (c *Coordinator) updateFileCache(fileInfo scanner.FileInfo, result *scanner
 	c.mu.Lock()
 	c.config.FileCache[fileInfo.Path] = entry
 	c.mu.Unlock()
+}
+
+// detectLanguageFromTracks derives the file's language from its audio tracks when
+// the filename did not contain an explicit language tag.
+// Priority: all tracks same language → default track's language → first track's language.
+func (c *Coordinator) detectLanguageFromTracks(result *scanner.ScanResult) {
+	if result.Language != "" || len(result.AudioTracks) == 0 {
+		return
+	}
+
+	// Check if all non-commentary audio tracks share one language
+	var langCounts = make(map[string]int)
+	var defaultLang string
+
+	for _, t := range result.AudioTracks {
+		if t.IsCommentary || t.Language == "" {
+			continue
+		}
+		langCounts[t.Language]++
+		if t.IsDefault {
+			defaultLang = t.Language
+		}
+	}
+
+	if len(langCounts) == 0 {
+		// No usable language info — use first track's language even if empty
+		result.Language = result.AudioTracks[0].Language
+		return
+	}
+
+	if len(langCounts) == 1 {
+		// All tracks are the same language
+		for lang := range langCounts {
+			result.Language = lang
+		}
+		return
+	}
+
+	// Mixed languages — use default track's language, or first non-commentary track
+	if defaultLang != "" {
+		result.Language = defaultLang
+		return
+	}
+
+	// Fallback: first non-commentary track's language
+	for _, t := range result.AudioTracks {
+		if !t.IsCommentary && t.Language != "" {
+			result.Language = t.Language
+			return
+		}
+	}
 }
 
 // GetProgress returns current scan progress

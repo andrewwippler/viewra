@@ -1,10 +1,10 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
-import { useAuth } from '@/contexts'
-import { useTheme } from '@/contexts'
+import { useAuth, useTheme } from '@/contexts'
 import { Loading } from '@/components/ui'
 import { LoginForm } from '@/components/auth/LoginForm'
 import { cn } from '@/lib/utils'
+import { isWebOSTV } from '@/utils/device'
 
 const LoginPage = () => {
   const navigate = useNavigate()
@@ -12,29 +12,41 @@ const LoginPage = () => {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (!authLoading && isAuthenticated) {
+  // Strict TV detection combining build target and runtime UA check
+  const isTv = isWebOSTV()
+
+  // Centralized navigation handler
+  const navigateToHome = () => {
+    if (isTv) {
+      navigate({ to: '/webos' })
+    } else {
       navigate({ to: '/' })
     }
-  }, [isAuthenticated, authLoading, navigate])
+  }
 
-  // Redirect to setup if needed
+  // Redirect to setup if backend needs initial configuration
   useEffect(() => {
     if (!authLoading && needsSetup) {
       navigate({ to: '/setup' })
     }
   }, [needsSetup, authLoading, navigate])
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigateToHome()
+    }
+  }, [isAuthenticated, authLoading])
+
   const handleSuccess = () => {
-    navigate({ to: '/' })
+    navigateToHome()
   }
 
   if (authLoading) {
     return (
       <div
         className={cn(
-          'flex items-center justify-center p-4',
+          'flex items-center justify-center p-4 min-h-screen',
           isDark ? 'auth-background' : 'auth-background-light'
         )}
       >
@@ -46,7 +58,7 @@ const LoginPage = () => {
   return (
     <div
       className={cn(
-        'flex items-center justify-center p-4 relative overflow-hidden',
+        'flex items-center justify-center p-4 min-h-screen relative overflow-hidden',
         isDark ? 'auth-background' : 'auth-background-light'
       )}
     >

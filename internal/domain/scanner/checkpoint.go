@@ -39,6 +39,19 @@ type ScanCheckpoint struct {
 	CreatedAt     time.Time
 }
 
+// Copy returns a deep copy of the ScanCheckpoint.
+func (s *ScanCheckpoint) Copy() *ScanCheckpoint {
+	if s == nil {
+		return nil
+	}
+	c := *s
+	if s.ProcessedAt != nil {
+		t := *s.ProcessedAt
+		c.ProcessedAt = &t
+	}
+	return &c
+}
+
 // CheckpointStats provides aggregate statistics about checkpoint progress
 type CheckpointStats struct {
 	TotalFiles       int64

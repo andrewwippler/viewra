@@ -9,8 +9,9 @@ import (
 	enrichmentRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/enrichment"
 	homeRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/home"
 	imageRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/image"
-	keywordsRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/keywords"
+	keywordsRepo 	"github.com/mantonx/viewra/internal/infrastructure/persistence/keywords"
 	libraryRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/library"
+	livetvRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/livetv"
 	mediaRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/media"
 	movieRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/movie"
 	musicRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/music"
@@ -28,6 +29,7 @@ import (
 	transcodeAnalyticsRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/transcode_analytics"
 	tvRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/tvshow"
 	userRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/user"
+	"github.com/mantonx/viewra/internal/infrastructure/database/unified"
 	"github.com/mantonx/viewra/internal/infrastructure/plugins"
 	"github.com/mantonx/viewra/internal/infrastructure/plugins/querier"
 )
@@ -87,7 +89,12 @@ type Repositories struct {
 
 	// User ratings (favorites, likes, dislikes)
 	Ratings *ratingsRepo.Repository
-}
+
+		// Live TV repositories
+		LiveTvChannel *livetvRepo.ChannelRepository
+		LiveTvProgram *livetvRepo.ProgramRepository
+		Querier      *unified.Querier
+	}
 
 // BuildRepositories creates and wires all repository instances using the provided database connection.
 // All repositories share a common base repository for dual-database (SQLite/PostgreSQL) support.
@@ -149,6 +156,9 @@ func BuildRepositories(db *sql.DB, driver string) *Repositories {
 	pluginRepository := pluginRepo.NewRepository(baseRepo)
 	pluginMediaQuerier := querier.NewDBMediaQuerier(db, driver)
 
+	// Create unified querier for dual-database support
+	querier := baseRepo.Q()
+
 	// Create transcode analytics repository
 	transcodeAnalyticsRepository := transcodeAnalyticsRepo.NewRepository(baseRepo)
 
@@ -160,6 +170,10 @@ func BuildRepositories(db *sql.DB, driver string) *Repositories {
 
 	// Create ratings repository
 	ratingsRepository := ratingsRepo.NewRepository(db, driver)
+
+	// Create Live TV repositories
+	channelRepository := livetvRepo.NewChannelRepository(baseRepo)
+	programRepository := livetvRepo.NewProgramRepository(baseRepo)
 
 	return &Repositories{
 		Library:                  libraryRepository,
@@ -194,5 +208,8 @@ func BuildRepositories(db *sql.DB, driver string) *Repositories {
 		TranscodeAnalytics:       transcodeAnalyticsRepository,
 		HomePreferences:          homePreferencesRepository,
 		Ratings:                  ratingsRepository,
+		LiveTvChannel:            channelRepository,
+		LiveTvProgram:            programRepository,
+		Querier:                  querier,
 	}
 }

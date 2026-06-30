@@ -5,6 +5,7 @@ import { logger } from '@/lib/utils/logger'
 import { authFetch, buildAuthenticatedUrl } from '@/lib/utils/authFetch'
 import { detectCodecSupportSync, getSupportedCodecsHeader, detectHDRDisplaySync, getDeviceProfileHash } from '@/lib/capabilities'
 import type { GithubComMantonxViewraInternalApplicationMediaMediaResponse as Media } from '@/lib/api/generated/models'
+import { useGetApiSettingsUser } from '@/lib/api/generated/settings/settings'
 
 type TranscodeState = 'idle' | 'checking' | 'ready' | 'direct'
 
@@ -72,7 +73,9 @@ logger.debug('Detected codec support (sync):', {
 const buildManifestUrl = (
   mediaId: number,
   startPosition: number,
-  qualityOverride?: string
+  qualityOverride?: string,
+  preferredAudioLanguage?: string,
+  preferredSubtitleLanguage?: string
 ): string => {
   const params = new URLSearchParams()
 
@@ -106,9 +109,22 @@ const buildManifestUrl = (
     params.set('quality', qualityOverride)
   }
 
+  // Preferred audio language (ISO 639-2 code, e.g., "eng", "spa", "fra")
+  if (preferredAudioLanguage && preferredAudioLanguage !== 'off') {
+    params.set('audioLanguage', preferredAudioLanguage)
+  }
+
+  // Preferred subtitle language (ISO 639-2 code or "off")
+  if (preferredSubtitleLanguage && preferredSubtitleLanguage !== 'off') {
+    params.set('subtitleLanguage', preferredSubtitleLanguage)
+  }
+
   // HDR display capability - called here (not at module load) to pick up localStorage overrides
+  // NOTE: Disabled on TV builds — WebOS Chrome 79 reports HDR via CSS media query
+  // but its MSE/decoder cannot handle HDR content. The backend would serve HDR
+  // segments that Chrome 79 can't decode, causing silent playback failure.
   const hdrDisplay = detectHDRDisplaySync()
-  if (hdrDisplay.displaySupportsHDR) {
+  if (hdrDisplay.displaySupportsHDR && import.meta.env.VITE_UI_MODE !== 'tv') {
     params.set('hdrDisplay', 'true')
   }
 
@@ -159,6 +175,9 @@ export const useMediaPlayback = (): UseMediaPlaybackReturn => {
   const [availableQualities, setAvailableQualities] = useState<QualityOption[]>([])
   const [selectedQualityId, setSelectedQualityId] = useState<string | null>(null)
   const [savedPreferences, setSavedPreferences] = useState<SavedPreferences | null>(null)
+
+  // Fetch user settings for preferred audio/subtitle languages
+  const { data: userSettings } = useGetApiSettingsUser()
 
   const fallbackToDirectStream = (id: number) => {
     const directUrl = buildAuthenticatedUrl(`${API_BASE_URL}/api/stream/${id}`)
@@ -218,8 +237,22 @@ export const useMediaPlayback = (): UseMediaPlaybackReturn => {
 
     setInitialPosition(resumePosition)
 
+    // Extract preferred audio/subtitle languages from user settings
+    let preferredAudioLanguage: string | undefined
+    let preferredSubtitleLanguage: string | undefined
+
+    if (userSettings?.status === 200 && userSettings.data.settings) {
+      for (const setting of userSettings.data.settings) {
+        if (setting.key === 'playback.preferred_audio_language' && setting.value) {
+          preferredAudioLanguage = String(setting.value)
+        } else if (setting.key === 'playback.preferred_subtitle_language' && setting.value) {
+          preferredSubtitleLanguage = String(setting.value)
+        }
+      }
+    }
+
     // Use saved quality if available, otherwise let backend pick optimal
-    const manifestUrl = buildManifestUrl(id, resumePosition, savedQuality ?? undefined)
+    const manifestUrl = buildManifestUrl(id, resumePosition, savedQuality ?? undefined, preferredAudioLanguage, preferredSubtitleLanguage)
 
     try {
       const response = await authFetch(manifestUrl, { redirect: 'manual' })
@@ -269,10 +302,24 @@ export const useMediaPlayback = (): UseMediaPlaybackReturn => {
       return
     }
 
+    // Extract preferred audio/subtitle languages from user settings
+    let preferredAudioLanguage: string | undefined
+    let preferredSubtitleLanguage: string | undefined
+
+    if (userSettings?.status === 200 && userSettings.data.settings) {
+      for (const setting of userSettings.data.settings) {
+        if (setting.key === 'playback.preferred_audio_language' && setting.value) {
+          preferredAudioLanguage = String(setting.value)
+        } else if (setting.key === 'playback.preferred_subtitle_language' && setting.value) {
+          preferredSubtitleLanguage = String(setting.value)
+        }
+      }
+    }
+
     logger.info('[Playback] Changing quality', { qualityId, currentPosition })
 
     // Build new URL with quality override and current position
-    const newManifestUrl = buildManifestUrl(mediaId, currentPosition, qualityId)
+    const newManifestUrl = buildManifestUrl(mediaId, currentPosition, qualityId, preferredAudioLanguage, preferredSubtitleLanguage)
 
     try {
       // Fetch to verify and get updated qualities
@@ -294,7 +341,7 @@ export const useMediaPlayback = (): UseMediaPlaybackReturn => {
     } catch (error) {
       logger.error('Error changing quality:', error)
     }
-  }, [mediaId])
+  }, [mediaId, userSettings])
 
   const stopPlayback = () => {
     setIsPlaying(false)

@@ -6,6 +6,7 @@
 import { useCallback, useRef } from 'react'
 import Hls from 'hls.js'
 import { logger } from '@/lib/utils/logger'
+import { enterFullscreen, isInCSSFullscreen, exitCSSFullscreen } from '@/utils/device'
 
 // Threshold for triggering backend FFmpeg restart on seek.
 // This should match the backend's session reuse window (60s for remux, 30s for transcode).
@@ -194,8 +195,13 @@ export const useVideoControls = ({
   }, [videoRef])
 
   const handleFullscreenToggle = useCallback(() => {
-    if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen()
+    const container = containerRef.current
+    if (!container) {return}
+
+    if (!document.fullscreenElement && !isInCSSFullscreen(container)) {
+      enterFullscreen(container)
+    } else if (isInCSSFullscreen(container)) {
+      exitCSSFullscreen(container)
     } else {
       document.exitFullscreen()
     }

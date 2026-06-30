@@ -385,7 +385,7 @@ func initTranscodeServices(
 		FFmpegPaths:                transcodeConfig.FFmpegPaths,
 		HardwareAccel:              string(transcodeConfig.HardwareAccel),
 		HardwareDevice:             transcodeConfig.HardwareDevice,
-		OutputBaseDir:              transcodeConfig.OutputBaseDir,
+		OutputBaseDir:              cfg.Media.TranscodeOutputDir,
 		MinFreeDiskGB:              transcodeConfig.MinFreeDiskGB,
 		MaxCPUPercent:              transcodeConfig.MaxCPUPercent,
 		MaxMemoryMB:                transcodeConfig.MaxMemoryMB,
@@ -416,7 +416,11 @@ func initTranscodeServices(
 		logger.Info("Cleaned orphaned transcode directories", "count", cleanedCount, "bytes_freed", freedBytes)
 	}
 
-	_ = sessionManager.StartPeriodicCleanup(15*time.Second, 30*time.Second, 5*time.Minute, 1*time.Hour, cfg.Media.TranscodeOutputDir)
+	idleTimeout := cfg.Media.TranscodeIdleTimeout
+	if idleTimeout < 90*time.Second {
+		idleTimeout = 90 * time.Second
+	}
+	_ = sessionManager.StartPeriodicCleanup(15*time.Second, idleTimeout, 5*time.Minute, 1*time.Hour, cfg.Media.TranscodeOutputDir)
 	sessionManager.WarmupGPU()
 
 	return transcodeService, transcodeQueue, cleanupService, sessionManager, transcodeConfig

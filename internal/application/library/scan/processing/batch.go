@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mantonx/viewra/internal/application/library/scan"
+	"github.com/mantonx/viewra/internal/application/library/scan/media"
 	"github.com/mantonx/viewra/internal/domain/library"
 	"github.com/mantonx/viewra/internal/domain/scanner"
 	"github.com/mantonx/viewra/internal/infrastructure/events"
@@ -309,6 +310,16 @@ func CompleteScan(ctx context.Context, deps *Deps, pctx *CheckpointContext, disc
 			deps.Logger.Error("failed to update library last_scanned_at",
 				"library_id", pctx.Lib.ID,
 				"error", err)
+		}
+
+		// Reconcile variant groups for movie libraries
+		// This groups movies with the same title+year that were missed during initial scan
+		if pctx.Lib.Type == library.LibraryTypeMovies {
+			if err := media.ReconcileVariantGroups(ctx, deps.MediaRepos, deps.Logger, pctx.Lib.ID); err != nil {
+				deps.Logger.Warn("failed to reconcile variant groups",
+					"library_id", pctx.Lib.ID,
+					"error", err)
+			}
 		}
 	}
 

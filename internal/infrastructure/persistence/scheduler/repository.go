@@ -352,8 +352,7 @@ func (r *LockRepository) Refresh(ctx context.Context, key string, ttl time.Durat
 
 // IsHeld checks if a lock is currently held.
 func (r *LockRepository) IsHeld(ctx context.Context, key string) (bool, error) {
-	exists, err := r.Q().SchedulerLockExists(ctx, key)
-	return exists > 0, err
+	return r.Q().SchedulerLockExists(ctx, key)
 }
 
 // CleanExpired removes all expired locks.

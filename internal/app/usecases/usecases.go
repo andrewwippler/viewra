@@ -11,6 +11,8 @@ import (
 	"github.com/mantonx/viewra/internal/application/images"
 	"github.com/mantonx/viewra/internal/application/library"
 	"github.com/mantonx/viewra/internal/application/library/scan"
+	"github.com/mantonx/viewra/internal/application/library/scan/execution"
+	appLivetv "github.com/mantonx/viewra/internal/application/livetv"
 	"github.com/mantonx/viewra/internal/application/media"
 	"github.com/mantonx/viewra/internal/application/movies"
 	"github.com/mantonx/viewra/internal/application/music"
@@ -20,8 +22,20 @@ import (
 	"github.com/mantonx/viewra/internal/application/transcode"
 	transcodeanalytics "github.com/mantonx/viewra/internal/application/transcode_analytics"
 	"github.com/mantonx/viewra/internal/application/tv"
+	"github.com/mantonx/viewra/internal/infrastructure/database/unified"
 	"github.com/mantonx/viewra/internal/infrastructure/transcoding/profile"
 )
+
+// LiveTvUseCases holds Live TV related use cases
+type LiveTvUseCases struct {
+	ListChannels  *appLivetv.ListChannelsUseCase
+	ListEPG       *appLivetv.ListEPGUseCase
+	ScanChannels  *appLivetv.ScanChannelsUseCase
+	ScanEPG       *appLivetv.ScanEPGUseCase
+	ListMappings  *appLivetv.ListMappingsUseCase
+	SetMapping    *appLivetv.SetMappingUseCase
+	DeleteMapping *appLivetv.DeleteMappingUseCase
+}
 
 // UseCases holds all application use cases organized by domain.
 // Groups related use cases for each major feature area of the application.
@@ -38,6 +52,7 @@ type UseCases struct {
 	Analytics          *analytics.Service
 	ScanJob            *scanjob.Service
 	TranscodeAnalytics *transcodeanalytics.Service
+	LiveTv             *LiveTvUseCases
 }
 
 // LibraryUseCases holds library-related use cases
@@ -131,6 +146,7 @@ func BuildUseCases(
 		Analytics:          analytics.NewService(repos.Analytics, logger),
 		ScanJob:            scanjob.NewService(repos.ScanJob, repos.Checkpoint, repos.ScanState, logger),
 		TranscodeAnalytics: transcodeanalytics.NewService(repos.TranscodeAnalytics, svcs.EventBus, logger),
+		LiveTv:             buildLiveTvUseCases(repos, *repos.Querier),
 	}
 
 	// Wire up file monitor with scan orchestrator (resolves circular dependency)
@@ -191,6 +207,15 @@ func buildLibraryUseCases(
 		scanUseCase.SetEventBus(svcs.EventBus)
 	}
 
+	// Wire up live TV dependencies for live_tv library scanning
+	if repos.LiveTvChannel != nil && repos.LiveTvProgram != nil {
+		scanUseCase.SetLiveTVDeps(&execution.LiveTVDeps{
+			ChannelRepo: repos.LiveTvChannel,
+			ProgramRepo: repos.LiveTvProgram,
+			EPGQuerier:  repos.Querier,
+		})
+	}
+
 	return &LibraryUseCases{
 		Service: library.NewLibraryService(repos.Library, repos.Image, imageCleanup, txManager, logger),
 		Scan:    scanUseCase,
@@ -228,7 +253,7 @@ func buildMediaUseCases(
 func buildMovieUseCases(repos *repositories.Repositories) *MovieUseCases {
 	return &MovieUseCases{
 		List:    movies.NewListMoviesUseCase(repos.Movie),
-		Get:     movies.NewGetMovieUseCase(repos.Movie),
+		Get:     movies.NewGetMovieUseCase(repos.Movie, repos.Media),
 		Search:  movies.NewSearchMoviesUseCase(repos.Movie),
 		ListIDs: movies.NewListMovieIDsUseCase(repos.Movie),
 	}
@@ -282,6 +307,19 @@ func buildImageUseCases(
 		GetEntity: images.NewGetEntityImagesUseCase(repos.Image),
 		GetBatch:  images.NewGetBatchMediaImagesUseCase(repos.Image),
 		Cleanup:   images.NewCleanupUseCase(repos.Image, imageCacheDir, logger),
+	}
+}
+
+// buildLiveTvUseCases creates Live TV use cases
+func buildLiveTvUseCases(repos *repositories.Repositories, querier unified.Querier) *LiveTvUseCases {
+	return &LiveTvUseCases{
+		ListChannels:  appLivetv.NewListChannelsUseCase(repos.LiveTvChannel, repos.LiveTvProgram),
+		ListEPG:       appLivetv.NewListEPGUseCase(repos.LiveTvProgram),
+		ScanChannels:  appLivetv.NewScanChannelsUseCase(repos.LiveTvChannel, repos.Library),
+		ScanEPG:       appLivetv.NewScanEPGUseCase(repos.LiveTvChannel, repos.LiveTvProgram, repos.Library, querier),
+		ListMappings:  appLivetv.NewListMappingsUseCase(repos.LiveTvChannel, repos.Library, querier),
+		SetMapping:    appLivetv.NewSetMappingUseCase(repos.Library, querier),
+		DeleteMapping: appLivetv.NewDeleteMappingUseCase(querier),
 	}
 }
 

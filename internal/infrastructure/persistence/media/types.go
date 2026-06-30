@@ -28,7 +28,7 @@ func calculateQualityScore(m *media.Media) int {
 
 // mediumToDomain converts a database Medium model to a domain Media entity.
 func mediumToDomain(sq unified.Medium) *media.Media {
-	return &media.Media{
+	m := &media.Media{
 		ID:              sq.ID,
 		LibraryID:       sq.LibraryID,
 		Title:           sq.Title,
@@ -50,11 +50,17 @@ func mediumToDomain(sq unified.Medium) *media.Media {
 		HDRFormat:       sq.HdrFormat.String,
 		ColorSpace:      sq.ColorSpace.String,
 		ColorPrimaries:  sq.ColorPrimaries.String,
+		Language:        sq.Language.String,
 		DateAdded:       common.ParseNullTime(sq.DateAdded),
 		DateModified:    common.ParseNullTimePtr(sq.DateModified),
 		CreatedAt:       common.ParseNullTime(sq.CreatedAt),
 		UpdatedAt:       common.ParseNullTime(sq.UpdatedAt),
 	}
+	if sq.VariantGroupID.Valid {
+		v := sq.VariantGroupID.Int64
+		m.VariantGroupID = &v
+	}
+	return m
 }
 
 // buildCreateParams builds CreateMediaParams from a domain Media entity.
@@ -91,6 +97,8 @@ func buildCreateParams(m *media.Media) unified.CreateMediaParams {
 		DashManifestPath:  sql.NullString{},
 		TranscodingStatus: sql.NullString{},
 		DateModified:      common.NullTimePtr(m.DateModified),
+		Language:          common.NullString(m.Language),
+		VariantGroupID:    common.NullInt64Ptr(m.VariantGroupID),
 	}
 }
 
@@ -129,6 +137,8 @@ func buildUpdateParams(m *media.Media) unified.UpdateMediaParams {
 		DashManifestPath:  params.DashManifestPath,
 		TranscodingStatus: params.TranscodingStatus,
 		DateModified:      params.DateModified,
+		Language:          params.Language,
+		VariantGroupID:    params.VariantGroupID,
 		ID:                m.ID,
 	}
 }

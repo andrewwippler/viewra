@@ -7,6 +7,7 @@
  */
 
 export interface GithubComMantonxViewraInternalDomainLibraryDirectory {
+  is_dir?: boolean
   modified_at?: string
   name?: string
   path?: string

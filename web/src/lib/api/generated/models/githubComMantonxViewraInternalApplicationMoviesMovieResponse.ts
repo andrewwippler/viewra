@@ -5,6 +5,7 @@
  * Self-hosted media server for movies, TV shows, and music
  * OpenAPI spec version: 0.0.1
  */
+import type { GithubComMantonxViewraInternalApplicationMoviesMediaVariantResponse } from './githubComMantonxViewraInternalApplicationMoviesMediaVariantResponse'
 
 export interface GithubComMantonxViewraInternalApplicationMoviesMovieResponse {
   audio_codec?: string
@@ -34,6 +35,8 @@ export interface GithubComMantonxViewraInternalApplicationMoviesMovieResponse {
   original_language?: string
   original_title?: string
   plot?: string
+  rating?: number
+  rating_votes?: number
   release_date?: string
   revenue?: number
   runtime_minutes?: number
@@ -42,6 +45,8 @@ export interface GithubComMantonxViewraInternalApplicationMoviesMovieResponse {
   title: string
   tmdb_id?: number
   updated_at?: string
+  /** Language variants */
+  variants?: GithubComMantonxViewraInternalApplicationMoviesMediaVariantResponse[]
   video_codec?: string
   /** Technical metadata */
   width?: number

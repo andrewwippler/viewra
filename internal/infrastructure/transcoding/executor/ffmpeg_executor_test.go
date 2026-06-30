@@ -254,7 +254,7 @@ func TestBuildFFmpegArgs(t *testing.T) {
 			hwAccel: AccelNone,
 			expectedArgs: []string{
 				"-map", "0:v:0",
-				"-map", "0:a:2",
+				"-map", "0:a:1",
 			},
 		},
 		{

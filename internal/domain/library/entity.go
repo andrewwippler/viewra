@@ -37,6 +37,12 @@ type MonitoringConfig struct {
 	// DebounceSeconds is the window to collect events before processing
 	// to handle bulk file operations (default: 5)
 	DebounceSeconds int `json:"debounce_seconds,omitempty"`
+
+	// XmltvURL is the URL to fetch EPG data from (live_tv libraries only)
+	XmltvURL string `json:"xmltv_url,omitempty"`
+
+	// SatipChannelListURL is the URL to the SAT>IP channellist M3U for PID correction.
+	SatipChannelListURL string `json:"satip_channel_list_url,omitempty"`
 }
 
 // DefaultMonitoringConfig returns the default monitoring configuration.
@@ -125,7 +131,7 @@ func (l *Library) validatePath() error {
 // validateType checks if the library type is valid
 func (l *Library) validateType() error {
 	switch l.Type {
-	case LibraryTypeMovies, LibraryTypeTV, LibraryTypeMusic:
+	case LibraryTypeMovies, LibraryTypeTV, LibraryTypeMusic, LibraryTypeLiveTV:
 		return nil
 	default:
 		return ErrInvalidType

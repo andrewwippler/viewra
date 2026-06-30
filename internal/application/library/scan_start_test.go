@@ -3,6 +3,8 @@ package library
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -262,8 +264,15 @@ func TestScanLibraryUseCase_StartScan(t *testing.T) {
 					Music:   musicRepo,
 				},
 				scanRepos: &scan.ScanRepositories{
-					ScanJob: scanRepo,
+					ScanJob:    scanRepo,
+					Checkpoint: mocks.NewCheckpointRepository(t),
+					ScanState:  mocks.NewScanStateRepository(t),
 				},
+				config: scan.Config{
+					CheckpointBatchSize: 50,
+					ProgressUpdateTick:  time.Second,
+				},
+				logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 			}
 
 			// Execute
@@ -292,7 +301,10 @@ func TestScanLibraryUseCase_StartScan(t *testing.T) {
 			}
 
 			// Verify a scan job was created
-			if len(scanRepo.jobs) == 0 {
+			scanRepo.mu.RLock()
+			jobCount := len(scanRepo.jobs)
+			scanRepo.mu.RUnlock()
+			if jobCount == 0 {
 				t.Error("Expected scan job to be created")
 			}
 

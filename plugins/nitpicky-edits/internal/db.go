@@ -32,7 +32,7 @@ func openDB(cfg *Config) (*sql.DB, error) {
 }
 
 // identifyMovie sets external IDs for a movie.
-func identifyMovie(ctx context.Context, db *sql.DB, movieID int64, req IdentifyMovieRequest) error {
+func identifyMovie(ctx context.Context, db *sql.DB, movieID int64, req IdentifyMovieRequest, driver string) error {
 	var sets []string
 	var args []interface{}
 	argIdx := 1
@@ -55,7 +55,7 @@ func identifyMovie(ctx context.Context, db *sql.DB, movieID int64, req IdentifyM
 	// Convert $N placeholders to ? for SQLite
 	query := fmt.Sprintf("UPDATE media_items SET %s WHERE id = $%d", strings.Join(sets, ", "), argIdx)
 	args = append(args, movieID)
-	query = rebind(query)
+	query = rebind(query, driver)
 
 	result, err := db.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -69,7 +69,7 @@ func identifyMovie(ctx context.Context, db *sql.DB, movieID int64, req IdentifyM
 }
 
 // identifyTVShow sets external IDs for a TV show.
-func identifyTVShow(ctx context.Context, db *sql.DB, showID int64, req IdentifyTVShowRequest) error {
+func identifyTVShow(ctx context.Context, db *sql.DB, showID int64, req IdentifyTVShowRequest, driver string) error {
 	if req.IMDbID == "" && req.TVDbID == nil && req.TMDbID == nil {
 		return fmt.Errorf("no external IDs provided")
 	}
@@ -96,7 +96,7 @@ func identifyTVShow(ctx context.Context, db *sql.DB, showID int64, req IdentifyT
 
 	query := fmt.Sprintf("UPDATE tv_shows SET %s WHERE id = $%d", strings.Join(sets, ", "), argIdx)
 	args = append(args, showID)
-	query = rebind(query)
+	query = rebind(query, driver)
 
 	result, err := db.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -110,21 +110,28 @@ func identifyTVShow(ctx context.Context, db *sql.DB, showID int64, req IdentifyT
 }
 
 // rebind converts PostgreSQL $N placeholders to ? for SQLite compatibility.
-func rebind(query string) string {
-	buf := make([]byte, 0, len(query))
-	i := 0
-	for j := 0; j < len(query); j++ {
-		if query[j] == '$' {
-			buf = append(buf, query[i:j]...)
-			// Skip past the digit(s)
-			k := j + 1
-			for k < len(query) && query[k] >= '0' && query[k] <= '9' {
-				k++
+// For PostgreSQL, it returns the query unchanged (PostgreSQL uses $N natively).
+func rebind(query string, driver string) string {
+	switch driver {
+	case "postgres", "postgresql":
+		return query
+	default:
+		// Convert $N to ? for SQLite
+		buf := make([]byte, 0, len(query))
+		i := 0
+		for j := 0; j < len(query); j++ {
+			if query[j] == '$' {
+				buf = append(buf, query[i:j]...)
+				// Skip past the digit(s)
+				k := j + 1
+				for k < len(query) && query[k] >= '0' && query[k] <= '9' {
+					k++
+				}
+				buf = append(buf, '?')
+				i = k
 			}
-			buf = append(buf, '?')
-			i = k
 		}
+		buf = append(buf, query[i:]...)
+		return string(buf)
 	}
-	buf = append(buf, query[i:]...)
-	return string(buf)
 }

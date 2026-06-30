@@ -4,160 +4,235 @@
  */
 
 /**
- * Checks if the current browser is a WebOS TV (Chromium 79 based)
- * WebOS TV user agents typically contain "WebOS" and "Chrome/79"
+ * Checks if the current browser is an LG WebOS TV environment.
+ * Evaluates core platform strings safely across modern, legacy,
+ * and specific version-locked webOS Chromium engines.
  */
-export function isWebOSTV(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  
-  const ua = navigator.userAgent;
-  return /WebOS/.test(ua) && /Chrome\/79/.test(ua);
+export const isWebOSTV = (): boolean => {
+  if (typeof navigator === 'undefined') {
+    return false
+  }
+
+  const ua = navigator.userAgent
+  return /WebOS|webOS/i.test(ua) || /LG Browser/i.test(ua)
+}
+
+/**
+ * Helper to identify legacy/resource-constrained WebOS environments
+ * (like Chromium 79 or below) requiring heavy optimization features.
+ */
+export const isLegacyWebOS = (): boolean => {
+  if (typeof navigator === 'undefined') {
+    return false
+  }
+
+  const ua = navigator.userAgent
+  const match = ua.match(/Chrome\/(\d+)/)
+
+  if (match && match[1]) {
+    const chromeVersion = parseInt(match[1], 10)
+    return isWebOSTV() && chromeVersion <= 79
+  }
+
+  return false
 }
 
 /**
  * Checks if the current browser is Chromium 79 (or compatible)
  * Used for feature detection of legacy browser support
  */
-export function isChromium79(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  
-  const ua = navigator.userAgent;
-  return /Chrome\/79/.test(ua) || /Chromium\/79/.test(ua);
+export const isChromium79 = (): boolean => {
+  if (typeof navigator === 'undefined') {
+    return false
+  }
+
+  const ua = navigator.userAgent
+  return /Chrome\/79/.test(ua) || /Chromium\/79/.test(ua)
 }
 
 /**
  * Checks if Fullscreen API is available
  * Chrome 79 requires user gesture for requestFullscreen()
  */
-export function hasFullscreenAPI(): boolean {
-  if (typeof document === 'undefined') return false;
-  
+interface FullscreenDocumentElement extends HTMLElement {
+  webkitRequestFullscreen?: () => Promise<void>
+  mozRequestFullScreen?: () => Promise<void>
+  msRequestFullscreen?: () => Promise<void>
+}
+
+interface FullscreenDocument extends Document {
+  webkitExitFullscreen?: () => Promise<void>
+  mozCancelFullScreen?: () => Promise<void>
+  msExitFullscreen?: () => Promise<void>
+}
+
+export const hasFullscreenAPI = (): boolean => {
+  if (typeof document === 'undefined') {
+    return false
+  }
+
+  const el = document.documentElement as FullscreenDocumentElement
   return !!(
-    document.documentElement.requestFullscreen ||
-    (document.documentElement as any).webkitRequestFullscreen ||
-    (document.documentElement as any).mozRequestFullScreen ||
-    (document.documentElement as any).msRequestFullscreen
-  );
+    el.requestFullscreen ||
+    el.webkitRequestFullscreen ||
+    el.mozRequestFullScreen ||
+    el.msRequestFullscreen
+  )
 }
 
 /**
  * Checks if the browser supports the fullscreen API without user gesture
  * This is typically false for Chrome 79 on WebOS TV
  */
-export function supportsAutomaticFullscreen(): boolean {
-  // WebOS TV Chromium 79 requires user gesture
-  if (isWebOSTV()) return false;
-  
-  // Modern browsers generally support it
-  return true;
+export const supportsAutomaticFullscreen = (): boolean => {
+  if (isWebOSTV()) {
+    return false
+  }
+  return true
 }
 
 /**
  * Gets the user preference for auto-fullscreen
  * Returns true by default for WebOS TV, false otherwise
  */
-export function getAutoFullscreenPreference(): boolean {
+export const getAutoFullscreenPreference = (): boolean => {
   try {
-    const stored = localStorage.getItem('auto-fullscreen');
+    const stored = localStorage.getItem('auto-fullscreen')
     if (stored !== null) {
-      return stored === 'true';
+      return stored === 'true'
     }
   } catch {
     // localStorage not available
   }
-  
-  // Default: true for WebOS TV, false for desktop
-  return isWebOSTV();
+
+  return true
 }
 
 /**
  * Sets the user preference for auto-fullscreen
  */
-export function setAutoFullscreenPreference(enabled: boolean): void {
+export const setAutoFullscreenPreference = (enabled: boolean): void => {
   try {
-    localStorage.setItem('auto-fullscreen', String(enabled));
+    localStorage.setItem('auto-fullscreen', String(enabled))
   } catch {
     // Ignore errors (private browsing, etc.)
   }
 }
 
+// Track active escape listeners to avoid structural memory leaks on CSS fullscreen toggles
+const activeCssListeners = new Map<HTMLElement, (e: KeyboardEvent) => void>()
+
 /**
  * Attempts to enter fullscreen mode for the video container
  * Falls back to CSS-based fullscreen if API fails
+ *
+ * On WebOS TV, skips the native Fullscreen API entirely to avoid the
+ * browser's "Press ESC to exit full screen" overlay, which cannot be
+ * suppressed. Uses CSS-based fullscreen instead.
  */
-export function enterFullscreen(element: HTMLElement): Promise<void> {
-  // Try native Fullscreen API first
-  if (element.requestFullscreen) {
-    return element.requestFullscreen().catch(() => {
-      // Fallback to CSS-based fullscreen
-      return enterCSSFullscreen(element);
-    });
+export const enterFullscreen = (element: HTMLElement): Promise<void> => {
+  if (isWebOSTV()) {
+    return enterCSSFullscreen(element)
   }
-  
-  // WebKit prefix (older Safari/iOS)
-  if ((element as any).webkitRequestFullscreen) {
-    return (element as any).webkitRequestFullscreen().catch(() => {
-      return enterCSSFullscreen(element);
-    });
+
+  const el = element as FullscreenDocumentElement
+
+  if (el.requestFullscreen) {
+    return el.requestFullscreen().catch(() => enterCSSFullscreen(element))
   }
-  
-  // Firefox
-  if ((element as any).mozRequestFullScreen) {
-    return (element as any).mozRequestFullScreen().catch(() => {
-      return enterCSSFullscreen(element);
-    });
+
+  if (el.webkitRequestFullscreen) {
+    return el.webkitRequestFullscreen().catch(() => enterCSSFullscreen(element))
   }
-  
-  // IE/Edge
-  if ((element as any).msRequestFullscreen) {
-    return (element as any).msRequestFullscreen().catch(() => {
-      return enterCSSFullscreen(element);
-    });
+
+  if (el.mozRequestFullScreen) {
+    return el.mozRequestFullScreen().catch(() => enterCSSFullscreen(element))
   }
-  
-  // Fallback to CSS-based fullscreen
-  return enterCSSFullscreen(element);
+
+  if (el.msRequestFullscreen) {
+    return el.msRequestFullscreen().catch(() => enterCSSFullscreen(element))
+  }
+
+  return enterCSSFullscreen(element)
+}
+
+/**
+ * Cleanly exits fullscreen mode handling both Native and CSS variants
+ */
+export const exitFullscreen = (element: HTMLElement): Promise<void> => {
+  if (isInCSSFullscreen(element)) {
+    exitCSSFullscreen(element)
+    return Promise.resolve()
+  }
+
+  const doc = document as FullscreenDocument
+
+  if (doc.exitFullscreen) {
+    return doc.exitFullscreen()
+  } else if (doc.webkitExitFullscreen) {
+    return doc.webkitExitFullscreen()
+  } else if (doc.mozCancelFullScreen) {
+    return doc.mozCancelFullScreen()
+  } else if (doc.msExitFullscreen) {
+    return doc.msExitFullscreen()
+  }
+
+  return Promise.resolve()
 }
 
 /**
  * CSS-based fullscreen fallback for browsers where Fullscreen API
  * requires user gesture or is unavailable
  */
-function enterCSSFullscreen(element: HTMLElement): Promise<void> {
+const enterCSSFullscreen = (element: HTMLElement): Promise<void> => {
   return new Promise((resolve) => {
-    element.classList.add('fullscreen-fallback');
-    document.body.style.overflow = 'hidden';
-    
-    // Listen for escape key to exit
+    element.classList.add('fullscreen-fallback')
+    document.body.style.overflow = 'hidden'
+
+    // Cleanup any existing listeners attached to this element before assigning a new one
+    if (activeCssListeners.has(element)) {
+      const oldListener = activeCssListeners.get(element)
+      if (oldListener) document.removeEventListener('keydown', oldListener)
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        exitCSSFullscreen(element);
-        document.removeEventListener('keydown', handleKeyDown);
-        resolve();
+        exitCSSFullscreen(element)
+        resolve()
       }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-  });
+    }
+
+    activeCssListeners.set(element, handleKeyDown)
+    document.addEventListener('keydown', handleKeyDown)
+  })
 }
 
 /**
- * Exits CSS-based fullscreen mode
+ * Exits CSS-based fullscreen mode and detaches related listeners cleanly
  */
-export function exitCSSFullscreen(element: HTMLElement): void {
-  element.classList.remove('fullscreen-fallback');
-  document.body.style.overflow = '';
+export const exitCSSFullscreen = (element: HTMLElement): void => {
+  element.classList.remove('fullscreen-fallback')
+  document.body.style.overflow = ''
+
+  const handler = activeCssListeners.get(element)
+  if (handler) {
+    document.removeEventListener('keydown', handler)
+    activeCssListeners.delete(element)
+  }
 }
 
 /**
  * Checks if currently in CSS-based fullscreen mode
  */
-export function isInCSSFullscreen(element: HTMLElement): boolean {
-  return element.classList.contains('fullscreen-fallback');
-}/**
+export const isInCSSFullscreen = (element: HTMLElement): boolean => {
+  return element.classList.contains('fullscreen-fallback')
+}
+
+/**
  * Checks if the device is a TV (WebOS, Tizen, etc.)
  * Used to apply TV-specific styles like hiding the cursor
  */
-export function isTVDevice(): boolean {
+export const isTVDevice = (): boolean => {
   return isWebOSTV()
 }
 
@@ -165,9 +240,11 @@ export function isTVDevice(): boolean {
  * Apply TV-specific styles when on a TV device
  * Call this on app initialization to hide cursor on TV
  */
-export function applyTVStyles(): void {
-  if (typeof document === 'undefined') return
-  
+export const applyTVStyles = (): void => {
+  if (typeof document === 'undefined') {
+    return
+  }
+
   if (isTVDevice()) {
     document.body.classList.add('tv-device')
   }

@@ -15,4 +15,8 @@ on network drives where fsnotify doesn't work (default: 60) */
   polling_interval_minutes?: number
   /** Priority for enrichment queue (default: 1000 = PriorityInteractive) */
   priority?: number
+  /** SatipChannelListURL is the URL to the SAT>IP channellist M3U for PID correction. */
+  satip_channel_list_url?: string
+  /** XmltvURL is the URL to fetch EPG data from (live_tv libraries only) */
+  xmltv_url?: string
 }

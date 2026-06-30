@@ -5,15 +5,18 @@
  * Self-hosted media server for movies, TV shows, and music
  * OpenAPI spec version: 0.0.1
  */
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import type {
   DataTag,
   DefinedInitialDataOptions,
   DefinedUseQueryResult,
+  MutationFunction,
   QueryClient,
   QueryFunction,
   QueryKey,
   UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from '@tanstack/react-query'
@@ -347,6 +350,126 @@ export function useGetApiMediaId<
   return query
 }
 
+/**
+ * Removes the media record and all associated metadata from the database.
+The underlying media file on disk is NOT deleted.
+ * @summary Delete a media item (database only)
+ */
+export type deleteApiMediaIdResponse204 = {
+  data: void
+  status: 204
+}
+
+export type deleteApiMediaIdResponse400 = {
+  data: InternalApiHandlersAPIError
+  status: 400
+}
+
+export type deleteApiMediaIdResponse404 = {
+  data: InternalApiHandlersAPIError
+  status: 404
+}
+
+export type deleteApiMediaIdResponse500 = {
+  data: InternalApiHandlersAPIError
+  status: 500
+}
+
+export type deleteApiMediaIdResponseSuccess = deleteApiMediaIdResponse204 & {
+  headers: Headers
+}
+export type deleteApiMediaIdResponseError = (
+  | deleteApiMediaIdResponse400
+  | deleteApiMediaIdResponse404
+  | deleteApiMediaIdResponse500
+) & {
+  headers: Headers
+}
+
+export type deleteApiMediaIdResponse =
+  | deleteApiMediaIdResponseSuccess
+  | deleteApiMediaIdResponseError
+
+export const getDeleteApiMediaIdUrl = (id: number) => {
+  return `/api/media/${id}`
+}
+
+export const deleteApiMediaId = async (
+  id: number,
+  options?: RequestInit
+): Promise<deleteApiMediaIdResponse> => {
+  return customInstance<deleteApiMediaIdResponse>(getDeleteApiMediaIdUrl(id), {
+    ...options,
+    method: 'DELETE',
+  })
+}
+
+export const getDeleteApiMediaIdMutationOptions = <
+  TError = InternalApiHandlersAPIError,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteApiMediaId>>,
+    TError,
+    { id: number },
+    TContext
+  >
+  request?: SecondParameter<typeof customInstance>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteApiMediaId>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ['deleteApiMediaId']
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteApiMediaId>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {}
+
+    return deleteApiMediaId(id, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type DeleteApiMediaIdMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteApiMediaId>>
+>
+
+export type DeleteApiMediaIdMutationError = InternalApiHandlersAPIError
+
+/**
+ * @summary Delete a media item (database only)
+ */
+export const useDeleteApiMediaId = <TError = InternalApiHandlersAPIError, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof deleteApiMediaId>>,
+      TError,
+      { id: number },
+      TContext
+    >
+    request?: SecondParameter<typeof customInstance>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof deleteApiMediaId>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationOptions = getDeleteApiMediaIdMutationOptions(options)
+
+  return useMutation(mutationOptions, queryClient)
+}
 /**
  * Returns detailed technical information about video and audio streams for the stats panel.
 The strategy field indicates how the video will be processed (direct, remux, transcode).

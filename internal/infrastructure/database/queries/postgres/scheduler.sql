@@ -78,7 +78,7 @@ DELETE FROM scheduled_tasks WHERE id = $1;
 DELETE FROM scheduled_tasks WHERE source_id = $1;
 
 -- name: ScheduledTaskExists :one
-SELECT CASE WHEN EXISTS(SELECT 1 FROM scheduled_tasks WHERE id = $1) THEN 1::bigint ELSE 0::bigint END as task_exists;
+SELECT CASE WHEN EXISTS(SELECT 1 FROM scheduled_tasks WHERE id = $1) THEN true ELSE false END as task_exists;
 
 -- Scheduler Executions Queries
 
@@ -197,7 +197,7 @@ DELETE FROM scheduler_locks WHERE lock_key = $1;
 UPDATE scheduler_locks SET expires_at = $1 WHERE lock_key = $2;
 
 -- name: SchedulerLockExists :one
-SELECT CASE WHEN EXISTS(SELECT 1 FROM scheduler_locks WHERE lock_key = $1 AND expires_at > NOW()) THEN 1::bigint ELSE 0::bigint END as lock_exists;
+SELECT CASE WHEN EXISTS(SELECT 1 FROM scheduler_locks WHERE lock_key = $1 AND expires_at > NOW()) THEN true ELSE false END as lock_exists;
 
 -- name: CleanExpiredSchedulerLocks :execrows
 DELETE FROM scheduler_locks WHERE expires_at < NOW();

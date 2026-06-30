@@ -153,12 +153,42 @@ func (r *Repository) Delete(ctx context.Context, id int64) error {
 
 // DeleteOld deletes old completed/failed scan jobs for a library
 func (r *Repository) DeleteOld(ctx context.Context, libraryID int64, retentionMinutes int) error {
-	// For PostgreSQL, the SQL uses: (param || ' minutes')::interval
-	// For SQLite, it uses: datetime('now', CAST(param || ' minutes' AS TEXT))
-	// Both expect just the number part (e.g., "30" for 30 minutes)
+	retentionInterval := fmt.Sprintf("-%d", retentionMinutes)
+
+	// Delete scan_state rows referencing old jobs first to avoid FK violations
+	isPostgres := r.DBType() == "postgres" || r.DBType() == "postgresql"
+	if isPostgres {
+		_, err := r.DB().ExecContext(ctx, `
+			DELETE FROM scan_state
+			WHERE scan_job_id IN (
+				SELECT id FROM scan_jobs
+				WHERE library_id = $1
+				  AND status IN ('completed', 'failed')
+				  AND created_at < (CURRENT_TIMESTAMP - ($2 || ' minutes')::interval)
+			)
+		`, libraryID, retentionInterval)
+		if err != nil {
+			return fmt.Errorf("delete scan_state for old jobs: %w", err)
+		}
+	} else {
+		_, err := r.DB().ExecContext(ctx, `
+			DELETE FROM scan_state
+			WHERE scan_job_id IN (
+				SELECT id FROM scan_jobs
+				WHERE library_id = ?
+				  AND status IN ('completed', 'failed')
+				  AND created_at < datetime('now', CAST(? || ' minutes' AS TEXT))
+			)
+		`, libraryID, retentionInterval)
+		if err != nil {
+			return fmt.Errorf("delete scan_state for old jobs: %w", err)
+		}
+	}
+
+	// Then delete the old scan jobs
 	return r.Q().DeleteOldScanJobs(ctx, unified.DeleteOldScanJobsParams{
 		LibraryID:        libraryID,
-		RetentionInterval: fmt.Sprintf("-%d", retentionMinutes),
+		RetentionInterval: sql.NullString{String: retentionInterval, Valid: true},
 	})
 }
 

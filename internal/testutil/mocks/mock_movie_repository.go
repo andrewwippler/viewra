@@ -339,6 +339,25 @@ func (m *MovieRepository) ListRecentlyAdded(ctx context.Context, limit int) ([]*
 	return result, nil
 }
 
+func (m *MovieRepository) ListRandomMovies(ctx context.Context, limit int) ([]*media.Movie, error) {
+	if m.ListRecentlyAddedErr != nil {
+		return nil, m.ListRecentlyAddedErr
+	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var result []*media.Movie
+	for _, movie := range m.movies {
+		result = append(result, movie)
+		if len(result) >= limit {
+			break
+		}
+	}
+
+	return result, nil
+}
+
 func (m *MovieRepository) ListDistinctGenres(ctx context.Context, limit int) ([]string, error) {
 	if m.ListDistinctGenresErr != nil {
 		return nil, m.ListDistinctGenresErr
@@ -386,4 +405,17 @@ func (m *MovieRepository) FindByTitleAndYear(ctx context.Context, libraryID int6
 	}
 
 	return 0, "", media.ErrMediaNotFound
+}
+
+func (m *MovieRepository) GetMoviesWithoutVariantGroup(ctx context.Context, libraryID int64) ([]*media.Movie, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var result []*media.Movie
+	for _, movie := range m.movies {
+		if movie.LibraryID == libraryID && movie.VariantGroupID == nil {
+			result = append(result, movie)
+		}
+	}
+	return result, nil
 }

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui'
 import { FormInput, FormSelect, FormApiError, FormSubmitButton } from '@/components/ui/Form'
 import { FilesystemBrowser } from '@/components/library/FilesystemBrowser'
 import { getErrorMessage } from '@/lib/utils/error'
+import { GithubComMantonxViewraInternalApplicationLibraryCreateLibraryRequestType } from '@/lib/api/generated/models'
 import type { LibraryFormProps } from './LibraryForm.types'
 import { libraryFormSchema, type LibraryFormValues } from './LibraryForm.schema'
 
@@ -19,6 +20,7 @@ const LIBRARY_TYPE_OPTIONS = [
   { value: 'movies', label: 'Movies' },
   { value: 'tv', label: 'TV Shows' },
   { value: 'music', label: 'Music' },
+  { value: 'live_tv', label: 'Live TV' },
 ]
 
 const LibraryForm = ({ onCancel, onSuccess }: LibraryFormProps) => {
@@ -40,7 +42,7 @@ const LibraryForm = ({ onCancel, onSuccess }: LibraryFormProps) => {
           data: {
             name: value.name,
             path: value.path,
-            type: value.type,
+            type: value.type as GithubComMantonxViewraInternalApplicationLibraryCreateLibraryRequestType,
           },
         })
 
@@ -74,12 +76,11 @@ const LibraryForm = ({ onCancel, onSuccess }: LibraryFormProps) => {
         )}
       </form.Field>
 
-      {/* Path field with Browse button */}
       <form.Field name="path">
         {(field) => (
           <div>
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-              Folder Path
+              Path
             </label>
             <div className="flex gap-2">
               <FormInput
@@ -100,30 +101,34 @@ const LibraryForm = ({ onCancel, onSuccess }: LibraryFormProps) => {
                 )}
               </form.Subscribe>
             </div>
-            <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-500">
-              Full path to the folder containing your media files
-            </p>
           </div>
         )}
       </form.Field>
 
       <form.Field name="type">
         {(field) => (
-          <FormSelect field={field} label="Library Type" options={LIBRARY_TYPE_OPTIONS} />
+          <div>
+            <FormSelect field={field} label="Library Type" options={LIBRARY_TYPE_OPTIONS} />
+            {field.state.value === 'live_tv' && (
+              <p className="mt-1 text-sm text-amber-500">
+                Point to a folder with .m3u files. Channel scan will auto-detect all playlists. You can also add an XMLTV URL in library settings for EPG data.
+              </p>
+            )}
+          </div>
         )}
       </form.Field>
 
       <div className="flex gap-2 justify-end">
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <Button
+            <button
               type="button"
-              variant="secondary"
               onClick={onCancel}
               disabled={isSubmitting as boolean}
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 disabled:opacity-50 transition-colors"
             >
               Cancel
-            </Button>
+            </button>
           )}
         </form.Subscribe>
         <FormSubmitButton form={form} requireDirty={false}>
@@ -135,7 +140,7 @@ const LibraryForm = ({ onCancel, onSuccess }: LibraryFormProps) => {
         isOpen={isBrowserOpen}
         onClose={() => setIsBrowserOpen(false)}
         onSelect={handlePathSelect}
-        initialPath={form.getFieldValue('path') || undefined}
+        initialPath={form.getFieldValue('path') || '/'}
       />
     </form>
   )

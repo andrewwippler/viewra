@@ -91,7 +91,7 @@ func (r *ScanJobRepository) GetByID(ctx context.Context, id int64) (*scanner.Sca
 		return nil, scanner.ErrNotFound
 	}
 
-	return job, nil
+	return job.Copy(), nil
 }
 
 func (r *ScanJobRepository) GetLatestByLibrary(ctx context.Context, libraryID int64) (*scanner.ScanJob, error) {
@@ -115,7 +115,7 @@ func (r *ScanJobRepository) GetLatestByLibrary(ctx context.Context, libraryID in
 		return nil, scanner.ErrNotFound
 	}
 
-	return latest, nil
+	return latest.Copy(), nil
 }
 
 func (r *ScanJobRepository) ListByLibrary(ctx context.Context, libraryID int64, limit int32) ([]*scanner.ScanJob, error) {
@@ -129,7 +129,7 @@ func (r *ScanJobRepository) ListByLibrary(ctx context.Context, libraryID int64, 
 	var jobs []*scanner.ScanJob
 	for _, job := range r.jobs {
 		if job.LibraryID == libraryID {
-			jobs = append(jobs, job)
+			jobs = append(jobs, job.Copy())
 		}
 	}
 
@@ -152,7 +152,7 @@ func (r *ScanJobRepository) ListRunning(ctx context.Context) ([]*scanner.ScanJob
 	var running []*scanner.ScanJob
 	for _, job := range r.jobs {
 		if job.Status == scanner.ScanStatusRunning {
-			running = append(running, job)
+			running = append(running, job.Copy())
 		}
 	}
 
@@ -221,13 +221,27 @@ func (r *ScanJobRepository) Complete(ctx context.Context, job *scanner.ScanJob) 
 		return scanner.ErrNotFound
 	}
 
-	// Update the job
-	*existing = *job
+	// Create a copy and store it to avoid racing with readers holding the old pointer
+	updated := existing.Copy()
+	updated.Status = job.Status
+	updated.Progress = job.Progress
+	updated.FilesFound = job.FilesFound
+	updated.FilesProcessed = job.FilesProcessed
+	updated.BytesProcessed = job.BytesProcessed
+	updated.ErrorCount = job.ErrorCount
+	updated.WarningCount = job.WarningCount
+	updated.CompletedAt = job.CompletedAt
+	updated.ErrorMessage = job.ErrorMessage
+	updated.Phase = job.Phase
+	updated.DiscoveryDone = job.DiscoveryDone
 
 	now := time.Now()
-	existing.UpdatedAt = now
-	existing.CompletedAt = &now
+	updated.UpdatedAt = now
+	if updated.CompletedAt == nil {
+		updated.CompletedAt = &now
+	}
 
+	r.jobs[job.ID] = updated
 	return nil
 }
 

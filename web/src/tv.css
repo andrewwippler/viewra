@@ -1,32 +1,51 @@
 /**
  * TV Interface Styles
- * 
+ *
  * Styles optimized for 10-foot viewing distance on TV platforms
  * with remote control navigation (webOS, Tizen, etc.)
  */
 
 /* ============================================
-   FOCUS STATES - High visibility for remote control
+   FOCUS STATES - TV cursor visibility (10ft viewing)
    ============================================ */
 
-/* Primary focus indicator - LG red (brand color) */
-.focusable:focus,
-.focusable.focused,
-.focusable.sn-focused {
-  outline: 4px solid #cf1020 !important;
+/* High-visibility focus ring for all natively focusable elements.
+   The Jellyfin WebOS app handles spatial navigation natively; these
+   styles make the focused element visible from across the room. */
+button:focus,
+a:focus,
+input:focus,
+[tabindex]:focus,
+[role="button"]:focus {
+  outline: 4px solid #3b82f6 !important;
   outline-offset: 2px;
-  transform: scale(1.03);
-  transition: transform 0.15s ease-out, outline 0.1s ease-out;
-  box-shadow: 0 0 20px rgba(207, 16, 32, 0.5), 
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.5),
               0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 100;
+  transform: scale(1.02);
+  z-index: 50;
 }
 
-/* Focus visible only on focus (for mouse users) */
-.focusable:focus:not(:focus-visible) {
-  outline: none;
-  transform: none;
-  box-shadow: none;
+@media (prefers-color-scheme: dark) {
+  button:focus,
+  a:focus,
+  input:focus,
+  [tabindex]:focus,
+  [role="button"]:focus {
+    box-shadow: 0 0 24px rgba(59, 130, 246, 0.6),
+                0 0 48px rgba(59, 130, 246, 0.3),
+                0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+}
+
+@media (prefers-contrast: high) {
+  button:focus,
+  a:focus,
+  input:focus,
+  [tabindex]:focus,
+  [role="button"]:focus {
+    outline-width: 6px;
+    outline-style: solid;
+  }
 }
 
 /* ============================================
@@ -34,7 +53,6 @@
    ============================================ */
 
 /* Ensure minimum touch target size */
-.focusable,
 button,
 [role="button"],
 a,
@@ -46,7 +64,6 @@ textarea {
 }
 
 /* Primary navigation items should be larger */
-nav .focusable,
 .nav-item,
 .menu-item,
 .tab-button {
@@ -68,8 +85,7 @@ nav .focusable,
 
 /* Remove mobile/desktop effects that pollute TV UI - ONLY on TV devices */
 @media (device-type: tv) {
-  body,
-  .focusable {
+  body {
     -webkit-user-select: none;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
@@ -151,8 +167,8 @@ textarea {
 /* Focus state for inputs */
 input:focus,
 textarea:focus {
-  border-color: #cf1020;
-  box-shadow: 0 0 0 3px rgba(207, 16, 32, 0.3);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
 }
 
 /* ============================================
@@ -179,7 +195,7 @@ button:focus,
 /* Primary action buttons */
 .btn-primary,
 .button-primary {
-  background: linear-gradient(135deg, #cf1020 0%, #a50d18 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
 }
 
@@ -203,15 +219,6 @@ button:focus,
 }
 
 /* ============================================
-   BACK BUTTON HANDLING
-   ============================================ */
-
-/* Handle back navigation without exiting app */
-[data-sn-enabled] {
-  /* Trap back button within the app */
-}
-
-/* ============================================
    ANIMATIONS - Reduced for performance
    ============================================ */
 
@@ -229,15 +236,6 @@ button:focus,
 /* ============================================
    DARK MODE - TV optimized
    ============================================ */
-
-@media (prefers-color-scheme: dark) {
-  .focusable:focus,
-  .focusable.focused,
-  .focusable.sn-focused {
-    box-shadow: 0 0 24px rgba(207, 16, 32, 0.6),
-                0 0 48px rgba(207, 16, 32, 0.3);
-  }
-}
 
 /* ============================================
    LOADING AND PROGRESS STATES
@@ -270,12 +268,93 @@ button:focus,
 
 /* Focus ring for custom components */
 .tv-focus-ring {
-  box-shadow: 0 0 0 3px rgba(207, 16, 32, 0.4);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
 }
 
 /* Hide elements that shouldn't be visible on TV */
 @media (device-type: tv) {
   .hide-on-tv {
     display: none !important;
+  }
+}
+
+/* ============================================
+   WEBOS INPUT NAVIGATION STYLES
+   ============================================ */
+
+/* Form group styling for WebOS form navigation */
+.tv-form-group {
+  border-radius: 12px;
+  padding: 8px;
+  transition: outline 150ms ease-out, box-shadow 150ms ease-out;
+}
+
+.tv-form-group:focus-within {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+
+/* Field wrapper for inputs on TV */
+.tv-field-wrapper {
+  position: relative;
+  margin-bottom: 4px;
+}
+
+/* Focused input state */
+.tv-input-focused {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3),
+              0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Password toggle button - visible focus state */
+.tv-field-wrapper button:focus {
+  outline: 4px solid #3b82f6 !important;
+  outline-offset: 3px;
+  transform: scale(1.05);
+}
+
+/* Submit button in forms - larger touch target */
+form button[type="submit"] {
+  min-height: 64px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* ============================================
+   WEBOS KEYBOARD SCROLL HELPERS
+   ============================================ */
+
+/* Container for form that needs keyboard scroll */
+.tv-form-scroll-container {
+  scroll-behavior: smooth;
+  overflow-y: auto;
+}
+
+/* Active input indicator */
+.tv-input-active {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+}
+
+/* ============================================
+   DARK MODE FORM STYLES
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  .tv-form-group:focus-within {
+    outline-color: #3b82f6;
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.4);
+  }
+}
+
+/* ============================================
+   HIGH CONTRAST MODE (accessibility)
+   ============================================ */
+
+@media (prefers-contrast: high) {
+  .tv-form-group:focus-within {
+    outline-width: 4px;
   }
 }

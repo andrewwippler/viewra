@@ -18,7 +18,6 @@ import {
 } from '@/lib/hooks/useMediaImages'
 import { useBatchImagesIfAvailable } from '@/lib/hooks/useBatchImages'
 import {
-  getPosterImage,
   getPosterImageWithFallback,
   getEpisodeThumbnail,
   getAlbumCover,
@@ -186,7 +185,7 @@ export const MediaPoster = ({
         className={`bg-linear-to-br from-neutral-700 to-neutral-900 flex items-center justify-center animate-pulse ${className}`}
         style={{ aspectRatio: aspectRatioValue }}
       >
-        <span className="text-white text-4xl opacity-50">{fallbackIcon}</span>
+        <span className="text-white text-4xl opacity-50 leading-none">{fallbackIcon}</span>
       </div>
     )
   }
@@ -198,7 +197,7 @@ export const MediaPoster = ({
         className={`bg-linear-to-br from-neutral-700 to-neutral-900 flex items-center justify-center ${className}`}
         style={{ aspectRatio: aspectRatioValue }}
       >
-        <span className="text-white text-4xl">{fallbackIcon}</span>
+        <span className="text-white text-4xl leading-none">{fallbackIcon}</span>
       </div>
     )
   }
@@ -209,7 +208,7 @@ export const MediaPoster = ({
       {/* Placeholder shown while image loads */}
       {!imageLoaded && (
         <div className="absolute inset-0 bg-linear-to-br from-neutral-700 to-neutral-900 flex items-center justify-center animate-pulse">
-          <span className="text-white text-4xl opacity-50">{fallbackIcon}</span>
+          <span className="text-white text-4xl opacity-50 leading-none">{fallbackIcon}</span>
         </div>
       )}
 
@@ -217,6 +216,8 @@ export const MediaPoster = ({
       <img
         src={imageUrl}
         alt={alt}
+        width="2"
+        height="3"
         className={`object-cover w-full h-full transition-opacity duration-300 ${
           imageLoaded ? 'opacity-100' : 'opacity-0'
         }`}

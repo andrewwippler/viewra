@@ -77,6 +77,9 @@ export const VideoControls = ({
   const [hoverTime, setHoverTime] = useState<number | null>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const controlsRef = useRef<HTMLDivElement>(null)
+  const showControlsRef = useRef(showControls)
+  showControlsRef.current = showControls
 
   // Auto-hide controls after inactivity (3s when playing, 30s when paused)
   useEffect(() => {
@@ -123,6 +126,86 @@ export const VideoControls = ({
       }
     }
   }, [isPlaying, isDragging, videoRef])
+
+  // TV mode: auto-hide on inactivity, show on any keypress, arrow navigation
+  useEffect(() => {
+    if (!__TV_MODE__) {return}
+
+    const container = controlsRef.current
+    if (!container) {return}
+
+    const getFocusableControls = (): HTMLElement[] => {
+      const selector = 'button, input:not([type="hidden"]), [tabindex]:not([tabindex="-1"])'
+      const elements = container.querySelectorAll<HTMLElement>(selector)
+      return Array.from(elements).filter((el) => {
+        const rect = el.getBoundingClientRect()
+        return rect.width > 0 && rect.height > 0
+      })
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      setShowControls(true)
+
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current)
+        hideTimeoutRef.current = null
+      }
+
+      // Arrow navigation within controls when HUD is visible
+      if (
+        showControlsRef.current &&
+        (e.keyCode === 37 || e.keyCode === 39) &&
+        container.contains(document.activeElement)
+      ) {
+        const controls = getFocusableControls()
+        if (controls.length > 0) {
+          const currentIndex = controls.indexOf(document.activeElement as HTMLElement)
+          const nextIndex = e.keyCode === 39
+            ? (currentIndex === -1 ? 0 : (currentIndex + 1) % controls.length)
+            : (currentIndex === -1 ? controls.length - 1 : (currentIndex - 1 + controls.length) % controls.length)
+          controls[nextIndex].focus()
+          e.preventDefault()
+          e.stopPropagation()
+          return
+        }
+      }
+
+      // Auto-hide after 5s when playing
+      if (isPlaying) {
+        hideTimeoutRef.current = setTimeout(() => {
+          setShowControls(false)
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur()
+          }
+        }, 5000)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown, { capture: true })
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, { capture: true })
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current)
+        hideTimeoutRef.current = null
+      }
+    }
+  }, [isPlaying])
+
+  // TV mode: auto-focus play/pause when HUD appears
+  useEffect(() => {
+    if (!__TV_MODE__) {return}
+    if (!showControls) {return}
+
+    const container = controlsRef.current
+    if (!container) {return}
+
+    const playPauseBtn = container.querySelector(
+      'button[aria-label="Pause"], button[aria-label="Play"]'
+    ) as HTMLElement
+    if (playPauseBtn) {
+      playPauseBtn.focus()
+    }
+  }, [showControls])
 
   // Handle timeline click/drag
   const handleTimelineInteraction = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -247,7 +330,7 @@ export const VideoControls = ({
         <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/50 to-transparent pointer-events-none" />
 
         {/* Controls container */}
-        <div className="relative px-6 pb-6 pt-16">
+        <div ref={controlsRef} className="relative px-6 pb-6 pt-16">
         {/* Timeline */}
         <div className="mb-3">
           <div

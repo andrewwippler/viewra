@@ -9,8 +9,10 @@ import {
   MaintenanceCard,
   DatabaseWarningBanner,
   DatabaseCard,
+  StorageCleanupCard,
   getCategoryConfig,
 } from '@/components/settings'
+import { LiveTvHeader } from '@/components/livetv/LiveTvHeader'
 import { useToast } from '@/lib/hooks/useToast'
 import {
   useGetApiSettingsSchema,
@@ -216,6 +218,14 @@ export const SystemSettings = () => {
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ServerRestartCard />
         <MaintenanceCard />
+        <StorageCleanupCard />
+      </div>
+
+      {/* Live TV Management */}
+      <div className="mt-6">
+        <SettingsPage.Card title="Live TV" description="Manage Live TV channels, EPG data, and channel mappings">
+          <LiveTvHeader />
+        </SettingsPage.Card>
       </div>
 
       {/* Category Groups */}

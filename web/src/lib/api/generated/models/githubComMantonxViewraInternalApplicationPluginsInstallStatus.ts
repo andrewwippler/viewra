@@ -9,7 +9,7 @@
 export type GithubComMantonxViewraInternalApplicationPluginsInstallStatus =
   (typeof GithubComMantonxViewraInternalApplicationPluginsInstallStatus)[keyof typeof GithubComMantonxViewraInternalApplicationPluginsInstallStatus]
 
-// eslint-disable-next-line @typescript-eslint/no-redeclare
+ 
 export const GithubComMantonxViewraInternalApplicationPluginsInstallStatus = {
   InstallStatusPending: 'pending',
   InstallStatusDownloading: 'downloading',

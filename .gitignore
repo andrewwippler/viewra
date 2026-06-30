@@ -1,6 +1,8 @@
 # Build scripts
 build.sh
 
+live_tv
+
 # Binaries for programs and plugins
 *.exe
 *.exe~

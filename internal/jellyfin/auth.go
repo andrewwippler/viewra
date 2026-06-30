@@ -56,14 +56,19 @@ func (h *Handler) CreateUser(c *gin.Context) {
 // SystemInfoPublic handles GET /System/Info/Public
 // Returns basic server info (no auth required in Jellyfin API).
 func (h *Handler) SystemInfoPublic(c *gin.Context) {
+	h.logger.Info("jellyfin: SystemInfoPublic called",
+		"remote", c.ClientIP(),
+		"user-agent", c.Request.UserAgent(),
+	)
 	c.JSON(http.StatusOK, SystemInfo{
 		Id:                   "viewra",
 		ServerName:           "ViewRA",
 		Version:              "10.8.0.0",
-		ProductName:          "ViewRA Media Server",
+		ProductName:          "Jellyfin Server",
 		OperatingSystem:      "Linux",
 		SystemUpdateLevel:    "Release",
 		StartupWizardCompleted: true,
+		WebPath:              "/webos/",
 	})
 }
 
@@ -74,13 +79,18 @@ func (h *Handler) SystemPing(c *gin.Context) {
 
 // SystemInfo handles GET /System/Info
 func (h *Handler) SystemInfo(c *gin.Context) {
+	h.logger.Info("jellyfin: SystemInfo called",
+		"remote", c.ClientIP(),
+		"user-agent", c.Request.UserAgent(),
+	)
 	c.JSON(http.StatusOK, SystemInfo{
 		Id:                   "viewra",
 		ServerName:           "ViewRA",
 		Version:              "10.8.0.0",
-		ProductName:          "ViewRA Media Server",
+		ProductName:          "Jellyfin Server",
 		OperatingSystem:      "Linux",
 		SystemUpdateLevel:    "Release",
 		StartupWizardCompleted: true,
+		WebPath:              "/webos/",
 	})
 }

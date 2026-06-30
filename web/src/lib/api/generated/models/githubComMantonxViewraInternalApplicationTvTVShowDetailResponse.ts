@@ -9,13 +9,19 @@
 export interface GithubComMantonxViewraInternalApplicationTvTVShowDetailResponse {
   content_rating?: string
   episode_count?: number
+  first_air_date?: string
   genre?: string[]
   id?: number
   imdb_id?: string
   library_id?: number
   plot?: string
+  rating?: number
+  rating_votes?: number
   season_count?: number
+  sort_title?: string
+  tagline?: string
   title?: string
   tmdb_id?: number
+  tvdb_id?: number
   year?: number
 }

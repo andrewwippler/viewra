@@ -5,7 +5,6 @@ import { Modal, ModalContent, ModalFooter } from '@/components/ui/Modal/Modal'
 import { Button } from '@/components/ui/Button/Button'
 import { QuickAccessBar } from './QuickAccessBar'
 import { BreadcrumbNav } from './BreadcrumbNav'
-import { PathInput } from './PathInput'
 import { DirectorySearch } from './DirectorySearch'
 import { DirectoryTable } from './DirectoryTable'
 import { ErrorDisplay } from './ErrorDisplay'
@@ -176,9 +175,6 @@ const FilesystemBrowser = ({ isOpen, onClose, onSelect, initialPath }: Filesyste
           canNavigateUp={canNavigateUp}
           isLoading={isLoading}
         />
-
-        {/* Path Input */}
-        <PathInput onNavigate={handleNavigateToDirectory} isLoading={isLoading} />
 
         {/* Error Display */}
         {error && (

@@ -172,7 +172,7 @@ export const getPosterImageWithFallback = (
 
   for (const type of chain) {
     const img = findImageByType(images, type)
-    if (img) return img
+    if (img) {return img}
   }
 
   return undefined

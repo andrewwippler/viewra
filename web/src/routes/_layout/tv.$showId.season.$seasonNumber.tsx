@@ -1,18 +1,31 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card, CardContent, Button } from '@/components/ui'
 import { EpisodeCard } from '@/components/tv'
-import { VideoPlayerContainer } from '@/components/media'
+import { VideoPlayerContainer, MarkWatchedButton } from '@/components/media'
 import { PageHeader, LoadingPage, ErrorPage, EmptyState } from '@/components/common'
 import { tvApi } from '@/lib/api/tv'
-import { useMediaPlayback, BatchProgressProvider } from '@/lib/hooks'
+import { useMediaPlayback, BatchProgressProvider, useBatchProgress } from '@/lib/hooks'
 import type { TVEpisodeResponse, TVShowDetailResponse } from '@/lib/types/tv'
 import { logger } from '@/lib/utils/logger'
+import { AdminActions } from '@/features/nitpicky-edits'
+
+const EpisodeAdminRow = ({ episodeId }: { episodeId: number }) => {
+  const { progress } = useBatchProgress(episodeId)
+  return (
+    <div className="flex justify-end">
+      <MarkWatchedButton
+        mediaId={episodeId}
+        isWatched={progress?.is_watched ?? false}
+        variant="compact"
+      />
+    </div>
+  )
+}
 
 const SeasonDetail = () => {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { showId, seasonNumber } = Route.useParams()
   const search = Route.useSearch() as { episodeId?: number; t?: number }
   const urlEpisodeId = search.episodeId
@@ -61,6 +74,9 @@ const SeasonDetail = () => {
       .sort((a: TVEpisodeResponse, b: TVEpisodeResponse) => (a.episode ?? 0) - (b.episode ?? 0))
   }, [allEpisodes, seasonNumber])
 
+  // Derive the season's DB ID from the first episode
+  const seasonDbId = useMemo(() => seasonEpisodes[0]?.season_id, [seasonEpisodes])
+
   // Find currently playing episode and enrich with show title and show_id
   const playingEpisode = useMemo(() => {
     const episode = seasonEpisodes.find((ep) => ep.id === playbackState.mediaId)
@@ -73,21 +89,33 @@ const SeasonDetail = () => {
     }
   }, [seasonEpisodes, playbackState.mediaId, showTitle, showIdNumber])
 
-  // Get next episode
+  // Sort all episodes across all seasons (specials last) for cross-season navigation
+  const allSortedEpisodes = useMemo(() => {
+    return [...allEpisodes].sort((a, b) => {
+      const aSeason = a.season ?? 0
+      const bSeason = b.season ?? 0
+      if (aSeason === 0 && bSeason !== 0) {return 1}
+      if (bSeason === 0 && aSeason !== 0) {return -1}
+      if (aSeason !== bSeason) {return aSeason - bSeason}
+      return (a.episode ?? 0) - (b.episode ?? 0)
+    })
+  }, [allEpisodes])
+
+  // Get next episode across all seasons
   const nextEpisode = useMemo(() => {
     if (!playingEpisode) {return null}
-    const currentIndex = seasonEpisodes.findIndex((ep) => ep.id === playingEpisode.id)
-    if (currentIndex === -1 || currentIndex === seasonEpisodes.length - 1) {return null}
-    return seasonEpisodes[currentIndex + 1]
-  }, [playingEpisode, seasonEpisodes])
+    const currentIndex = allSortedEpisodes.findIndex((ep) => ep.id === playingEpisode.id)
+    if (currentIndex === -1 || currentIndex === allSortedEpisodes.length - 1) {return null}
+    return allSortedEpisodes[currentIndex + 1]
+  }, [playingEpisode, allSortedEpisodes])
 
-  // Get previous episode
+  // Get previous episode across all seasons
   const prevEpisode = useMemo(() => {
     if (!playingEpisode) {return null}
-    const currentIndex = seasonEpisodes.findIndex((ep) => ep.id === playingEpisode.id)
+    const currentIndex = allSortedEpisodes.findIndex((ep) => ep.id === playingEpisode.id)
     if (currentIndex <= 0) {return null}
-    return seasonEpisodes[currentIndex - 1]
-  }, [playingEpisode, seasonEpisodes])
+    return allSortedEpisodes[currentIndex - 1]
+  }, [playingEpisode, allSortedEpisodes])
 
   // Ref to prevent auto-play from triggering during close
   const isClosingRef = useRef(false)
@@ -128,7 +156,7 @@ const SeasonDetail = () => {
 
     // Update URL with episode ID and optional time position
     navigate({
-      to: `/tv/${showId}/season/${seasonNumber}`,
+      to: `/tv/${showId}/season/${episode.season ?? seasonNumber}`,
       search: {
         episodeId: episode.id,
         t: startTime && startTime > 0 ? Math.floor(startTime) : undefined
@@ -224,7 +252,20 @@ const SeasonDetail = () => {
         <PageHeader
           title={`${showTitle} - Season ${seasonNumber}`}
           description="No episodes found"
-          actions={<Button onClick={handleBackClick}>← Back to Show</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <AdminActions
+                mediaType="tv"
+                mediaId={showIdNumber}
+                mediaTitle={show?.title || ''}
+                seasonId={seasonDbId}
+                onDeleteNavigate="/tv"
+              />
+            </div>
+            <Button onClick={handleBackClick}>← Back to Show</Button>
+          </div>
+        }
         />
         <Card>
           <CardContent>
@@ -247,7 +288,20 @@ const SeasonDetail = () => {
       <PageHeader
         title={`${showTitle} - ${seasonLabel}`}
         description={`${seasonEpisodes.length} ${seasonEpisodes.length === 1 ? 'Episode' : 'Episodes'}`}
-        actions={<Button onClick={handleBackClick}>← Back to Show</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <AdminActions
+                mediaType="tv"
+                mediaId={showIdNumber}
+                mediaTitle={show?.title || ''}
+                seasonId={seasonDbId}
+                onDeleteNavigate="/tv"
+              />
+            </div>
+            <Button onClick={handleBackClick}>← Back to Show</Button>
+          </div>
+        }
       />
 
       {/* Show description */}
@@ -274,11 +328,13 @@ const SeasonDetail = () => {
       <BatchProgressProvider mediaIds={episodeIds}>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {seasonEpisodes.map((episode: TVEpisodeResponse) => (
-            <EpisodeCard
-              key={episode.id}
-              episode={episode}
-              onClick={() => handlePlayEpisode(episode)}
-            />
+            <div key={episode.id} className="space-y-1">
+              <EpisodeCard
+                episode={episode}
+                onClick={() => handlePlayEpisode(episode)}
+              />
+              <EpisodeAdminRow episodeId={episode.id ?? 0} />
+            </div>
           ))}
         </div>
       </BatchProgressProvider>

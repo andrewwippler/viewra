@@ -10,6 +10,7 @@ import (
 	"github.com/mantonx/viewra/internal/application/tv"
 	"github.com/mantonx/viewra/internal/domain/home"
 	"github.com/mantonx/viewra/internal/domain/media"
+	"github.com/mantonx/viewra/internal/domain/progress"
 	"github.com/mantonx/viewra/internal/domain/ratings"
 )
 
@@ -255,6 +256,75 @@ func (s *FavoritesServiceImpl) GetFavoritesFull(ctx context.Context, userID stri
 				}
 			}
 		}
+	}
+
+	if len(items) > limit {
+		items = items[:limit]
+	}
+
+	return items, nil
+}
+
+// UnwatchedMoviesServiceImpl implements UnwatchedMoviesService.
+type UnwatchedMoviesServiceImpl struct {
+	movieRepo    media.MovieRepository
+	progressRepo progress.Repository
+}
+
+// NewUnwatchedMoviesService creates a new unwatched movies service.
+func NewUnwatchedMoviesService(movieRepo media.MovieRepository, progressRepo progress.Repository) *UnwatchedMoviesServiceImpl {
+	return &UnwatchedMoviesServiceImpl{
+		movieRepo:    movieRepo,
+		progressRepo: progressRepo,
+	}
+}
+
+// GetUnwatchedMoviesFull returns movies the user hasn't watched yet with full typed data.
+func (s *UnwatchedMoviesServiceImpl) GetUnwatchedMoviesFull(ctx context.Context, userID string, limit int) ([]MediaItemWithTime, error) {
+	if s.movieRepo == nil {
+		return []MediaItemWithTime{}, nil
+	}
+
+	// Fetch random movies
+	movieList, err := s.movieRepo.ListRandomMovies(ctx, limit*2)
+	if err != nil {
+		return nil, fmt.Errorf("list movies: %w", err)
+	}
+
+	if len(movieList) == 0 {
+		return []MediaItemWithTime{}, nil
+	}
+
+	// Collect media IDs for progress lookup
+	mediaIDs := make([]int64, 0, len(movieList))
+	for _, m := range movieList {
+		mediaIDs = append(mediaIDs, m.Media.ID)
+	}
+
+	// Get watch progress for all fetched movies
+	uid := parseUserID(userID)
+	var progressMap map[int64]*progress.WatchProgress
+	if s.progressRepo != nil {
+		progressMap, err = s.progressRepo.GetBatchByMediaIDs(ctx, mediaIDs, uid)
+		if err != nil {
+			// Non-fatal — show all movies if progress lookup fails
+			progressMap = nil
+		}
+	}
+
+	// Filter out watched movies and build response
+	items := make([]MediaItemWithTime, 0, limit)
+	for _, m := range movieList {
+		if prog, ok := progressMap[m.Media.ID]; ok && prog.IsWatched {
+			continue // Skip watched movies
+		}
+		resp := movies.ToMovieResponse(m)
+		items = append(items, MediaItemWithTime{
+			Type:      "movie",
+			Movie:     &resp,
+			CreatedAt: m.CreatedAt,
+			UpdatedAt: m.Media.UpdatedAt,
+		})
 	}
 
 	if len(items) > limit {

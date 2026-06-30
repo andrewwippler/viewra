@@ -61,7 +61,8 @@ func TestGetMovieUseCase_Execute(t *testing.T) {
 				tt.setupRepo(repo)
 			}
 
-			uc := NewGetMovieUseCase(repo)
+			mediaRepo := mocks.NewMediaRepository(t)
+			uc := NewGetMovieUseCase(repo, mediaRepo)
 			resp, err := uc.Execute(context.Background(), tt.movieID)
 
 			if tt.wantErr {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
 	"runtime"
 	"syscall"
@@ -120,18 +121,15 @@ func (s *TranscodeSession) buildFFmpegArgs(params StartParams) []string {
 	switch strategy {
 	case "remux":
 		builder.AddStreamMapping().AddH264Copy().AddAudioCodec("copy")
-		useSegmentMuxer = true
 
 	case "remux_audio":
 		builder.AddStreamMapping().AddH264Copy().AddAudioDownmix()
-		useSegmentMuxer = true
 
 	case "remux_hevc":
 		s.logger.Info("Using HEVC remux strategy",
 			"session_id", s.ID,
 			"media_id", s.MediaID)
 		builder.AddStreamMapping().AddHEVCCopy().AddAudioDownmix()
-		useSegmentMuxer = true
 
 	case "transcode":
 		videoEncoder, videoPreset := hls.GetVideoCodecAndPresetForCodec(hwAccel, targetCodec)
@@ -175,44 +173,62 @@ func (s *TranscodeSession) buildFFmpegArgs(params StartParams) []string {
 
 // createFFmpegCommand creates an FFmpeg command with memory limits via systemd-run (if available).
 func createFFmpegCommand(ctx context.Context, args []string, config *Config, logger *slog.Logger) *exec.Cmd {
-	paths := config.FFmpegPaths
-	maxMemoryMB := config.MaxMemoryMB
+	var paths *hls.Paths
+	ffmpegBin := "ffmpeg"
+	maxMemoryMB := 0
 
-	// On Linux with systemd, use systemd-run to apply memory limits
-	if runtime.GOOS == "linux" && maxMemoryMB > 0 {
+	if config != nil {
+		paths = config.FFmpegPaths
+		maxMemoryMB = config.MaxMemoryMB
+	}
+
+	// Resolve ffmpeg binary path
+	if paths != nil && paths.FFmpeg != "" {
+		ffmpegBin = paths.FFmpeg
+	}
+
+	if runtime.GOOS == "linux" && maxMemoryMB > 0 && os.Getenv("VIEWRA_DISABLE_SYSTEMD_RUN") == "" {
 		if _, err := exec.LookPath("systemd-run"); err == nil {
-			limitMB := maxMemoryMB * 2
+			if xdgDir, ok := os.LookupEnv("XDG_RUNTIME_DIR"); ok && xdgDir != "" {
+				if stat, err := os.Stat(xdgDir); err == nil && stat.IsDir() {
+					limitMB := maxMemoryMB * 2
 
-			systemdArgs := []string{
-				"--scope",
-				"--user",
-				"-p", fmt.Sprintf("MemoryMax=%dM", limitMB),
-				"-p", "MemorySwapMax=0",
+					systemdArgs := []string{
+						"--scope",
+						"--user",
+						"-p", fmt.Sprintf("MemoryMax=%dM", limitMB),
+						"-p", "MemorySwapMax=0",
+					}
+
+					if paths != nil && paths.LibPath != "" {
+						systemdArgs = append(systemdArgs, "-E", "LD_LIBRARY_PATH="+paths.LibPath)
+					}
+
+					systemdArgs = append(systemdArgs, "--", ffmpegBin)
+					systemdArgs = append(systemdArgs, args...)
+
+					cmd := exec.CommandContext(ctx, "systemd-run", systemdArgs...)
+					cmd.SysProcAttr = &syscall.SysProcAttr{
+						Setpgid: true,
+					}
+					return cmd
+				}
 			}
-
-			if paths.LibPath != "" {
-				systemdArgs = append(systemdArgs, "-E", "LD_LIBRARY_PATH="+paths.LibPath)
-			}
-
-			systemdArgs = append(systemdArgs, "--", paths.FFmpeg)
-			systemdArgs = append(systemdArgs, args...)
-
-			logger.Debug("Using systemd-run for memory-limited FFmpeg",
-				"memory_limit_mb", limitMB,
-				"ffmpeg_max_alloc_mb", maxMemoryMB,
-				"ffmpeg_path", paths.FFmpeg,
-				"lib_path", paths.LibPath)
-
-			cmd := exec.CommandContext(ctx, "systemd-run", systemdArgs...)
-			cmd.SysProcAttr = &syscall.SysProcAttr{
-				Setpgid: true,
-			}
-			return cmd
 		}
 	}
 
-	// Fallback: use Paths.PrepareCommand
-	cmd := paths.PrepareCommand("ffmpeg", args...)
+	// Fallback: use Paths.PrepareCommand or direct exec
+	if paths != nil {
+		cmd := paths.PrepareCommand("ffmpeg", args...)
+		if runtime.GOOS != "windows" {
+			cmd.SysProcAttr = &syscall.SysProcAttr{
+				Setpgid: true,
+			}
+		}
+		return cmd
+	}
+
+	cmd := exec.CommandContext(ctx, ffmpegBin, args...)
 	if runtime.GOOS != "windows" {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: true,

@@ -12,7 +12,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Hls from 'hls.js'
-import { getAuthHeaders } from '@/lib/utils/authFetch'
+import { getAuthHeaders, isTokenExpiringSoon, refreshAccessToken } from '@/lib/utils/authFetch'
 import { logger } from '@/lib/utils/logger'
 import { ensureVideoUnmuted } from '@/lib/utils/videoUtils'
 
@@ -26,7 +26,6 @@ const HLS_CONFIG = {
   MAX_MAX_BUFFER_LENGTH: 30, // Allow larger buffer for seeking ahead
   MAX_BUFFER_SIZE: 60 * 1000 * 1000, // 60MB for 4K segments
   MAX_BUFFER_HOLE: 0.5, // Tighter sync to avoid jumps
-  ENABLE_WORKER: true, // Enable for better performance
   LOW_LATENCY_MODE: false, // Disable for on-demand transcoding - we need buffer headroom
   DEBUG: false,
   BACK_BUFFER_LENGTH: 30, // Keep 30s back buffer for seeking backward
@@ -38,6 +37,11 @@ const HLS_CONFIG = {
   // Start loading next segments earlier to stay ahead of playback
   START_FRAG_PREFETCH: true,
 } as const
+
+// Chrome 79 (WebOS) cannot parse the ES2020+ syntax in HLS.js's inline Web Worker
+// (optional chaining, nullish coalescing), causing silent worker failure and no playback.
+// Disable the worker on TV builds where the target browser is Chrome 79.
+const ENABLE_WORKER = import.meta.env.VITE_UI_MODE !== 'tv'
 
 export interface QualityLevel {
   height: number
@@ -296,7 +300,7 @@ export const useHlsPlayer = ({
     // Create hls.js instance
     const hls = new Hls({
       debug: HLS_CONFIG.DEBUG,
-      enableWorker: HLS_CONFIG.ENABLE_WORKER,
+      enableWorker: ENABLE_WORKER,
       lowLatencyMode: HLS_CONFIG.LOW_LATENCY_MODE,
       maxBufferLength: HLS_CONFIG.MAX_BUFFER_LENGTH,
       maxMaxBufferLength: HLS_CONFIG.MAX_MAX_BUFFER_LENGTH,
@@ -532,6 +536,20 @@ export const useHlsPlayer = ({
   // Note: onError and onFragLoaded are stored in refs to avoid triggering re-initialization
 
   }, [streamUrl, initialPosition, isHlsStream, videoRef])
+
+  // Proactively refresh access token before it expires to prevent
+  // 401 errors on HLS segment requests during long playback sessions.
+  // The default ACCESS_TOKEN_TTL is 15 minutes, so checking every 5 minutes
+  // keeps the token fresh well before expiry.
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (isTokenExpiringSoon()) {
+        await refreshAccessToken()
+      }
+    }, 5 * 60 * 1000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   return {
     hlsRef,

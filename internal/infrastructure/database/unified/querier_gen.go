@@ -86,6 +86,13 @@ func (q *Querier) BoostPriority(ctx context.Context, arg sqlc_sqlite.BoostPriori
 	return q.sqlite.BoostPriority(ctx, arg)
 }
 
+func (q *Querier) BulkCreatePrograms(ctx context.Context, arg sqlc_sqlite.BulkCreateProgramsParams) error {
+	if q.isPostgres {
+		return q.postgres.BulkCreatePrograms(ctx, sqlc_postgres.BulkCreateProgramsParams(arg))
+	}
+	return q.sqlite.BulkCreatePrograms(ctx, arg)
+}
+
 func (q *Querier) ClaimEnrichmentJobs(ctx context.Context, arg sqlc_sqlite.ClaimEnrichmentJobsParams) ([]sqlc_sqlite.EnrichmentQueue, error) {
 	if q.isPostgres {
 		r0, err := q.postgres.ClaimEnrichmentJobs(ctx, sqlc_postgres.ClaimEnrichmentJobsParams(arg))
@@ -392,6 +399,22 @@ func (q *Querier) CreateArtist(ctx context.Context, arg sqlc_sqlite.CreateArtist
 	return q.sqlite.CreateArtist(ctx, arg)
 }
 
+func (q *Querier) CreateChannel(ctx context.Context, arg sqlc_sqlite.CreateChannelParams) (sqlc_sqlite.LiveChannel, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.CreateChannel(ctx, sqlc_postgres.CreateChannelParams(arg))
+		return castValue[sqlc_postgres.LiveChannel, sqlc_sqlite.LiveChannel](r0), err
+	}
+	return q.sqlite.CreateChannel(ctx, arg)
+}
+
+func (q *Querier) CreateChannelEPGMapping(ctx context.Context, arg sqlc_sqlite.CreateChannelEPGMappingParams) (sqlc_sqlite.LiveChannelEpgMapping, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.CreateChannelEPGMapping(ctx, sqlc_postgres.CreateChannelEPGMappingParams(arg))
+		return castValue[sqlc_postgres.LiveChannelEpgMapping, sqlc_sqlite.LiveChannelEpgMapping](r0), err
+	}
+	return q.sqlite.CreateChannelEPGMapping(ctx, arg)
+}
+
 func (q *Querier) CreateCredit(ctx context.Context, arg sqlc_sqlite.CreateCreditParams) (sqlc_sqlite.Credit, error) {
 	if q.isPostgres {
 		r0, err := q.postgres.CreateCredit(ctx, sqlc_postgres.CreateCreditParams(arg))
@@ -466,6 +489,14 @@ func (q *Querier) CreatePluginAPIKey(ctx context.Context, arg sqlc_sqlite.Create
 		return q.postgres.CreatePluginAPIKey(ctx, sqlc_postgres.CreatePluginAPIKeyParams(arg))
 	}
 	return q.sqlite.CreatePluginAPIKey(ctx, arg)
+}
+
+func (q *Querier) CreateProgram(ctx context.Context, arg sqlc_sqlite.CreateProgramParams) (sqlc_sqlite.LiveEpgProgram, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.CreateProgram(ctx, sqlc_postgres.CreateProgramParams(arg))
+		return castValue[sqlc_postgres.LiveEpgProgram, sqlc_sqlite.LiveEpgProgram](r0), err
+	}
+	return q.sqlite.CreateProgram(ctx, arg)
 }
 
 func (q *Querier) CreateQualitySwitchEvent(ctx context.Context, arg sqlc_sqlite.CreateQualitySwitchEventParams) (sqlc_sqlite.QualitySwitchEvent, error) {
@@ -609,6 +640,34 @@ func (q *Querier) DeleteAudioTracksByMediaID(ctx context.Context, mediaID int64)
 		return q.postgres.DeleteAudioTracksByMediaID(ctx, mediaID)
 	}
 	return q.sqlite.DeleteAudioTracksByMediaID(ctx, mediaID)
+}
+
+func (q *Querier) DeleteChannel(ctx context.Context, id int64) error {
+	if q.isPostgres {
+		return q.postgres.DeleteChannel(ctx, id)
+	}
+	return q.sqlite.DeleteChannel(ctx, id)
+}
+
+func (q *Querier) DeleteChannelEPGMapping(ctx context.Context, arg sqlc_sqlite.DeleteChannelEPGMappingParams) error {
+	if q.isPostgres {
+		return q.postgres.DeleteChannelEPGMapping(ctx, sqlc_postgres.DeleteChannelEPGMappingParams(arg))
+	}
+	return q.sqlite.DeleteChannelEPGMapping(ctx, arg)
+}
+
+func (q *Querier) DeleteChannelEPGMappingsByLibrary(ctx context.Context, libraryID int64) error {
+	if q.isPostgres {
+		return q.postgres.DeleteChannelEPGMappingsByLibrary(ctx, libraryID)
+	}
+	return q.sqlite.DeleteChannelEPGMappingsByLibrary(ctx, libraryID)
+}
+
+func (q *Querier) DeleteChannelsByLibrary(ctx context.Context, libraryID int64) error {
+	if q.isPostgres {
+		return q.postgres.DeleteChannelsByLibrary(ctx, libraryID)
+	}
+	return q.sqlite.DeleteChannelsByLibrary(ctx, libraryID)
 }
 
 func (q *Querier) DeleteCredit(ctx context.Context, id int64) error {
@@ -779,6 +838,13 @@ func (q *Querier) DeleteOldPlaybackSessions(ctx context.Context, startTime int64
 	return q.sqlite.DeleteOldPlaybackSessions(ctx, startTime)
 }
 
+func (q *Querier) DeleteOldPrograms(ctx context.Context, endTime time.Time) error {
+	if q.isPostgres {
+		return q.postgres.DeleteOldPrograms(ctx, endTime)
+	}
+	return q.sqlite.DeleteOldPrograms(ctx, endTime)
+}
+
 func (q *Querier) DeleteOldQualitySwitchEvents(ctx context.Context, timestamp int64) error {
 	if q.isPostgres {
 		return q.postgres.DeleteOldQualitySwitchEvents(ctx, timestamp)
@@ -889,6 +955,20 @@ func (q *Querier) DeletePluginUserMetadataByUser(ctx context.Context, userID int
 		return q.postgres.DeletePluginUserMetadataByUser(ctx, userID)
 	}
 	return q.sqlite.DeletePluginUserMetadataByUser(ctx, userID)
+}
+
+func (q *Querier) DeleteProgramsByChannel(ctx context.Context, channelID int64) error {
+	if q.isPostgres {
+		return q.postgres.DeleteProgramsByChannel(ctx, channelID)
+	}
+	return q.sqlite.DeleteProgramsByChannel(ctx, channelID)
+}
+
+func (q *Querier) DeleteProgramsByLibrary(ctx context.Context, libraryID int64) error {
+	if q.isPostgres {
+		return q.postgres.DeleteProgramsByLibrary(ctx, libraryID)
+	}
+	return q.sqlite.DeleteProgramsByLibrary(ctx, libraryID)
 }
 
 func (q *Querier) DeleteScanCheckpointsByJobID(ctx context.Context, scanJobID int64) error {
@@ -1095,7 +1175,7 @@ func (q *Querier) EnqueueEnrichmentJob(ctx context.Context, arg sqlc_sqlite.Enqu
 	return q.sqlite.EnqueueEnrichmentJob(ctx, arg)
 }
 
-func (q *Querier) ExistsAnyUser(ctx context.Context) (int64, error) {
+func (q *Querier) ExistsAnyUser(ctx context.Context) (bool, error) {
 	if q.isPostgres {
 		return q.postgres.ExistsAnyUser(ctx)
 	}
@@ -1251,6 +1331,30 @@ func (q *Querier) GetCastForEntity(ctx context.Context, arg sqlc_sqlite.GetCastF
 	return q.sqlite.GetCastForEntity(ctx, arg)
 }
 
+func (q *Querier) GetChannel(ctx context.Context, id int64) (sqlc_sqlite.LiveChannel, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.GetChannel(ctx, id)
+		return castValue[sqlc_postgres.LiveChannel, sqlc_sqlite.LiveChannel](r0), err
+	}
+	return q.sqlite.GetChannel(ctx, id)
+}
+
+func (q *Querier) GetChannelByEPGID(ctx context.Context, arg sqlc_sqlite.GetChannelByEPGIDParams) (sqlc_sqlite.LiveChannel, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.GetChannelByEPGID(ctx, sqlc_postgres.GetChannelByEPGIDParams(arg))
+		return castValue[sqlc_postgres.LiveChannel, sqlc_sqlite.LiveChannel](r0), err
+	}
+	return q.sqlite.GetChannelByEPGID(ctx, arg)
+}
+
+func (q *Querier) GetChannelEPGMapping(ctx context.Context, arg sqlc_sqlite.GetChannelEPGMappingParams) (sqlc_sqlite.LiveChannelEpgMapping, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.GetChannelEPGMapping(ctx, sqlc_postgres.GetChannelEPGMappingParams(arg))
+		return castValue[sqlc_postgres.LiveChannelEpgMapping, sqlc_sqlite.LiveChannelEpgMapping](r0), err
+	}
+	return q.sqlite.GetChannelEPGMapping(ctx, arg)
+}
+
 func (q *Querier) GetCorrelatedAnalytics(ctx context.Context, arg sqlc_sqlite.GetCorrelatedAnalyticsParams) ([]sqlc_sqlite.GetCorrelatedAnalyticsRow, error) {
 	if q.isPostgres {
 		r0, err := q.postgres.GetCorrelatedAnalytics(ctx, sqlc_postgres.GetCorrelatedAnalyticsParams(arg))
@@ -1315,12 +1419,28 @@ func (q *Querier) GetCurrentEnrichmentItem(ctx context.Context, libraryID sql.Nu
 	return q.sqlite.GetCurrentEnrichmentItem(ctx, libraryID)
 }
 
+func (q *Querier) GetCurrentProgram(ctx context.Context, arg sqlc_sqlite.GetCurrentProgramParams) (sqlc_sqlite.LiveEpgProgram, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.GetCurrentProgram(ctx, sqlc_postgres.GetCurrentProgramParams(arg))
+		return castValue[sqlc_postgres.LiveEpgProgram, sqlc_sqlite.LiveEpgProgram](r0), err
+	}
+	return q.sqlite.GetCurrentProgram(ctx, arg)
+}
+
 func (q *Querier) GetDirectorsForEntity(ctx context.Context, arg sqlc_sqlite.GetDirectorsForEntityParams) ([]sqlc_sqlite.GetDirectorsForEntityRow, error) {
 	if q.isPostgres {
 		r0, err := q.postgres.GetDirectorsForEntity(ctx, sqlc_postgres.GetDirectorsForEntityParams(arg))
 		return castSlice[sqlc_postgres.GetDirectorsForEntityRow, sqlc_sqlite.GetDirectorsForEntityRow](r0), err
 	}
 	return q.sqlite.GetDirectorsForEntity(ctx, arg)
+}
+
+func (q *Querier) GetEPGMappingForLibrary(ctx context.Context, libraryID int64) ([]sqlc_sqlite.GetEPGMappingForLibraryRow, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.GetEPGMappingForLibrary(ctx, libraryID)
+		return castSlice[sqlc_postgres.GetEPGMappingForLibraryRow, sqlc_sqlite.GetEPGMappingForLibraryRow](r0), err
+	}
+	return q.sqlite.GetEPGMappingForLibrary(ctx, libraryID)
 }
 
 func (q *Querier) GetEmbeddedSubtitlesByMediaID(ctx context.Context, mediaID int64) ([]sqlc_sqlite.MediaSubtitleTrack, error) {
@@ -1682,6 +1802,14 @@ func (q *Querier) GetMovieByMediaID(ctx context.Context, mediaID int64) (sqlc_sq
 	return q.sqlite.GetMovieByMediaID(ctx, mediaID)
 }
 
+func (q *Querier) GetMoviesWithoutVariantGroup(ctx context.Context, libraryID int64) ([]sqlc_sqlite.GetMoviesWithoutVariantGroupRow, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.GetMoviesWithoutVariantGroup(ctx, libraryID)
+		return castSlice[sqlc_postgres.GetMoviesWithoutVariantGroupRow, sqlc_sqlite.GetMoviesWithoutVariantGroupRow](r0), err
+	}
+	return q.sqlite.GetMoviesWithoutVariantGroup(ctx, libraryID)
+}
+
 func (q *Querier) GetMusicTrackByMediaID(ctx context.Context, mediaID int64) (sqlc_sqlite.GetMusicTrackByMediaIDRow, error) {
 	if q.isPostgres {
 		r0, err := q.postgres.GetMusicTrackByMediaID(ctx, mediaID)
@@ -1869,6 +1997,14 @@ func (q *Querier) GetPluginUserMetadata(ctx context.Context, arg sqlc_sqlite.Get
 		return castValue[sqlc_postgres.GetPluginUserMetadataRow, sqlc_sqlite.GetPluginUserMetadataRow](r0), err
 	}
 	return q.sqlite.GetPluginUserMetadata(ctx, arg)
+}
+
+func (q *Querier) GetProgram(ctx context.Context, id int64) (sqlc_sqlite.LiveEpgProgram, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.GetProgram(ctx, id)
+		return castValue[sqlc_postgres.LiveEpgProgram, sqlc_sqlite.LiveEpgProgram](r0), err
+	}
+	return q.sqlite.GetProgram(ctx, id)
 }
 
 func (q *Querier) GetQualitySwitchStats(ctx context.Context, mediaID int64) (sqlc_sqlite.GetQualitySwitchStatsRow, error) {
@@ -2284,6 +2420,14 @@ func (q *Querier) GetUserSetting(ctx context.Context, arg sqlc_sqlite.GetUserSet
 	return q.sqlite.GetUserSetting(ctx, arg)
 }
 
+func (q *Querier) GetVariantsByGroupID(ctx context.Context, variantGroupID sql.NullInt64) ([]sqlc_sqlite.Medium, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.GetVariantsByGroupID(ctx, variantGroupID)
+		return castSlice[sqlc_postgres.Medium, sqlc_sqlite.Medium](r0), err
+	}
+	return q.sqlite.GetVariantsByGroupID(ctx, variantGroupID)
+}
+
 func (q *Querier) GetWatchProgressByID(ctx context.Context, id int64) (sqlc_sqlite.WatchProgress, error) {
 	if q.isPostgres {
 		r0, err := q.postgres.GetWatchProgressByID(ctx, id)
@@ -2316,7 +2460,7 @@ func (q *Querier) GetWritersForEntity(ctx context.Context, arg sqlc_sqlite.GetWr
 	return q.sqlite.GetWritersForEntity(ctx, arg)
 }
 
-func (q *Querier) HasUserRatings(ctx context.Context, userID string) (int64, error) {
+func (q *Querier) HasUserRatings(ctx context.Context, userID string) (bool, error) {
 	if q.isPostgres {
 		return q.postgres.HasUserRatings(ctx, userID)
 	}
@@ -2457,6 +2601,22 @@ func (q *Querier) ListArtistsByLibrary(ctx context.Context, libraryID int64) ([]
 		return castSlice[sqlc_postgres.MusicArtist, sqlc_sqlite.MusicArtist](r0), err
 	}
 	return q.sqlite.ListArtistsByLibrary(ctx, libraryID)
+}
+
+func (q *Querier) ListChannelEPGMappings(ctx context.Context, libraryID int64) ([]sqlc_sqlite.ListChannelEPGMappingsRow, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.ListChannelEPGMappings(ctx, libraryID)
+		return castSlice[sqlc_postgres.ListChannelEPGMappingsRow, sqlc_sqlite.ListChannelEPGMappingsRow](r0), err
+	}
+	return q.sqlite.ListChannelEPGMappings(ctx, libraryID)
+}
+
+func (q *Querier) ListChannels(ctx context.Context, libraryID int64) ([]sqlc_sqlite.LiveChannel, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.ListChannels(ctx, libraryID)
+		return castSlice[sqlc_postgres.LiveChannel, sqlc_sqlite.LiveChannel](r0), err
+	}
+	return q.sqlite.ListChannels(ctx, libraryID)
 }
 
 func (q *Querier) ListDistinctMovieGenres(ctx context.Context, limit int64) ([]string, error) {
@@ -2771,6 +2931,22 @@ func (q *Querier) ListProcessingTranscodeJobs(ctx context.Context) ([]sqlc_sqlit
 	return q.sqlite.ListProcessingTranscodeJobs(ctx)
 }
 
+func (q *Querier) ListProgramsByChannel(ctx context.Context, arg sqlc_sqlite.ListProgramsByChannelParams) ([]sqlc_sqlite.LiveEpgProgram, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.ListProgramsByChannel(ctx, sqlc_postgres.ListProgramsByChannelParams(arg))
+		return castSlice[sqlc_postgres.LiveEpgProgram, sqlc_sqlite.LiveEpgProgram](r0), err
+	}
+	return q.sqlite.ListProgramsByChannel(ctx, arg)
+}
+
+func (q *Querier) ListProgramsByLibrary(ctx context.Context, arg sqlc_sqlite.ListProgramsByLibraryParams) ([]sqlc_sqlite.LiveEpgProgram, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.ListProgramsByLibrary(ctx, sqlc_postgres.ListProgramsByLibraryParams(arg))
+		return castSlice[sqlc_postgres.LiveEpgProgram, sqlc_sqlite.LiveEpgProgram](r0), err
+	}
+	return q.sqlite.ListProgramsByLibrary(ctx, arg)
+}
+
 func (q *Querier) ListQualitySwitchEventsBySessionID(ctx context.Context, sessionID string) ([]sqlc_sqlite.QualitySwitchEvent, error) {
 	if q.isPostgres {
 		r0, err := q.postgres.ListQualitySwitchEventsBySessionID(ctx, sessionID)
@@ -2785,6 +2961,14 @@ func (q *Querier) ListQueuedTranscodeJobs(ctx context.Context, limit int64) ([]s
 		return castSlice[sqlc_postgres.TranscodeJob, sqlc_sqlite.TranscodeJob](r0), err
 	}
 	return q.sqlite.ListQueuedTranscodeJobs(ctx, limit)
+}
+
+func (q *Querier) ListRandomMovies(ctx context.Context, limit int64) ([]sqlc_sqlite.ListRandomMoviesRow, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.ListRandomMovies(ctx, limit)
+		return castSlice[sqlc_postgres.ListRandomMoviesRow, sqlc_sqlite.ListRandomMoviesRow](r0), err
+	}
+	return q.sqlite.ListRandomMovies(ctx, limit)
 }
 
 func (q *Querier) ListRecentlyAddedMovies(ctx context.Context, limit int64) ([]sqlc_sqlite.ListRecentlyAddedMoviesRow, error) {
@@ -3068,7 +3252,7 @@ func (q *Querier) MediaExistsInLibrary(ctx context.Context, arg sqlc_sqlite.Medi
 	return q.sqlite.MediaExistsInLibrary(ctx, arg)
 }
 
-func (q *Querier) PluginExists(ctx context.Context, id string) (int64, error) {
+func (q *Querier) PluginExists(ctx context.Context, id string) (bool, error) {
 	if q.isPostgres {
 		return q.postgres.PluginExists(ctx, id)
 	}
@@ -3209,14 +3393,14 @@ func (q *Querier) RetryEnrichmentJobsByLibrary(ctx context.Context, libraryID sq
 	return q.sqlite.RetryEnrichmentJobsByLibrary(ctx, libraryID)
 }
 
-func (q *Querier) ScheduledTaskExists(ctx context.Context, id string) (int64, error) {
+func (q *Querier) ScheduledTaskExists(ctx context.Context, id string) (bool, error) {
 	if q.isPostgres {
 		return q.postgres.ScheduledTaskExists(ctx, id)
 	}
 	return q.sqlite.ScheduledTaskExists(ctx, id)
 }
 
-func (q *Querier) SchedulerLockExists(ctx context.Context, lockKey string) (int64, error) {
+func (q *Querier) SchedulerLockExists(ctx context.Context, lockKey string) (bool, error) {
 	if q.isPostgres {
 		return q.postgres.SchedulerLockExists(ctx, lockKey)
 	}
@@ -3389,6 +3573,14 @@ func (q *Querier) UpdateArtist(ctx context.Context, arg sqlc_sqlite.UpdateArtist
 		return q.postgres.UpdateArtist(ctx, sqlc_postgres.UpdateArtistParams(arg))
 	}
 	return q.sqlite.UpdateArtist(ctx, arg)
+}
+
+func (q *Querier) UpdateChannelEPGMapping(ctx context.Context, arg sqlc_sqlite.UpdateChannelEPGMappingParams) (sqlc_sqlite.LiveChannelEpgMapping, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.UpdateChannelEPGMapping(ctx, sqlc_postgres.UpdateChannelEPGMappingParams(arg))
+		return castValue[sqlc_postgres.LiveChannelEpgMapping, sqlc_sqlite.LiveChannelEpgMapping](r0), err
+	}
+	return q.sqlite.UpdateChannelEPGMapping(ctx, arg)
 }
 
 func (q *Querier) UpdateImage(ctx context.Context, arg sqlc_sqlite.UpdateImageParams) error {
@@ -3660,6 +3852,14 @@ func (q *Querier) UpdateWatchProgress(ctx context.Context, arg sqlc_sqlite.Updat
 		return castValue[sqlc_postgres.WatchProgress, sqlc_sqlite.WatchProgress](r0), err
 	}
 	return q.sqlite.UpdateWatchProgress(ctx, arg)
+}
+
+func (q *Querier) UpsertChannel(ctx context.Context, arg sqlc_sqlite.UpsertChannelParams) (sqlc_sqlite.LiveChannel, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.UpsertChannel(ctx, sqlc_postgres.UpsertChannelParams(arg))
+		return castValue[sqlc_postgres.LiveChannel, sqlc_sqlite.LiveChannel](r0), err
+	}
+	return q.sqlite.UpsertChannel(ctx, arg)
 }
 
 func (q *Querier) UpsertEnrichmentStatus(ctx context.Context, arg sqlc_sqlite.UpsertEnrichmentStatusParams) error {

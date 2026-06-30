@@ -9,7 +9,7 @@
 export type GithubComMantonxViewraInternalApplicationSystemMigrationStatus =
   (typeof GithubComMantonxViewraInternalApplicationSystemMigrationStatus)[keyof typeof GithubComMantonxViewraInternalApplicationSystemMigrationStatus]
 
-// eslint-disable-next-line @typescript-eslint/no-redeclare
+ 
 export const GithubComMantonxViewraInternalApplicationSystemMigrationStatus = {
   StatusIdle: 'idle',
   StatusInProgress: 'in_progress',

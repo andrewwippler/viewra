@@ -91,7 +91,9 @@ func buildRuntimeDeps(deps SchedulerDeps) *appscheduler.RuntimeDeps {
 		ScanJobDeleter: deps.Cases.ScanJob,
 		LibraryLister:  deps.Cases.Library.Service,
 		ImageCleanup:   deps.Cases.Images.Cleanup,
-		SessionCleanup: deps.Repos.Session,
+		SessionCleanup:    deps.Repos.Session,
+		EPGScanner:        deps.Cases.LiveTv.ScanEPG,
+		LiveTvChannelRepo: deps.Repos.LiveTvChannel,
 	}
 
 	// Wire transcode cleanup if enabled

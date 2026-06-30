@@ -418,6 +418,58 @@ func (h *Handler) movieToBaseItem(c *gin.Context, m *appmovies.MovieResponse) Ba
 	item.MediaType = "Video"
 	item.UserData = h.getUserData(c, m.ID, "Movie")
 
+	// Build MediaSources from language variants
+	if len(m.Variants) > 0 {
+		item.MediaSources = make([]MediaSource, 0, len(m.Variants)+1)
+		// Primary source
+		primaryID := idStr(m.ID)
+		container := m.ContainerFormat
+		if container == "" {
+			container = "mp4"
+		}
+		item.MediaSources = append(item.MediaSources, MediaSource{
+			Id:                     primaryID,
+			Name:                   "Original",
+			Type:                   "Default",
+			Container:              container,
+			Path:                   m.FilePath,
+			RunTimeTicks:           ticks,
+			Size:                   m.FileSize,
+			SupportsDirectPlay:     true,
+			SupportsDirectStream:   true,
+			SupportsTranscoding:    true,
+			DirectStreamUrl:        "/Videos/" + primaryID + "/stream." + container + "?Static=true&mediaSourceId=" + primaryID,
+			TranscodingUrl:         "/Videos/" + primaryID + "/master.m3u8",
+			Bitrate:                m.Bitrate,
+		})
+		for _, v := range m.Variants {
+			vid := idStr(v.ID)
+			vContainer := v.ContainerFormat
+			if vContainer == "" {
+				vContainer = "mp4"
+			}
+			name := v.Language
+			if name == "" {
+				name = "Unknown"
+			}
+			item.MediaSources = append(item.MediaSources, MediaSource{
+				Id:                     vid,
+				Name:                   name,
+				Type:                   "Default",
+				Container:              vContainer,
+				Path:                   v.FilePath,
+				RunTimeTicks:           int64(v.Duration) * 10000000,
+				Size:                   v.FileSize,
+				SupportsDirectPlay:     true,
+				SupportsDirectStream:   true,
+				SupportsTranscoding:    true,
+				DirectStreamUrl:        "/Videos/" + vid + "/stream." + vContainer + "?Static=true&mediaSourceId=" + vid,
+				TranscodingUrl:         "/Videos/" + vid + "/master.m3u8",
+				Bitrate:                m.Bitrate,
+			})
+		}
+	}
+
 	return item
 }
 

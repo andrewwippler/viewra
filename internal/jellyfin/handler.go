@@ -112,6 +112,7 @@ func NewHandler(
 // These routes are registered at root level to match the Jellyfin API spec.
 func (h *Handler) RegisterRoutes(r *gin.Engine) {
 	jf := r.Group("")
+	jf.Use(h.jellyfinRequestLogger())
 	jf.Use(h.jellyfinTokenMiddleware())
 
 	jf.POST("/Users/AuthenticateByName", h.AuthenticateByName)
@@ -231,6 +232,18 @@ func (h *Handler) RegisterRoutes(r *gin.Engine) {
 
 }
 
+// jellyfinRequestLogger logs every incoming Jellyfin API request for debugging.
+func (h *Handler) jellyfinRequestLogger() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		h.logger.Debug("jellyfin: request",
+			"method", c.Request.Method,
+			"path", c.Request.URL.Path,
+			"user-agent", c.Request.UserAgent(),
+		)
+		c.Next()
+	}
+}
+
 // jellyfinTokenMiddleware extracts a Jellyfin/Emby auth token from the request
 // and stores it in the context for downstream handlers.
 func (h *Handler) jellyfinTokenMiddleware() gin.HandlerFunc {
@@ -308,6 +321,7 @@ type SystemInfo struct {
 	Version              string `json:"Version"`
 	ProductName          string `json:"ProductName"`
 	StartupWizardCompleted bool `json:"StartupWizardCompleted"`
+	WebPath              string `json:"WebPath,omitempty"`
 }
 
 type AuthenticationResult struct {

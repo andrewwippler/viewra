@@ -205,6 +205,17 @@ func PhaseDetermineChanges(
 	deps *Deps,
 	discoveredFiles []scanner.FileInfo,
 ) *scanner.ScanDiff {
+	if deps.IncrScanner == nil {
+		deps.Logger.Warn("incremental scanner not available, falling back to full scan",
+			"library_id", dctx.Lib.ID)
+		return &scanner.ScanDiff{
+			NewFiles:       discoveredFiles,
+			ModifiedFiles:  []scanner.FileInfo{},
+			DeletedFiles:   []string{},
+			UnchangedFiles: []string{},
+		}
+	}
+
 	diff, err := deps.IncrScanner.DetermineChanges(ctx, dctx.Lib.ID, discoveredFiles)
 	if err != nil {
 		deps.Logger.Warn("incremental scan failed, falling back to full scan",

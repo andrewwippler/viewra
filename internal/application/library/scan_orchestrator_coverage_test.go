@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mantonx/viewra/internal/application/library/scan"
+	"github.com/mantonx/viewra/internal/application/library/scan/recovery"
 	"github.com/mantonx/viewra/internal/domain/library"
 	"github.com/mantonx/viewra/internal/domain/scanner"
 	"github.com/mantonx/viewra/internal/testutil/mocks"
@@ -220,6 +221,10 @@ func TestScanLibraryUseCase_StartScanBackground(t *testing.T) {
 	uc := &ScanLibraryUseCase{
 		mediaRepos: &scan.MediaRepositories{
 			Library: libRepo,
+			Media:   mocks.NewMediaRepository(t),
+			Movie:   mocks.NewMovieRepository(t),
+			TV:      mocks.NewTVRepository(t),
+			Music:   mocks.NewMusicRepository(t),
 		},
 		scanRepos: &scan.ScanRepositories{
 			ScanJob:    scanRepo,
@@ -229,6 +234,7 @@ func TestScanLibraryUseCase_StartScanBackground(t *testing.T) {
 		config: scan.Config{
 			CheckpointBatchSize: 50,
 			Timeout:             time.Second * 5, // Short timeout for test
+			ProgressUpdateTick:  time.Second, // Required for ticker
 		},
 		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
@@ -466,16 +472,15 @@ func TestScanLibraryUseCase_recoverFromPanicWithError(t *testing.T) {
 
 			errChan := make(chan error, 1)
 
-			testFunc := func() {
-				defer uc.recoverFromPanicWithError(1, 10, "test context", errChan)
+			// Must use defer directly to allow recover() to work
+			func() {
+				defer recovery.RecoverFromPanicWithError(uc.logger, 1, 10, "test context", errChan)
 				if tt.panicValue != nil {
 					panic(tt.panicValue)
 				}
 				// No panic - close channel without error
 				close(errChan)
-			}
-
-			testFunc()
+			}()
 
 			// Check if error was sent
 			select {

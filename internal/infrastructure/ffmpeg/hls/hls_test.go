@@ -97,7 +97,9 @@ func TestBuilderAddStreamMapping(t *testing.T) {
 	}{
 		{"default audio", 0, false, "0:a:0"},
 		{"specific track 0", 0, true, "0:a:0"},
-		{"specific track 2", 2, true, "0:a:2"},
+		{"specific track 1", 1, true, "0:a:0"},
+		{"specific track 2", 2, true, "0:a:1"},
+		{"specific track 3", 3, true, "0:a:2"},
 	}
 
 	for _, tt := range tests {

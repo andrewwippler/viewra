@@ -3,6 +3,7 @@ import type { SortBy, SortOrder } from '@/lib/hooks/useBrowserPreferences'
 export interface Directory {
   name?: string
   path?: string
+  is_dir?: boolean
   readable?: boolean
   modified_at?: string
 }

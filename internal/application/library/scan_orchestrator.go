@@ -47,6 +47,9 @@ type ScanLibraryUseCase struct {
 	// Event bus - optional, if set, scan events are published for SSE streaming
 	eventBus *events.Bus
 
+	// Live TV - optional, only set for live_tv library scans
+	liveTVDeps *execution.LiveTVDeps
+
 	// Per-session deduplication
 	processedArtists scanutil.AtomicDeduplicator
 	processedShows   scanutil.AtomicDeduplicator
@@ -92,6 +95,12 @@ func NewScanLibraryUseCase(
 // This is optional - if not set, no events will be published.
 func (uc *ScanLibraryUseCase) SetEventBus(bus *events.Bus) {
 	uc.eventBus = bus
+}
+
+// SetLiveTVDeps sets the dependencies for scanning live TV libraries.
+// This is optional - only needed if the server has live_tv libraries configured.
+func (uc *ScanLibraryUseCase) SetLiveTVDeps(deps *execution.LiveTVDeps) {
+	uc.liveTVDeps = deps
 }
 
 // =============================================================================
@@ -473,7 +482,15 @@ func (uc *ScanLibraryUseCase) runScan(ctx context.Context, jobID int64, lib *lib
 		return
 	}
 
-	uc.logger.Info("starting fresh scan", "library_id", lib.ID)
+	uc.logger.Info("starting fresh scan", "library_id", lib.ID, "type", lib.Type)
+	if lib.Type == library.LibraryTypeLiveTV {
+		if uc.liveTVDeps == nil {
+			status.CompleteWithError(ctx, uc.statusDeps(), jobID, fmt.Errorf("live TV dependencies not configured"))
+			return
+		}
+		execution.RunLiveTVScan(ctx, uc.executionDeps(), uc.liveTVDeps, jobID, lib)
+		return
+	}
 	execution.RunFreshScan(ctx, uc.executionDeps(), jobID, lib)
 }
 

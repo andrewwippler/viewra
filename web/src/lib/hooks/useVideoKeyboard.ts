@@ -4,6 +4,7 @@
  */
 
 import { useEffect } from 'react'
+import { enterFullscreen, isInCSSFullscreen, exitCSSFullscreen } from '@/utils/device'
 
 export interface UseVideoKeyboardOptions {
   videoRef: React.RefObject<HTMLVideoElement | null>
@@ -30,9 +31,30 @@ export const useVideoKeyboard = ({
         return
       }
 
+      // WebOS remote media keys (keyCode-based, Chrome 79 may not support e.key)
+      switch (e.keyCode) {
+        case 179:
+        case 413:
+        case 415: // Play/Pause
+          e.preventDefault()
+          if (video.paused) { video.play() } else { video.pause() }
+          return
+        case 412:
+        case 464: // Rewind
+          e.preventDefault()
+          video.currentTime = Math.max(0, video.currentTime - 10)
+          return
+        case 417:
+        case 465: // Fast Forward
+          e.preventDefault()
+          video.currentTime = Math.min(video.duration || videoDuration, video.currentTime + 10)
+          return
+      }
+
       switch (e.key) {
         case ' ':
         case 'k': // Play/pause
+        case 'MediaPlayPause':
           e.preventDefault()
           if (video.paused) {
             video.play()
@@ -42,11 +64,13 @@ export const useVideoKeyboard = ({
           break
         case 'ArrowLeft':
         case 'j': // Rewind 10 seconds
+        case 'MediaTrackPrevious':
           e.preventDefault()
           video.currentTime = Math.max(0, video.currentTime - 10)
           break
         case 'ArrowRight':
         case 'l': // Forward 10 seconds
+        case 'MediaTrackNext':
           e.preventDefault()
           video.currentTime = Math.min(video.duration || videoDuration, video.currentTime + 10)
           break
@@ -62,14 +86,19 @@ export const useVideoKeyboard = ({
           e.preventDefault()
           video.muted = !video.muted
           break
-        case 'f': // Fullscreen toggle
+        case 'f': { // Fullscreen toggle
           e.preventDefault()
-          if (!document.fullscreenElement) {
-            containerRef.current?.requestFullscreen()
+          const container = containerRef.current
+          if (!container) {break}
+          if (!document.fullscreenElement && !isInCSSFullscreen(container)) {
+            enterFullscreen(container)
+          } else if (isInCSSFullscreen(container)) {
+            exitCSSFullscreen(container)
           } else {
             document.exitFullscreen()
           }
           break
+        }
         case '0':
         case 'Home': // Jump to start
           e.preventDefault()

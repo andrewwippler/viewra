@@ -99,7 +99,7 @@ func (r *CheckpointRepository) GetPendingBatch(ctx context.Context, jobID int64,
 	var pending []*scanner.ScanCheckpoint
 	for _, cp := range r.jobIDIndex[jobID] {
 		if cp.Status == scanner.CheckpointPending {
-			pending = append(pending, cp)
+			pending = append(pending, cp.Copy())
 			if len(pending) >= limit {
 				break
 			}
@@ -198,7 +198,7 @@ func (r *CheckpointRepository) ListFailed(ctx context.Context, jobID int64, limi
 	var failed []*scanner.ScanCheckpoint
 	for _, cp := range r.jobIDIndex[jobID] {
 		if cp.Status == scanner.CheckpointFailed {
-			failed = append(failed, cp)
+			failed = append(failed, cp.Copy())
 			if len(failed) >= limit {
 				break
 			}
@@ -218,7 +218,7 @@ func (r *CheckpointRepository) GetByPath(ctx context.Context, jobID int64, fileP
 
 	for _, cp := range r.jobIDIndex[jobID] {
 		if cp.FilePath == filePath {
-			return cp, nil
+			return cp.Copy(), nil
 		}
 	}
 

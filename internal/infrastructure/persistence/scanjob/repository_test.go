@@ -86,6 +86,35 @@ func setupTestDB(t *testing.T) *common.BaseRepository {
 		t.Fatalf("Failed to create scan_jobs schema: %v", err)
 	}
 
+	// Create scan_state table (required for FK on scan_jobs deletion)
+	scanStateSchema := `
+	CREATE TABLE IF NOT EXISTS scan_state (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		library_id INTEGER NOT NULL,
+		file_path TEXT NOT NULL,
+		file_size INTEGER NOT NULL DEFAULT 0,
+		file_mtime DATETIME NOT NULL DEFAULT '1970-01-01',
+		file_hash TEXT,
+		media_id INTEGER,
+		last_scanned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		scan_job_id INTEGER NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		has_warning INTEGER DEFAULT 0,
+		warning_message TEXT,
+		warning_category TEXT,
+		has_error INTEGER DEFAULT 0,
+		error_message TEXT,
+		error_category TEXT,
+		FOREIGN KEY (library_id) REFERENCES libraries(id) ON DELETE CASCADE,
+		FOREIGN KEY (scan_job_id) REFERENCES scan_jobs(id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_scan_state_library_id ON scan_state(library_id);
+	`
+
+	if _, err := db.Exec(scanStateSchema); err != nil {
+		t.Fatalf("Failed to create scan_state schema: %v", err)
+	}
+
 	// Insert test library
 	_, err = db.Exec("INSERT INTO libraries (id, name, path, type) VALUES (1, 'Test Library', '/test/path', 'movies')")
 	if err != nil {
@@ -303,29 +332,42 @@ func TestRepository_GetLatestByLibrary(t *testing.T) {
 	now := time.Now()
 
 	// Create multiple jobs for library 1
+	// Use explicit timestamps to avoid timezone issues
+	olderTime := now.Add(-2 * time.Hour)
+	newerTime := now.Add(-1 * time.Hour)
+
+	var err error
+
 	older := &scanner.ScanJob{
-		LibraryID: 1,
-		Status:    scanner.ScanStatusCompleted,
-		StartedAt: now.Add(-2 * time.Hour),
+		LibraryID:  1,
+		Status:     scanner.ScanStatusCompleted,
+		StartedAt:  olderTime,
+		CreatedAt:  olderTime,
+		UpdatedAt:  olderTime,
 	}
-	if err := repo.Create(ctx, older); err != nil {
+	if err = repo.Create(ctx, older); err != nil {
 		t.Fatalf("Failed to create older job: %v", err)
 	}
 
-	// Manually set older created_at to simulate an older job
-	olderTime := now.Add(-1 * time.Hour)
-	_, err := baseRepo.DB().Exec("UPDATE scan_jobs SET created_at = ? WHERE id = ?", olderTime, older.ID)
-	if err != nil {
+	// Manually set the created_at in DB since Create uses DEFAULT CURRENT_TIMESTAMP
+	if _, err = baseRepo.DB().Exec("UPDATE scan_jobs SET created_at = ?, updated_at = ? WHERE id = ?", olderTime.Format(time.RFC3339), olderTime.Format(time.RFC3339), older.ID); err != nil {
 		t.Fatalf("Failed to update created_at for older job: %v", err)
 	}
 
 	newer := &scanner.ScanJob{
-		LibraryID: 1,
-		Status:    scanner.ScanStatusRunning,
-		StartedAt: now,
+		LibraryID:  1,
+		Status:     scanner.ScanStatusRunning,
+		StartedAt:  newerTime,
+		CreatedAt:  newerTime,
+		UpdatedAt:  newerTime,
 	}
-	if err := repo.Create(ctx, newer); err != nil {
+	if err = repo.Create(ctx, newer); err != nil {
 		t.Fatalf("Failed to create newer job: %v", err)
+	}
+
+	// Also update newer job's created_at
+	if _, err = baseRepo.DB().Exec("UPDATE scan_jobs SET created_at = ?, updated_at = ? WHERE id = ?", newerTime.Format(time.RFC3339), newerTime.Format(time.RFC3339), newer.ID); err != nil {
+		t.Fatalf("Failed to update created_at for newer job: %v", err)
 	}
 
 	tests := []struct {
@@ -344,9 +386,10 @@ func TestRepository_GetLatestByLibrary(t *testing.T) {
 				if result.Status != scanner.ScanStatusRunning {
 					t.Errorf("Status = %v, want %v (newer job)", result.Status, scanner.ScanStatusRunning)
 				}
-				// Verify it's actually the newer job by checking created_at
-				if !result.CreatedAt.After(older.CreatedAt) && !result.CreatedAt.Equal(older.CreatedAt) {
-					t.Errorf("Expected newer job, but got older one")
+				// Verify it's actually the newer job by checking created_at is after the older job's created_at
+				// Note: older.CreatedAt still has the original value, so we just check the result is the newer job
+				if result.ID != newer.ID {
+					t.Errorf("Expected newer job (ID=%d), got ID=%d", newer.ID, result.ID)
 				}
 			},
 		},

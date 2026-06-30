@@ -195,7 +195,10 @@ export const useProgressUpdater = (
   const updateProgress = useUpdateProgress();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentTimeRef = useRef<number>(0);
+  const durationRef = useRef<number>(durationSeconds);
   const preferencesRef = useRef<PlaybackPreferences>({});
+
+  durationRef.current = durationSeconds;
 
   // Build the progress update payload including preferences and device profile
   const buildPayload = useCallback(() => {
@@ -225,7 +228,7 @@ export const useProgressUpdater = (
 
     // Set up periodic updates
     intervalRef.current = setInterval(() => {
-      if (currentTimeRef.current > 0) {
+      if (currentTimeRef.current > 0 && durationRef.current > 0) {
         updateProgress.mutate(buildPayload());
       }
     }, updateIntervalMs);
@@ -241,7 +244,7 @@ export const useProgressUpdater = (
   }, []);
 
   const immediateUpdate = useCallback(() => {
-    if (currentTimeRef.current > 0) {
+    if (currentTimeRef.current > 0 && durationRef.current > 0) {
       updateProgress.mutate(buildPayload());
     }
   }, [updateProgress, buildPayload]);
@@ -249,7 +252,7 @@ export const useProgressUpdater = (
   // Immediate update with new preferences (for quality/audio/subtitle changes)
   const immediateUpdateWithPreferences = useCallback((prefs: Partial<PlaybackPreferences>) => {
     preferencesRef.current = { ...preferencesRef.current, ...prefs };
-    if (currentTimeRef.current > 0) {
+    if (currentTimeRef.current > 0 && durationRef.current > 0) {
       updateProgress.mutate(buildPayload());
     }
   }, [updateProgress, buildPayload]);
@@ -261,7 +264,7 @@ export const useProgressUpdater = (
     }
 
     // Send final update
-    if (currentTimeRef.current > 0) {
+    if (currentTimeRef.current > 0 && durationRef.current > 0) {
       updateProgress.mutate(buildPayload());
     }
   }, [updateProgress, buildPayload]);

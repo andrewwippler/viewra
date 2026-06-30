@@ -60,6 +60,11 @@ type Repository interface {
 	GetSubtitleTracksByMediaID(ctx context.Context, mediaID int64) ([]*SubtitleTrack, error)
 	DeleteSubtitleTracksByMediaID(ctx context.Context, mediaID int64) error
 	DeleteExternalSubtitlesByMediaID(ctx context.Context, mediaID int64) error
+
+	// Variant methods
+	// GetVariantsByGroupID retrieves all media entries in the same variant group.
+	// Accepts the group ID (the primary media's ID that all variants point to).
+	GetVariantsByGroupID(ctx context.Context, groupID int64) ([]*Media, error)
 }
 
 // MovieRepository extends Repository with movie-specific operations
@@ -98,6 +103,9 @@ type MovieRepository interface {
 	// ListRecentlyAdded returns recently added movies across all libraries
 	ListRecentlyAdded(ctx context.Context, limit int) ([]*Movie, error)
 
+	// ListRandomMovies returns random movies across all libraries
+	ListRandomMovies(ctx context.Context, limit int) ([]*Movie, error)
+
 	// ListDistinctGenres returns distinct genres across all movies
 	ListDistinctGenres(ctx context.Context, limit int) ([]string, error)
 
@@ -107,6 +115,10 @@ type MovieRepository interface {
 	// This is used to detect file replacements - when a new file matches an existing
 	// movie's title/year, we should update the existing record rather than create a duplicate.
 	FindByTitleAndYear(ctx context.Context, libraryID int64, title string, year *int) (int64, string, error)
+
+	// GetMoviesWithoutVariantGroup retrieves all movies in a library that don't have
+	// a variant_group_id set. Used for post-scan reconciliation of variant groups.
+	GetMoviesWithoutVariantGroup(ctx context.Context, libraryID int64) ([]*Movie, error)
 }
 
 // TVRepository extends Repository with TV-specific operations

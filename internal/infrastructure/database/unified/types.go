@@ -24,6 +24,9 @@ type (
 	EnrichmentQueue = sqlc_sqlite.EnrichmentQueue
 	EnrichmentStatus = sqlc_sqlite.EnrichmentStatus
 	Library = sqlc_sqlite.Library
+	LiveChannel = sqlc_sqlite.LiveChannel
+	LiveChannelEpgMapping = sqlc_sqlite.LiveChannelEpgMapping
+	LiveEpgProgram = sqlc_sqlite.LiveEpgProgram
 	MediaAudioTrack = sqlc_sqlite.MediaAudioTrack
 	MediaExternalID = sqlc_sqlite.MediaExternalID
 	MediaImage = sqlc_sqlite.MediaImage
@@ -73,6 +76,7 @@ type (
 type (
 	AddMediaStudioParams = sqlc_sqlite.AddMediaStudioParams
 	BoostPriorityParams = sqlc_sqlite.BoostPriorityParams
+	BulkCreateProgramsParams = sqlc_sqlite.BulkCreateProgramsParams
 	ClaimEnrichmentJobsParams = sqlc_sqlite.ClaimEnrichmentJobsParams
 	ClearScanStateErrorParams = sqlc_sqlite.ClearScanStateErrorParams
 	ClearScanStateWarningParams = sqlc_sqlite.ClearScanStateWarningParams
@@ -89,6 +93,8 @@ type (
 	CountUserRatingsByRatingParams = sqlc_sqlite.CountUserRatingsByRatingParams
 	CreateAlbumParams = sqlc_sqlite.CreateAlbumParams
 	CreateArtistParams = sqlc_sqlite.CreateArtistParams
+	CreateChannelEPGMappingParams = sqlc_sqlite.CreateChannelEPGMappingParams
+	CreateChannelParams = sqlc_sqlite.CreateChannelParams
 	CreateCreditParams = sqlc_sqlite.CreateCreditParams
 	CreateImageParams = sqlc_sqlite.CreateImageParams
 	CreateLibraryParams = sqlc_sqlite.CreateLibraryParams
@@ -99,6 +105,7 @@ type (
 	CreatePipelineStageParams = sqlc_sqlite.CreatePipelineStageParams
 	CreatePluginAPIKeyParams = sqlc_sqlite.CreatePluginAPIKeyParams
 	CreatePluginParams = sqlc_sqlite.CreatePluginParams
+	CreateProgramParams = sqlc_sqlite.CreateProgramParams
 	CreateQualitySwitchEventParams = sqlc_sqlite.CreateQualitySwitchEventParams
 	CreateScanCheckpointBatchParams = sqlc_sqlite.CreateScanCheckpointBatchParams
 	CreateScanCheckpointParams = sqlc_sqlite.CreateScanCheckpointParams
@@ -113,6 +120,7 @@ type (
 	CreateTranscodeJobParams = sqlc_sqlite.CreateTranscodeJobParams
 	CreateUserParams = sqlc_sqlite.CreateUserParams
 	CreateWatchProgressParams = sqlc_sqlite.CreateWatchProgressParams
+	DeleteChannelEPGMappingParams = sqlc_sqlite.DeleteChannelEPGMappingParams
 	DeleteCreditsForEntityByTypeParams = sqlc_sqlite.DeleteCreditsForEntityByTypeParams
 	DeleteCreditsForEntityParams = sqlc_sqlite.DeleteCreditsForEntityParams
 	DeleteEnrichmentJobsByMediaParams = sqlc_sqlite.DeleteEnrichmentJobsByMediaParams
@@ -139,12 +147,15 @@ type (
 	GetArtistsWithCountsByLibraryPaginatedParams = sqlc_sqlite.GetArtistsWithCountsByLibraryPaginatedParams
 	GetBatchWatchProgressByMediaIDsParams = sqlc_sqlite.GetBatchWatchProgressByMediaIDsParams
 	GetCastForEntityParams = sqlc_sqlite.GetCastForEntityParams
+	GetChannelByEPGIDParams = sqlc_sqlite.GetChannelByEPGIDParams
+	GetChannelEPGMappingParams = sqlc_sqlite.GetChannelEPGMappingParams
 	GetCorrelatedAnalyticsAllParams = sqlc_sqlite.GetCorrelatedAnalyticsAllParams
 	GetCorrelatedAnalyticsParams = sqlc_sqlite.GetCorrelatedAnalyticsParams
 	GetCreatorsForEntityParams = sqlc_sqlite.GetCreatorsForEntityParams
 	GetCreditsForEntityByTypeParams = sqlc_sqlite.GetCreditsForEntityByTypeParams
 	GetCreditsForEntityParams = sqlc_sqlite.GetCreditsForEntityParams
 	GetCrewByJobParams = sqlc_sqlite.GetCrewByJobParams
+	GetCurrentProgramParams = sqlc_sqlite.GetCurrentProgramParams
 	GetDirectorsForEntityParams = sqlc_sqlite.GetDirectorsForEntityParams
 	GetEnrichmentJobByMediaAndStageParams = sqlc_sqlite.GetEnrichmentJobByMediaAndStageParams
 	GetEnrichmentStatusByMediaParams = sqlc_sqlite.GetEnrichmentStatusByMediaParams
@@ -221,6 +232,8 @@ type (
 	ListPeopleParams = sqlc_sqlite.ListPeopleParams
 	ListPlaybackSessionsByMediaIDParams = sqlc_sqlite.ListPlaybackSessionsByMediaIDParams
 	ListPluginUserMetadataKeysParams = sqlc_sqlite.ListPluginUserMetadataKeysParams
+	ListProgramsByChannelParams = sqlc_sqlite.ListProgramsByChannelParams
+	ListProgramsByLibraryParams = sqlc_sqlite.ListProgramsByLibraryParams
 	ListScanJobsByLibraryParams = sqlc_sqlite.ListScanJobsByLibraryParams
 	ListSchedulerExecutionsByTaskParams = sqlc_sqlite.ListSchedulerExecutionsByTaskParams
 	ListSchedulerExecutionsParams = sqlc_sqlite.ListSchedulerExecutionsParams
@@ -266,6 +279,7 @@ type (
 	TryAcquireSchedulerLockParams = sqlc_sqlite.TryAcquireSchedulerLockParams
 	UpdateAlbumParams = sqlc_sqlite.UpdateAlbumParams
 	UpdateArtistParams = sqlc_sqlite.UpdateArtistParams
+	UpdateChannelEPGMappingParams = sqlc_sqlite.UpdateChannelEPGMappingParams
 	UpdateImageParams = sqlc_sqlite.UpdateImageParams
 	UpdateLibraryMonitoringParams = sqlc_sqlite.UpdateLibraryMonitoringParams
 	UpdateLibraryParams = sqlc_sqlite.UpdateLibraryParams
@@ -303,6 +317,7 @@ type (
 	UpdateUserParams = sqlc_sqlite.UpdateUserParams
 	UpdateUserPasswordParams = sqlc_sqlite.UpdateUserPasswordParams
 	UpdateWatchProgressParams = sqlc_sqlite.UpdateWatchProgressParams
+	UpsertChannelParams = sqlc_sqlite.UpsertChannelParams
 	UpsertEnrichmentStatusParams = sqlc_sqlite.UpsertEnrichmentStatusParams
 	UpsertExternalIDParams = sqlc_sqlite.UpsertExternalIDParams
 	UpsertMetadataSourceParams = sqlc_sqlite.UpsertMetadataSourceParams
@@ -336,6 +351,7 @@ type (
 	GetCrewByJobRow = sqlc_sqlite.GetCrewByJobRow
 	GetCurrentEnrichmentItemRow = sqlc_sqlite.GetCurrentEnrichmentItemRow
 	GetDirectorsForEntityRow = sqlc_sqlite.GetDirectorsForEntityRow
+	GetEPGMappingForLibraryRow = sqlc_sqlite.GetEPGMappingForLibraryRow
 	GetEnrichmentQueueStatsByMediaRow = sqlc_sqlite.GetEnrichmentQueueStatsByMediaRow
 	GetEnrichmentQueueStatsRow = sqlc_sqlite.GetEnrichmentQueueStatsRow
 	GetEntityByExternalIDRow = sqlc_sqlite.GetEntityByExternalIDRow
@@ -347,6 +363,7 @@ type (
 	GetLibraryEnrichmentProgressRow = sqlc_sqlite.GetLibraryEnrichmentProgressRow
 	GetLocationKeywordsByEntityRow = sqlc_sqlite.GetLocationKeywordsByEntityRow
 	GetMovieByMediaIDRow = sqlc_sqlite.GetMovieByMediaIDRow
+	GetMoviesWithoutVariantGroupRow = sqlc_sqlite.GetMoviesWithoutVariantGroupRow
 	GetMusicTrackByMediaIDRow = sqlc_sqlite.GetMusicTrackByMediaIDRow
 	GetOrphanedPipelineStatesRow = sqlc_sqlite.GetOrphanedPipelineStatesRow
 	GetOverallPlaybackSummaryRow = sqlc_sqlite.GetOverallPlaybackSummaryRow
@@ -376,6 +393,7 @@ type (
 	ListAlbumsByLibraryGroupedRow = sqlc_sqlite.ListAlbumsByLibraryGroupedRow
 	ListAlbumsByLibraryPaginatedDescRow = sqlc_sqlite.ListAlbumsByLibraryPaginatedDescRow
 	ListAlbumsByLibraryPaginatedRow = sqlc_sqlite.ListAlbumsByLibraryPaginatedRow
+	ListChannelEPGMappingsRow = sqlc_sqlite.ListChannelEPGMappingsRow
 	ListEnabledPluginsRow = sqlc_sqlite.ListEnabledPluginsRow
 	ListMoviesByDirectorRow = sqlc_sqlite.ListMoviesByDirectorRow
 	ListMoviesByGenreRow = sqlc_sqlite.ListMoviesByGenreRow
@@ -392,6 +410,7 @@ type (
 	ListMusicTracksByLibraryRow = sqlc_sqlite.ListMusicTracksByLibraryRow
 	ListPluginsByCapabilityRow = sqlc_sqlite.ListPluginsByCapabilityRow
 	ListPluginsRow = sqlc_sqlite.ListPluginsRow
+	ListRandomMoviesRow = sqlc_sqlite.ListRandomMoviesRow
 	ListRecentlyAddedMoviesRow = sqlc_sqlite.ListRecentlyAddedMoviesRow
 	ListRecentlyAddedTVShowsRow = sqlc_sqlite.ListRecentlyAddedTVShowsRow
 	ListTVEpisodesByLibraryRow = sqlc_sqlite.ListTVEpisodesByLibraryRow

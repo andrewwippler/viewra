@@ -136,6 +136,67 @@ export const buildAuthenticatedUrl = (url: string): string => {
   return `${url}${separator}token=${encodeURIComponent(token)}`
 }
 
+// Dedup flag to prevent concurrent token refresh attempts
+let isRefreshing = false
+
+/**
+ * Check if the stored access token is about to expire.
+ * Returns true if no token is stored, parsing fails, or token expires within bufferMs.
+ */
+export const isTokenExpiringSoon = (bufferMs = 60000): boolean => {
+  try {
+    const tokensStr = localStorage.getItem(STORAGE_KEY_TOKENS)
+    if (!tokensStr) {return true}
+    const tokens = JSON.parse(tokensStr)
+    return (tokens.expiresAt - Date.now()) < bufferMs
+  } catch {
+    return true
+  }
+}
+
+/**
+ * Refresh the access token using the stored refresh token.
+ * Returns true if refresh succeeded, false otherwise.
+ */
+export const refreshAccessToken = async (): Promise<boolean> => {
+  if (isRefreshing) {return false}
+
+  const tokensStr = localStorage.getItem(STORAGE_KEY_TOKENS)
+  if (!tokensStr) {return false}
+
+  let refreshToken: string
+  try {
+    const tokens = JSON.parse(tokensStr)
+    refreshToken = tokens.refreshToken
+    if (!refreshToken) {return false}
+  } catch {
+    return false
+  }
+
+  isRefreshing = true
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+    if (!response.ok) {return false}
+
+    const data = await response.json()
+    const tokens = {
+      accessToken: data.AccessToken,
+      refreshToken: data.RefreshToken || refreshToken,
+      expiresAt: Date.now() + (data.ExpiresIn || 900) * 1000,
+    }
+    localStorage.setItem(STORAGE_KEY_TOKENS, JSON.stringify(tokens))
+    return true
+  } catch {
+    return false
+  } finally {
+    isRefreshing = false
+  }
+}
+
 export const authFetchJson = async <T = unknown>(
   input: string | URL | Request,
   init?: RequestInit

@@ -63,6 +63,8 @@ func setupTestDB(t *testing.T) *sql.DB {
 		transcoding_status TEXT CHECK(transcoding_status IN ('pending', 'processing', 'completed', 'failed', NULL)),
 		is_extra INTEGER DEFAULT 0 NOT NULL,
 		audio_codec TEXT,
+		language TEXT,
+		variant_group_id INTEGER,
 		date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
 		date_modified DATETIME,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

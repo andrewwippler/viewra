@@ -101,11 +101,16 @@ func EnrichWithScanState(ctx context.Context, deps *Deps, libraryID int64, job *
 
 	// Get total files processed (library-wide, not just current job)
 	if totalProcessed, err := deps.ScanRepos.ScanState.CountByLibrary(ctx, libraryID); err == nil {
-		status.FilesProcessed = totalProcessed
+		// Only override if scan_state has entries.
+		// For live_tv libraries, channels are imported instead of creating scan_state entries,
+		// so the job's FilesProcessed value (M3U file count) should be preserved.
+		if totalProcessed > 0 {
+			status.FilesProcessed = totalProcessed
+		}
 
 		// Recalculate progress based on library-wide processed count
-		if job.FilesFound > 0 {
-			status.Progress = float64(totalProcessed) / float64(job.FilesFound) * 100.0
+		if job.FilesFound > 0 && status.FilesProcessed > 0 {
+			status.Progress = float64(status.FilesProcessed) / float64(job.FilesFound) * 100.0
 		}
 	} else if ctx.Err() == nil {
 		// Only log if context wasn't canceled (expected for SSE disconnects)

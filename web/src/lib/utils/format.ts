@@ -169,4 +169,23 @@ const formatRelativeTime = (date: string | Date): string => {
   return formatDate(dateObj)
 }
 
-export { formatDate, formatDuration, formatETA, formatFileSize, formatRelativeTime, formatTime, pluralize }
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+const breakTitle = (title: string, maxLen = 26): string => {
+  const words = title.split(' ')
+  const lines: string[] = []
+  let cur = ''
+  for (const word of words) {
+    const sep = cur ? ' ' : ''
+    if (cur.length + sep.length + word.length <= maxLen) {
+      cur += sep + word
+    } else {
+      if (cur) { lines.push(cur) }
+      cur = word
+    }
+  }
+  if (cur) { lines.push(cur) }
+  return lines.map(esc).join('<br>')
+}
+
+export { breakTitle, formatDate, formatDuration, formatETA, formatFileSize, formatRelativeTime, formatTime, pluralize }

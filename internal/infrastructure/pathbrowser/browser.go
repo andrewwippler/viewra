@@ -42,10 +42,10 @@ func (s *Service) Browse(_ context.Context, path string) (*library.BrowseResult,
 		return nil, err
 	}
 
-	// Filter and collect directories
-	var directories []library.Directory
+	// Collect all entries (directories first, then files)
+	var entriesList []library.Directory
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if entry.Name() == "" {
 			continue
 		}
 
@@ -59,18 +59,22 @@ func (s *Service) Browse(_ context.Context, path string) (*library.BrowseResult,
 		readable := isReadable(fullPath)
 		writable := isWritable(fullPath)
 
-		directories = append(directories, library.Directory{
+		entriesList = append(entriesList, library.Directory{
 			Name:       entry.Name(),
 			Path:       fullPath,
+			IsDir:      entry.IsDir(),
 			Readable:   readable,
 			Writable:   writable,
 			ModifiedAt: info.ModTime(),
 		})
 	}
 
-	// Sort directories by name
-	sort.Slice(directories, func(i, j int) bool {
-		return directories[i].Name < directories[j].Name
+	// Sort: directories first, then files, both alphabetically
+	sort.Slice(entriesList, func(i, j int) bool {
+		if entriesList[i].IsDir != entriesList[j].IsDir {
+			return entriesList[i].IsDir // directories before files
+		}
+		return entriesList[i].Name < entriesList[j].Name
 	})
 
 	// Determine parent directory
@@ -98,7 +102,7 @@ func (s *Service) Browse(_ context.Context, path string) (*library.BrowseResult,
 		CurrentPath: targetPath,
 		Parent:      parentPtr,
 		IsRoot:      isRoot,
-		Directories: directories,
+		Directories: entriesList,
 	}, nil
 }
 

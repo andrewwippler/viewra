@@ -26,7 +26,7 @@ import { SubtitleOverlay } from './SubtitleOverlay'
 import type { VideoPlayerProps } from './VideoPlayer.types'
 import { useGetApiMediaIdTracks } from '@/lib/api/generated/media/media'
 import { getDeviceProfileHash } from '@/lib/capabilities'
-import { isWebOSTV, getAutoFullscreenPreference, enterFullscreen, exitCSSFullscreen, isInCSSFullscreen } from '@/utils/device'
+import { getAutoFullscreenPreference, enterFullscreen, isInCSSFullscreen } from '@/utils/device'
 
 export const VideoPlayer = ({
   mediaId,
@@ -73,15 +73,15 @@ export const VideoPlayer = ({
 
   // Auto-play countdown state
   const [autoPlayCountdown, setAutoPlayCountdown] = useState<number | null>(null)
-  const autoPlayTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const autoPlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoPlayCountdownShownRef = useRef(false)
 
-  const clearAutoPlayTimer = () => {
+  const clearAutoPlayTimer = useCallback(() => {
     if (autoPlayTimerRef.current) {
-      clearInterval(autoPlayTimerRef.current)
+      clearTimeout(autoPlayTimerRef.current)
       autoPlayTimerRef.current = null
     }
-  }
+  }, [])
 
   // Fetch tracks (audio and subtitle) from API
   const { data: tracksData } = useGetApiMediaIdTracks(mediaId)
@@ -127,15 +127,23 @@ export const VideoPlayer = ({
 
   const effectiveStreamUrl = buildEffectiveStreamUrl()
 
+  // Clear the track switch position once the stream has successfully shifted and resumed
+  useEffect(() => {
+    if (trackSwitchPosition !== null && isPlaying) {
+      setTrackSwitchPosition(null)
+    }
+  }, [effectiveStreamUrl, isPlaying, trackSwitchPosition])
+
   // Use track switch position if set (from audio or quality change), otherwise use initial position from props
   const effectiveInitialPosition = trackSwitchPosition ?? initialPosition
 
   // Subtitle track management
   // Skip auto-selection when we have a saved subtitle preference to restore
+  // Default subtitles to off (user can enable manually or via saved preference)
   const hasSavedSubtitlePref = savedPreferences?.selectedSubtitleTrack !== undefined
   const { availableSubtitles, currentSubtitle, setCurrentSubtitle, textStreamIndex, bitmapStreamIndex } = useSubtitles({
     subtitleTracks: subtitleTracksFromApi,
-    preferredLanguage: 'eng',
+    preferredLanguage: 'off',
     preferSDH: false,
     preferForced: true,
     skipAutoSelect: hasSavedSubtitlePref,
@@ -276,16 +284,6 @@ export const VideoPlayer = ({
       if (onAutoPlayNext && !autoPlayCountdownShownRef.current) {
         autoPlayCountdownShownRef.current = true
         setAutoPlayCountdown(10)
-        clearAutoPlayTimer()
-        autoPlayTimerRef.current = setInterval(() => {
-          setAutoPlayCountdown((prev) => {
-            if (prev === null || prev <= 1) {
-              clearAutoPlayTimer()
-              return null
-            }
-            return prev - 1
-          })
-        }, 1000)
       }
     },
     onBufferingStart: () => setIsBuffering(true),
@@ -318,6 +316,87 @@ export const VideoPlayer = ({
     onToggleDebug: () => setShowDebugOverlay((prev) => !prev),
   })
 
+  // TV mode: handle WebOS remote media keys and Back/Exit button
+  // Uses capture phase on document to catch events before they reach the
+  // bubble phase, since WebOS Chrome 79 may not reliably bubble media keys
+  useEffect(() => {
+    if (!__TV_MODE__) {return}
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const video = videoRef.current
+      if (!video) {return}
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {return}
+
+      switch (e.keyCode) {
+        case 461: // Back/Exit on WebOS remote
+          if (onClose) {
+            e.preventDefault()
+            e.stopPropagation()
+            onClose()
+          }
+          return
+        case 179:
+        case 413:
+        case 415: // Play/Pause
+          e.preventDefault()
+          e.stopPropagation()
+          if (video.paused) { video.play() } else { video.pause() }
+          return
+        case 412:
+        case 464: // Rewind 10 seconds
+          e.preventDefault()
+          e.stopPropagation()
+          video.currentTime = Math.max(0, video.currentTime - 10)
+          return
+        case 417:
+        case 465: // Fast Forward 10 seconds
+          e.preventDefault()
+          e.stopPropagation()
+          video.currentTime = Math.min(video.duration || videoDuration, video.currentTime + 10)
+          return
+        case 13: // Enter/OK on WebOS remote — on countdown overlay, this activates Play Now
+          if (autoPlayCountdown !== null) {
+            e.preventDefault()
+            e.stopPropagation()
+            clearAutoPlayTimer()
+            autoPlayNextRef.current?.()
+            setAutoPlayCountdown(null)
+          }
+          return
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown, { capture: true })
+    return () => document.removeEventListener('keydown', handleKeyDown, { capture: true })
+  }, [onClose, videoDuration, autoPlayCountdown, clearAutoPlayTimer])
+
+  // WebOS Media Session API: routes remote media keys to the video player
+  // when the platform intercepts them before generating keyboard events
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) {return}
+
+    const video = videoRef.current
+    if (!video) {return}
+
+    navigator.mediaSession.setActionHandler('play', () => { video.play() })
+    navigator.mediaSession.setActionHandler('pause', () => { video.pause() })
+    navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+      const skip = details.seekOffset || 10
+      video.currentTime = Math.max(0, video.currentTime - skip)
+    })
+    navigator.mediaSession.setActionHandler('seekforward', (details) => {
+      const skip = details.seekOffset || 10
+      video.currentTime = Math.min(video.duration || 0, video.currentTime + skip)
+    })
+
+    return () => {
+      navigator.mediaSession.setActionHandler('play', null)
+      navigator.mediaSession.setActionHandler('pause', null)
+      navigator.mediaSession.setActionHandler('seekbackward', null)
+      navigator.mediaSession.setActionHandler('seekforward', null)
+    }
+  }, [])
+
   // Browser close progress save (includes preferences and device profile)
   // Note: -1 is used as a sentinel value for "subtitles off" to distinguish from null (don't update)
   useEffect(() => {
@@ -343,40 +422,32 @@ export const VideoPlayer = ({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [mediaId, currentTime, videoDuration, selectedQualityId, currentAudioStreamIndex, currentSubtitle])
 
-  // Auto-fullscreen for WebOS TV / Chrome 79 devices
+  // Auto-fullscreen when video starts playing
   useEffect(() => {
     const video = videoRef.current
     const container = videoContainerRef.current
-    if (!video || !container) return
+    if (!video || !container) {return}
 
     const autoFullscreenEnabled = getAutoFullscreenPreference()
-    const isWebOS = isWebOSTV()
-
-    // Only auto-fullscreen if:
     // 1. User preference enables it
     // 2. We're on WebOS TV or user explicitly enabled it
     // 3. Video is playing
-    if (!autoFullscreenEnabled) return
-    if (!isWebOS) return // Only auto-fullscreen on WebOS TV by default
-    if (!isPlaying) return
+    if (!autoFullscreenEnabled || !isPlaying) {return}
 
     let cancelled = false
 
     // Small delay to ensure video metadata is loaded
     const timer = setTimeout(() => {
-      if (cancelled) return
-      
+      if (cancelled) {return}
+
       // Check if already in fullscreen (native or CSS fallback)
-      if (document.fullscreenElement || isInCSSFullscreen(videoContainerRef.current!)) {
+      if (document.fullscreenElement || isInCSSFullscreen(container)) {
         return
       }
 
-      const container = videoContainerRef.current
-      if (!container) return
-
       // Try to enter fullscreen
       const fullscreenPromise = enterFullscreen(container)
-      
+
       fullscreenPromise.catch(() => {
         // If native fullscreen fails, CSS fallback is applied by enterFullscreen
         // The CSS fallback adds .fullscreen-fallback class
@@ -389,18 +460,51 @@ export const VideoPlayer = ({
     }
   }, [isPlaying])
 
+  // Pause heartbeat: Send keepalive every 20s while paused to prevent
+  // the transcode session from being cleaned up by the idle timeout.
+  // Session idle timeout is 5m (configurable), but we heartbeat at 20s to stay well within.
+  useEffect(() => {
+    const heartbeat = async () => {
+      if (!selectedQualityId) {return}
+      const params = new URLSearchParams({ quality: selectedQualityId })
+      if (currentAudioStreamIndex > 0) {
+        params.set('audioTrack', String(currentAudioStreamIndex))
+      }
+      try {
+        await fetch(`/api/media/${mediaId}/hls/heartbeat?${params}`, {
+          credentials: 'include',
+        })
+      } catch {
+        // Silently ignore heartbeat failures
+      }
+    }
+
+    const interval = setInterval(() => {
+      if (!isPlaying) {
+        heartbeat()
+      }
+    }, 20 * 1000)
+
+    return () => clearInterval(interval)
+  }, [mediaId, selectedQualityId, currentAudioStreamIndex, isPlaying])
+
   // Auto-play countdown effect: decrement each second, fire onAutoPlayNext when 0
   const autoPlayNextRef = useRef(onAutoPlayNext)
   autoPlayNextRef.current = onAutoPlayNext
   const autoPlayCancelRef = useRef(onAutoPlayCancel)
   autoPlayCancelRef.current = onAutoPlayCancel
 
-  // Reset auto-play shown ref when switching episodes
+  // Reset time-based state when switching episodes to prevent stale currentTime
+  // from triggering auto-play with the new episode's duration
   useEffect(() => {
+    clearAutoPlayTimer()
+    setCurrentTime(0)
+    setAutoPlayCountdown(null)
     autoPlayCountdownShownRef.current = false
-  }, [mediaId])
+  }, [mediaId, clearAutoPlayTimer])
 
   // Time-based trigger: show countdown overlay near the end of the episode
+  // The useEffect on autoPlayCountdown handles all timing (decrement + firing)
   const UP_NEXT_THRESHOLD = 20
   useEffect(() => {
     if (!onAutoPlayNext) {return}
@@ -411,18 +515,9 @@ export const VideoPlayer = ({
 
     autoPlayCountdownShownRef.current = true
     setAutoPlayCountdown(10)
-    clearAutoPlayTimer()
-    autoPlayTimerRef.current = setInterval(() => {
-      setAutoPlayCountdown((prev) => {
-        if (prev === null || prev <= 1) {
-          clearAutoPlayTimer()
-          return null
-        }
-        return prev - 1
-      })
-    }, 1000)
   }, [currentTime, videoDuration, onAutoPlayNext])
 
+  // Single countdown timer: decrement each second, fire onAutoPlayNext at 0
   useEffect(() => {
     if (autoPlayCountdown === null) {
       clearAutoPlayTimer()
@@ -441,12 +536,33 @@ export const VideoPlayer = ({
     return () => {
       clearTimeout(timer)
     }
+  }, [autoPlayCountdown, clearAutoPlayTimer])
+
+  // TV mode: focus the play-now button when countdown appears
+  useEffect(() => {
+    if (__TV_MODE__ && autoPlayCountdown !== null) {
+      const btn = document.getElementById('play-now-btn')
+      btn?.focus()
+    }
   }, [autoPlayCountdown])
 
   const handleCancelAutoPlay = () => {
     clearAutoPlayTimer()
     setAutoPlayCountdown(null)
     autoPlayCancelRef.current?.()
+  }
+
+  const handlePlayNow = () => {
+    clearAutoPlayTimer()
+    autoPlayNextRef.current?.()
+    setAutoPlayCountdown(null)
+  }
+
+  const handlePlayNext = () => {
+    clearAutoPlayTimer()
+    setAutoPlayCountdown(null)
+    autoPlayCountdownShownRef.current = false
+    onPlayNext?.()
   }
 
   // Apply saved audio track preference when tracks load
@@ -513,9 +629,8 @@ export const VideoPlayer = ({
       const currentPosition = video.currentTime + (streamOffsetRef.current || 0)
 
       // Record quality switch for analytics
-      const previousQuality = selectedQualityId
       recordQualitySwitch(
-        previousQuality,
+        selectedQualityId,
         qualityId,
         'user_manual',
         currentPosition,
@@ -675,7 +790,7 @@ export const VideoPlayer = ({
           onSpeedChange={handleSpeedChange}
           onSkip={handleSkip}
           onToggleStats={() => setShowDebugOverlay((prev) => !prev)}
-          onPlayNext={onPlayNext}
+          onPlayNext={handlePlayNext}
           onPlayPrev={onPlayPrev}
         />
 
@@ -694,12 +809,21 @@ export const VideoPlayer = ({
               )}
               <div className="flex items-center justify-between gap-3">
                 <p className="text-primary-400 font-bold text-lg tabular-nums">{autoPlayCountdown}s</p>
-                <button
-                  onClick={handleCancelAutoPlay}
-                  className="px-3 py-1.5 text-xs bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors cursor-pointer font-medium whitespace-nowrap"
-                >
-                  Cancel
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    id="play-now-btn"
+                    onClick={handlePlayNow}
+                    className="px-3 py-1.5 text-xs bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition-colors cursor-pointer font-medium whitespace-nowrap"
+                  >
+                    Play Now
+                  </button>
+                  <button
+                    onClick={handleCancelAutoPlay}
+                    className="px-3 py-1.5 text-xs bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors cursor-pointer font-medium whitespace-nowrap"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           </div>

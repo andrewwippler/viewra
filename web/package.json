@@ -4,8 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "VITE_UI_MODE=web vite",
+    "dev:tv": "VITE_UI_MODE=tv vite",
+    "build": "npm run build:web && npm run build:tv",
+    "build:web": "tsc -b && VITE_UI_MODE=web vite build",
+    "build:tv": "tsc -b && VITE_UI_MODE=tv vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "generate:api": "orval"

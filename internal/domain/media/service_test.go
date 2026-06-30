@@ -147,6 +147,19 @@ func (m *mockRepository) ListByType(ctx context.Context, libraryID int64, mediaT
 	return nil, nil
 }
 
+func (m *mockRepository) GetVariantsByGroupID(ctx context.Context, groupID int64) ([]*Media, error) {
+	var variants []*Media
+	for _, item := range m.media {
+		if item.VariantGroupID != nil && *item.VariantGroupID == groupID {
+			variants = append(variants, item)
+		}
+	}
+	if variants == nil {
+		return []*Media{}, nil
+	}
+	return variants, nil
+}
+
 func (m *mockRepository) GetFilePathCache(ctx context.Context, libraryID int64) (map[string]int64, error) {
 	cache := make(map[string]int64)
 	for id, media := range m.media {

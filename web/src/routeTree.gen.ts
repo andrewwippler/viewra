@@ -9,14 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WebosRouteImport } from './routes/webos'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
+import { Route as WebosIndexRouteImport } from './routes/webos/index'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutLibrariesRouteImport } from './routes/_layout/libraries'
+import { Route as WebosTvIndexRouteImport } from './routes/webos/tv.index'
+import { Route as WebosMoviesIndexRouteImport } from './routes/webos/movies.index'
+import { Route as WebosLivetvIndexRouteImport } from './routes/webos/livetv.index'
 import { Route as LayoutTvIndexRouteImport } from './routes/_layout/tv.index'
 import { Route as LayoutMusicIndexRouteImport } from './routes/_layout/music.index'
 import { Route as LayoutMoviesIndexRouteImport } from './routes/_layout/movies.index'
+import { Route as LayoutLivetvIndexRouteImport } from './routes/_layout/livetv.index'
+import { Route as WebosMoviesIdRouteImport } from './routes/webos/movies.$id'
+import { Route as WebosLivetvPlayRouteImport } from './routes/webos/livetv.play'
 import { Route as LayoutSettingsUsersRouteImport } from './routes/_layout/settings.users'
 import { Route as LayoutSettingsSystemRouteImport } from './routes/_layout/settings.system'
 import { Route as LayoutSettingsSchedulerRouteImport } from './routes/_layout/settings.scheduler'
@@ -24,12 +32,23 @@ import { Route as LayoutSettingsPreferencesRouteImport } from './routes/_layout/
 import { Route as LayoutSettingsPluginsRouteImport } from './routes/_layout/settings.plugins'
 import { Route as LayoutSettingsDisplayRouteImport } from './routes/_layout/settings.display'
 import { Route as LayoutSettingsAccountRouteImport } from './routes/_layout/settings.account'
+import { Route as LayoutSettingsNitpickyRouteImport } from './routes/_layout/settings.nitpicky'
 import { Route as LayoutMoviesIdRouteImport } from './routes/_layout/movies.$id'
+import { Route as LayoutLivetvPlayRouteImport } from './routes/_layout/livetv.play'
+import { Route as LayoutLivetvMappingsRouteImport } from './routes/_layout/livetv.mappings'
+import { Route as LayoutLivetvEventRouteImport } from './routes/_layout/livetv.event'
+import { Route as WebosTvShowIdIndexRouteImport } from './routes/webos/tv.$showId.index'
 import { Route as LayoutTvShowIdIndexRouteImport } from './routes/_layout/tv.$showId.index'
 import { Route as LayoutMusicArtistsArtistIdRouteImport } from './routes/_layout/music.artists.$artistId'
 import { Route as LayoutMusicAlbumsAlbumIdRouteImport } from './routes/_layout/music.albums.$albumId'
+import { Route as WebosTvShowIdSeasonSeasonNumberRouteImport } from './routes/webos/tv.$showId.season.$seasonNumber'
 import { Route as LayoutTvShowIdSeasonSeasonNumberRouteImport } from './routes/_layout/tv.$showId.season.$seasonNumber'
 
+const WebosRoute = WebosRouteImport.update({
+  id: '/webos',
+  path: '/webos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
   path: '/setup',
@@ -44,6 +63,11 @@ const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WebosIndexRoute = WebosIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => WebosRoute,
+} as any)
 const LayoutIndexRoute = LayoutIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -53,6 +77,21 @@ const LayoutLibrariesRoute = LayoutLibrariesRouteImport.update({
   id: '/libraries',
   path: '/libraries',
   getParentRoute: () => LayoutRoute,
+} as any)
+const WebosTvIndexRoute = WebosTvIndexRouteImport.update({
+  id: '/tv/',
+  path: '/tv/',
+  getParentRoute: () => WebosRoute,
+} as any)
+const WebosMoviesIndexRoute = WebosMoviesIndexRouteImport.update({
+  id: '/movies/',
+  path: '/movies/',
+  getParentRoute: () => WebosRoute,
+} as any)
+const WebosLivetvIndexRoute = WebosLivetvIndexRouteImport.update({
+  id: '/livetv/',
+  path: '/livetv/',
+  getParentRoute: () => WebosRoute,
 } as any)
 const LayoutTvIndexRoute = LayoutTvIndexRouteImport.update({
   id: '/tv/',
@@ -68,6 +107,21 @@ const LayoutMoviesIndexRoute = LayoutMoviesIndexRouteImport.update({
   id: '/movies/',
   path: '/movies/',
   getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutLivetvIndexRoute = LayoutLivetvIndexRouteImport.update({
+  id: '/livetv/',
+  path: '/livetv/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const WebosMoviesIdRoute = WebosMoviesIdRouteImport.update({
+  id: '/movies/$id',
+  path: '/movies/$id',
+  getParentRoute: () => WebosRoute,
+} as any)
+const WebosLivetvPlayRoute = WebosLivetvPlayRouteImport.update({
+  id: '/livetv/play',
+  path: '/livetv/play',
+  getParentRoute: () => WebosRoute,
 } as any)
 const LayoutSettingsUsersRoute = LayoutSettingsUsersRouteImport.update({
   id: '/settings/users',
@@ -105,10 +159,35 @@ const LayoutSettingsAccountRoute = LayoutSettingsAccountRouteImport.update({
   path: '/settings/account',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutSettingsNitpickyRoute = LayoutSettingsNitpickyRouteImport.update({
+  id: '/settings/nitpicky',
+  path: '/settings/nitpicky',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutMoviesIdRoute = LayoutMoviesIdRouteImport.update({
   id: '/movies/$id',
   path: '/movies/$id',
   getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutLivetvPlayRoute = LayoutLivetvPlayRouteImport.update({
+  id: '/livetv/play',
+  path: '/livetv/play',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutLivetvMappingsRoute = LayoutLivetvMappingsRouteImport.update({
+  id: '/livetv/mappings',
+  path: '/livetv/mappings',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutLivetvEventRoute = LayoutLivetvEventRouteImport.update({
+  id: '/livetv/event',
+  path: '/livetv/event',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const WebosTvShowIdIndexRoute = WebosTvShowIdIndexRouteImport.update({
+  id: '/tv/$showId/',
+  path: '/tv/$showId/',
+  getParentRoute: () => WebosRoute,
 } as any)
 const LayoutTvShowIdIndexRoute = LayoutTvShowIdIndexRouteImport.update({
   id: '/tv/$showId/',
@@ -127,6 +206,12 @@ const LayoutMusicAlbumsAlbumIdRoute =
     path: '/music/albums/$albumId',
     getParentRoute: () => LayoutRoute,
   } as any)
+const WebosTvShowIdSeasonSeasonNumberRoute =
+  WebosTvShowIdSeasonSeasonNumberRouteImport.update({
+    id: '/tv/$showId/season/$seasonNumber',
+    path: '/tv/$showId/season/$seasonNumber',
+    getParentRoute: () => WebosRoute,
+  } as any)
 const LayoutTvShowIdSeasonSeasonNumberRoute =
   LayoutTvShowIdSeasonSeasonNumberRouteImport.update({
     id: '/tv/$showId/season/$seasonNumber',
@@ -137,143 +222,233 @@ const LayoutTvShowIdSeasonSeasonNumberRoute =
 export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/webos': typeof WebosRouteWithChildren
   '/libraries': typeof LayoutLibrariesRoute
   '/': typeof LayoutIndexRoute
+  '/webos/': typeof WebosIndexRoute
+  '/livetv/event': typeof LayoutLivetvEventRoute
+  '/livetv/mappings': typeof LayoutLivetvMappingsRoute
+  '/livetv/play': typeof LayoutLivetvPlayRoute
   '/movies/$id': typeof LayoutMoviesIdRoute
   '/settings/account': typeof LayoutSettingsAccountRoute
   '/settings/display': typeof LayoutSettingsDisplayRoute
+  '/settings/nitpicky': typeof LayoutSettingsNitpickyRoute
   '/settings/plugins': typeof LayoutSettingsPluginsRoute
   '/settings/preferences': typeof LayoutSettingsPreferencesRoute
   '/settings/scheduler': typeof LayoutSettingsSchedulerRoute
   '/settings/system': typeof LayoutSettingsSystemRoute
   '/settings/users': typeof LayoutSettingsUsersRoute
+  '/webos/livetv/play': typeof WebosLivetvPlayRoute
+  '/webos/movies/$id': typeof WebosMoviesIdRoute
+  '/livetv': typeof LayoutLivetvIndexRoute
   '/movies': typeof LayoutMoviesIndexRoute
   '/music': typeof LayoutMusicIndexRoute
   '/tv': typeof LayoutTvIndexRoute
+  '/webos/livetv': typeof WebosLivetvIndexRoute
+  '/webos/movies': typeof WebosMoviesIndexRoute
+  '/webos/tv': typeof WebosTvIndexRoute
   '/music/albums/$albumId': typeof LayoutMusicAlbumsAlbumIdRoute
   '/music/artists/$artistId': typeof LayoutMusicArtistsArtistIdRoute
   '/tv/$showId': typeof LayoutTvShowIdIndexRoute
+  '/webos/tv/$showId': typeof WebosTvShowIdIndexRoute
   '/tv/$showId/season/$seasonNumber': typeof LayoutTvShowIdSeasonSeasonNumberRoute
+  '/webos/tv/$showId/season/$seasonNumber': typeof WebosTvShowIdSeasonSeasonNumberRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
   '/libraries': typeof LayoutLibrariesRoute
   '/': typeof LayoutIndexRoute
+  '/webos': typeof WebosIndexRoute
+  '/livetv/event': typeof LayoutLivetvEventRoute
+  '/livetv/mappings': typeof LayoutLivetvMappingsRoute
+  '/livetv/play': typeof LayoutLivetvPlayRoute
   '/movies/$id': typeof LayoutMoviesIdRoute
   '/settings/account': typeof LayoutSettingsAccountRoute
   '/settings/display': typeof LayoutSettingsDisplayRoute
+  '/settings/nitpicky': typeof LayoutSettingsNitpickyRoute
   '/settings/plugins': typeof LayoutSettingsPluginsRoute
   '/settings/preferences': typeof LayoutSettingsPreferencesRoute
   '/settings/scheduler': typeof LayoutSettingsSchedulerRoute
   '/settings/system': typeof LayoutSettingsSystemRoute
   '/settings/users': typeof LayoutSettingsUsersRoute
+  '/webos/livetv/play': typeof WebosLivetvPlayRoute
+  '/webos/movies/$id': typeof WebosMoviesIdRoute
+  '/livetv': typeof LayoutLivetvIndexRoute
   '/movies': typeof LayoutMoviesIndexRoute
   '/music': typeof LayoutMusicIndexRoute
   '/tv': typeof LayoutTvIndexRoute
+  '/webos/livetv': typeof WebosLivetvIndexRoute
+  '/webos/movies': typeof WebosMoviesIndexRoute
+  '/webos/tv': typeof WebosTvIndexRoute
   '/music/albums/$albumId': typeof LayoutMusicAlbumsAlbumIdRoute
   '/music/artists/$artistId': typeof LayoutMusicArtistsArtistIdRoute
   '/tv/$showId': typeof LayoutTvShowIdIndexRoute
+  '/webos/tv/$showId': typeof WebosTvShowIdIndexRoute
   '/tv/$showId/season/$seasonNumber': typeof LayoutTvShowIdSeasonSeasonNumberRoute
+  '/webos/tv/$showId/season/$seasonNumber': typeof WebosTvShowIdSeasonSeasonNumberRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_layout': typeof LayoutRouteWithChildren
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/webos': typeof WebosRouteWithChildren
   '/_layout/libraries': typeof LayoutLibrariesRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/webos/': typeof WebosIndexRoute
+  '/_layout/livetv/event': typeof LayoutLivetvEventRoute
+  '/_layout/livetv/mappings': typeof LayoutLivetvMappingsRoute
+  '/_layout/livetv/play': typeof LayoutLivetvPlayRoute
   '/_layout/movies/$id': typeof LayoutMoviesIdRoute
   '/_layout/settings/account': typeof LayoutSettingsAccountRoute
   '/_layout/settings/display': typeof LayoutSettingsDisplayRoute
+  '/_layout/settings/nitpicky': typeof LayoutSettingsNitpickyRoute
   '/_layout/settings/plugins': typeof LayoutSettingsPluginsRoute
   '/_layout/settings/preferences': typeof LayoutSettingsPreferencesRoute
   '/_layout/settings/scheduler': typeof LayoutSettingsSchedulerRoute
   '/_layout/settings/system': typeof LayoutSettingsSystemRoute
   '/_layout/settings/users': typeof LayoutSettingsUsersRoute
+  '/webos/livetv/play': typeof WebosLivetvPlayRoute
+  '/webos/movies/$id': typeof WebosMoviesIdRoute
+  '/_layout/livetv/': typeof LayoutLivetvIndexRoute
   '/_layout/movies/': typeof LayoutMoviesIndexRoute
   '/_layout/music/': typeof LayoutMusicIndexRoute
   '/_layout/tv/': typeof LayoutTvIndexRoute
+  '/webos/livetv/': typeof WebosLivetvIndexRoute
+  '/webos/movies/': typeof WebosMoviesIndexRoute
+  '/webos/tv/': typeof WebosTvIndexRoute
   '/_layout/music/albums/$albumId': typeof LayoutMusicAlbumsAlbumIdRoute
   '/_layout/music/artists/$artistId': typeof LayoutMusicArtistsArtistIdRoute
   '/_layout/tv/$showId/': typeof LayoutTvShowIdIndexRoute
+  '/webos/tv/$showId/': typeof WebosTvShowIdIndexRoute
   '/_layout/tv/$showId/season/$seasonNumber': typeof LayoutTvShowIdSeasonSeasonNumberRoute
+  '/webos/tv/$showId/season/$seasonNumber': typeof WebosTvShowIdSeasonSeasonNumberRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/login'
     | '/setup'
+    | '/webos'
     | '/libraries'
     | '/'
+    | '/webos/'
+    | '/livetv/event'
+    | '/livetv/mappings'
+    | '/livetv/play'
     | '/movies/$id'
     | '/settings/account'
     | '/settings/display'
+    | '/settings/nitpicky'
     | '/settings/plugins'
     | '/settings/preferences'
     | '/settings/scheduler'
     | '/settings/system'
     | '/settings/users'
+    | '/webos/livetv/play'
+    | '/webos/movies/$id'
+    | '/livetv'
     | '/movies'
     | '/music'
     | '/tv'
+    | '/webos/livetv'
+    | '/webos/movies'
+    | '/webos/tv'
     | '/music/albums/$albumId'
     | '/music/artists/$artistId'
     | '/tv/$showId'
+    | '/webos/tv/$showId'
     | '/tv/$showId/season/$seasonNumber'
+    | '/webos/tv/$showId/season/$seasonNumber'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/setup'
     | '/libraries'
     | '/'
+    | '/webos'
+    | '/livetv/event'
+    | '/livetv/mappings'
+    | '/livetv/play'
     | '/movies/$id'
     | '/settings/account'
     | '/settings/display'
+    | '/settings/nitpicky'
     | '/settings/plugins'
     | '/settings/preferences'
     | '/settings/scheduler'
     | '/settings/system'
     | '/settings/users'
+    | '/webos/livetv/play'
+    | '/webos/movies/$id'
+    | '/livetv'
     | '/movies'
     | '/music'
     | '/tv'
+    | '/webos/livetv'
+    | '/webos/movies'
+    | '/webos/tv'
     | '/music/albums/$albumId'
     | '/music/artists/$artistId'
     | '/tv/$showId'
+    | '/webos/tv/$showId'
     | '/tv/$showId/season/$seasonNumber'
+    | '/webos/tv/$showId/season/$seasonNumber'
   id:
     | '__root__'
     | '/_layout'
     | '/login'
     | '/setup'
+    | '/webos'
     | '/_layout/libraries'
     | '/_layout/'
+    | '/webos/'
+    | '/_layout/livetv/event'
+    | '/_layout/livetv/mappings'
+    | '/_layout/livetv/play'
     | '/_layout/movies/$id'
     | '/_layout/settings/account'
     | '/_layout/settings/display'
+    | '/_layout/settings/nitpicky'
     | '/_layout/settings/plugins'
     | '/_layout/settings/preferences'
     | '/_layout/settings/scheduler'
     | '/_layout/settings/system'
     | '/_layout/settings/users'
+    | '/webos/livetv/play'
+    | '/webos/movies/$id'
+    | '/_layout/livetv/'
     | '/_layout/movies/'
     | '/_layout/music/'
     | '/_layout/tv/'
+    | '/webos/livetv/'
+    | '/webos/movies/'
+    | '/webos/tv/'
     | '/_layout/music/albums/$albumId'
     | '/_layout/music/artists/$artistId'
     | '/_layout/tv/$showId/'
+    | '/webos/tv/$showId/'
     | '/_layout/tv/$showId/season/$seasonNumber'
+    | '/webos/tv/$showId/season/$seasonNumber'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRouteWithChildren
   LoginRoute: typeof LoginRoute
   SetupRoute: typeof SetupRoute
+  WebosRoute: typeof WebosRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/webos': {
+      id: '/webos'
+      path: '/webos'
+      fullPath: '/webos'
+      preLoaderRoute: typeof WebosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/setup': {
       id: '/setup'
       path: '/setup'
@@ -295,6 +470,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/webos/': {
+      id: '/webos/'
+      path: '/'
+      fullPath: '/webos/'
+      preLoaderRoute: typeof WebosIndexRouteImport
+      parentRoute: typeof WebosRoute
+    }
     '/_layout/': {
       id: '/_layout/'
       path: '/'
@@ -308,6 +490,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/libraries'
       preLoaderRoute: typeof LayoutLibrariesRouteImport
       parentRoute: typeof LayoutRoute
+    }
+    '/webos/tv/': {
+      id: '/webos/tv/'
+      path: '/tv'
+      fullPath: '/webos/tv'
+      preLoaderRoute: typeof WebosTvIndexRouteImport
+      parentRoute: typeof WebosRoute
+    }
+    '/webos/movies/': {
+      id: '/webos/movies/'
+      path: '/movies'
+      fullPath: '/webos/movies'
+      preLoaderRoute: typeof WebosMoviesIndexRouteImport
+      parentRoute: typeof WebosRoute
+    }
+    '/webos/livetv/': {
+      id: '/webos/livetv/'
+      path: '/livetv'
+      fullPath: '/webos/livetv'
+      preLoaderRoute: typeof WebosLivetvIndexRouteImport
+      parentRoute: typeof WebosRoute
     }
     '/_layout/tv/': {
       id: '/_layout/tv/'
@@ -329,6 +532,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/movies'
       preLoaderRoute: typeof LayoutMoviesIndexRouteImport
       parentRoute: typeof LayoutRoute
+    }
+    '/_layout/livetv/': {
+      id: '/_layout/livetv/'
+      path: '/livetv'
+      fullPath: '/livetv'
+      preLoaderRoute: typeof LayoutLivetvIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/webos/movies/$id': {
+      id: '/webos/movies/$id'
+      path: '/movies/$id'
+      fullPath: '/webos/movies/$id'
+      preLoaderRoute: typeof WebosMoviesIdRouteImport
+      parentRoute: typeof WebosRoute
+    }
+    '/webos/livetv/play': {
+      id: '/webos/livetv/play'
+      path: '/livetv/play'
+      fullPath: '/webos/livetv/play'
+      preLoaderRoute: typeof WebosLivetvPlayRouteImport
+      parentRoute: typeof WebosRoute
     }
     '/_layout/settings/users': {
       id: '/_layout/settings/users'
@@ -372,6 +596,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsDisplayRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/settings/nitpicky': {
+      id: '/_layout/settings/nitpicky'
+      path: '/settings/nitpicky'
+      fullPath: '/settings/nitpicky'
+      preLoaderRoute: typeof LayoutSettingsNitpickyRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/settings/account': {
       id: '/_layout/settings/account'
       path: '/settings/account'
@@ -385,6 +616,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/movies/$id'
       preLoaderRoute: typeof LayoutMoviesIdRouteImport
       parentRoute: typeof LayoutRoute
+    }
+    '/_layout/livetv/play': {
+      id: '/_layout/livetv/play'
+      path: '/livetv/play'
+      fullPath: '/livetv/play'
+      preLoaderRoute: typeof LayoutLivetvPlayRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/livetv/mappings': {
+      id: '/_layout/livetv/mappings'
+      path: '/livetv/mappings'
+      fullPath: '/livetv/mappings'
+      preLoaderRoute: typeof LayoutLivetvMappingsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/livetv/event': {
+      id: '/_layout/livetv/event'
+      path: '/livetv/event'
+      fullPath: '/livetv/event'
+      preLoaderRoute: typeof LayoutLivetvEventRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/webos/tv/$showId/': {
+      id: '/webos/tv/$showId/'
+      path: '/tv/$showId'
+      fullPath: '/webos/tv/$showId'
+      preLoaderRoute: typeof WebosTvShowIdIndexRouteImport
+      parentRoute: typeof WebosRoute
     }
     '/_layout/tv/$showId/': {
       id: '/_layout/tv/$showId/'
@@ -407,6 +666,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutMusicAlbumsAlbumIdRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/webos/tv/$showId/season/$seasonNumber': {
+      id: '/webos/tv/$showId/season/$seasonNumber'
+      path: '/tv/$showId/season/$seasonNumber'
+      fullPath: '/webos/tv/$showId/season/$seasonNumber'
+      preLoaderRoute: typeof WebosTvShowIdSeasonSeasonNumberRouteImport
+      parentRoute: typeof WebosRoute
+    }
     '/_layout/tv/$showId/season/$seasonNumber': {
       id: '/_layout/tv/$showId/season/$seasonNumber'
       path: '/tv/$showId/season/$seasonNumber'
@@ -420,14 +686,19 @@ declare module '@tanstack/react-router' {
 interface LayoutRouteChildren {
   LayoutLibrariesRoute: typeof LayoutLibrariesRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutLivetvEventRoute: typeof LayoutLivetvEventRoute
+  LayoutLivetvMappingsRoute: typeof LayoutLivetvMappingsRoute
+  LayoutLivetvPlayRoute: typeof LayoutLivetvPlayRoute
   LayoutMoviesIdRoute: typeof LayoutMoviesIdRoute
   LayoutSettingsAccountRoute: typeof LayoutSettingsAccountRoute
   LayoutSettingsDisplayRoute: typeof LayoutSettingsDisplayRoute
+  LayoutSettingsNitpickyRoute: typeof LayoutSettingsNitpickyRoute
   LayoutSettingsPluginsRoute: typeof LayoutSettingsPluginsRoute
   LayoutSettingsPreferencesRoute: typeof LayoutSettingsPreferencesRoute
   LayoutSettingsSchedulerRoute: typeof LayoutSettingsSchedulerRoute
   LayoutSettingsSystemRoute: typeof LayoutSettingsSystemRoute
   LayoutSettingsUsersRoute: typeof LayoutSettingsUsersRoute
+  LayoutLivetvIndexRoute: typeof LayoutLivetvIndexRoute
   LayoutMoviesIndexRoute: typeof LayoutMoviesIndexRoute
   LayoutMusicIndexRoute: typeof LayoutMusicIndexRoute
   LayoutTvIndexRoute: typeof LayoutTvIndexRoute
@@ -440,14 +711,19 @@ interface LayoutRouteChildren {
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutLibrariesRoute: LayoutLibrariesRoute,
   LayoutIndexRoute: LayoutIndexRoute,
+  LayoutLivetvEventRoute: LayoutLivetvEventRoute,
+  LayoutLivetvMappingsRoute: LayoutLivetvMappingsRoute,
+  LayoutLivetvPlayRoute: LayoutLivetvPlayRoute,
   LayoutMoviesIdRoute: LayoutMoviesIdRoute,
   LayoutSettingsAccountRoute: LayoutSettingsAccountRoute,
   LayoutSettingsDisplayRoute: LayoutSettingsDisplayRoute,
+  LayoutSettingsNitpickyRoute: LayoutSettingsNitpickyRoute,
   LayoutSettingsPluginsRoute: LayoutSettingsPluginsRoute,
   LayoutSettingsPreferencesRoute: LayoutSettingsPreferencesRoute,
   LayoutSettingsSchedulerRoute: LayoutSettingsSchedulerRoute,
   LayoutSettingsSystemRoute: LayoutSettingsSystemRoute,
   LayoutSettingsUsersRoute: LayoutSettingsUsersRoute,
+  LayoutLivetvIndexRoute: LayoutLivetvIndexRoute,
   LayoutMoviesIndexRoute: LayoutMoviesIndexRoute,
   LayoutMusicIndexRoute: LayoutMusicIndexRoute,
   LayoutTvIndexRoute: LayoutTvIndexRoute,
@@ -460,10 +736,35 @@ const LayoutRouteChildren: LayoutRouteChildren = {
 const LayoutRouteWithChildren =
   LayoutRoute._addFileChildren(LayoutRouteChildren)
 
+interface WebosRouteChildren {
+  WebosIndexRoute: typeof WebosIndexRoute
+  WebosLivetvPlayRoute: typeof WebosLivetvPlayRoute
+  WebosMoviesIdRoute: typeof WebosMoviesIdRoute
+  WebosLivetvIndexRoute: typeof WebosLivetvIndexRoute
+  WebosMoviesIndexRoute: typeof WebosMoviesIndexRoute
+  WebosTvIndexRoute: typeof WebosTvIndexRoute
+  WebosTvShowIdIndexRoute: typeof WebosTvShowIdIndexRoute
+  WebosTvShowIdSeasonSeasonNumberRoute: typeof WebosTvShowIdSeasonSeasonNumberRoute
+}
+
+const WebosRouteChildren: WebosRouteChildren = {
+  WebosIndexRoute: WebosIndexRoute,
+  WebosLivetvPlayRoute: WebosLivetvPlayRoute,
+  WebosMoviesIdRoute: WebosMoviesIdRoute,
+  WebosLivetvIndexRoute: WebosLivetvIndexRoute,
+  WebosMoviesIndexRoute: WebosMoviesIndexRoute,
+  WebosTvIndexRoute: WebosTvIndexRoute,
+  WebosTvShowIdIndexRoute: WebosTvShowIdIndexRoute,
+  WebosTvShowIdSeasonSeasonNumberRoute: WebosTvShowIdSeasonSeasonNumberRoute,
+}
+
+const WebosRouteWithChildren = WebosRoute._addFileChildren(WebosRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRouteWithChildren,
   LoginRoute: LoginRoute,
   SetupRoute: SetupRoute,
+  WebosRoute: WebosRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

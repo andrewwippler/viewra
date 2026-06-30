@@ -298,7 +298,11 @@ func (s *TranscodeSession) WaitForManifest(timeout time.Duration) error {
 
 		// Check if process has died
 		if s.FFmpegCmd != nil && s.FFmpegCmd.ProcessState != nil && s.FFmpegCmd.ProcessState.Exited() {
-			return fmt.Errorf("ffmpeg process exited before creating manifest")
+			exitCode := s.FFmpegCmd.ProcessState.ExitCode()
+			if s.ffmpegExitErr != nil {
+				return fmt.Errorf("ffmpeg process exited with code %d before creating manifest: %w", exitCode, s.ffmpegExitErr)
+			}
+			return fmt.Errorf("ffmpeg process exited with code %d before creating manifest", exitCode)
 		}
 
 		// Poll every 10ms for minimal startup latency

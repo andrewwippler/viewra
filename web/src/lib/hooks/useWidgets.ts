@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { customInstance } from '@/lib/api/mutator'
+import { logger } from '@/lib/utils/logger'
 import type {
   HomeResponse,
   SuggestionsResponse,
@@ -54,11 +55,22 @@ const fetchHomeSections = async (clientType: string = 'web'): Promise<HomeRespon
  * Note: Plugin custom routes use /api/plugin/:plugin_id/* (singular)
  */
 const fetchSuggestions = async (limit: number = 6): Promise<SuggestionsResponse> => {
-  const response = await customInstance<{ data: SuggestionsResponse }>({
-    url: buildUrl('/api/plugin/semantic-search/suggestions', { limit }),
-    method: 'GET',
-  })
-  return response.data
+  try {
+    const response = await customInstance<{ data: SuggestionsResponse }>({
+      url: buildUrl('/api/plugin/semantic-search/suggestions', { limit }),
+      method: 'GET',
+    })
+    return response.data
+  } catch (error) {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const resp = (error as { response: { status: number } }).response
+      if (resp.status === 404 || resp.status === 401) {
+        logger.debug('Suggestions plugin not available')
+        return { Suggestions: [] }
+      }
+    }
+    throw error
+  }
 }
 
 /**
@@ -66,11 +78,28 @@ const fetchSuggestions = async (limit: number = 6): Promise<SuggestionsResponse>
  * Note: Plugin custom routes use /api/plugin/:plugin_id/* (singular)
  */
 const fetchSearchProviderInfo = async (): Promise<SearchProviderInfo> => {
-  const response = await customInstance<{ data: SearchProviderInfo }>({
-    url: '/api/plugin/semantic-search/search/info',
-    method: 'GET',
-  })
-  return response.data
+  try {
+    const response = await customInstance<{ data: SearchProviderInfo }>({
+      url: '/api/plugin/semantic-search/search/info',
+      method: 'GET',
+    })
+    return response.data
+  } catch (error) {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const resp = (error as { response: { status: number } }).response
+      if (resp.status === 404 || resp.status === 401) {
+        logger.debug('Search provider plugin not available')
+        return {
+          id: 'builtin',
+          name: 'Built-in Search',
+          description: 'Text-based search',
+          priority: 0,
+          capabilities: [],
+        }
+      }
+    }
+    throw error
+  }
 }
 
 /**

@@ -77,7 +77,7 @@ func (s *TokenService) ValidateAccessToken(tokenString string) (*AccessClaims, e
 			return nil, ErrInvalidSigningMethod
 		}
 		return s.config.Secret, nil
-	})
+	}, jwt.WithLeeway(30*time.Second))
 
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {

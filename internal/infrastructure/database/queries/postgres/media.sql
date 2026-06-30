@@ -7,14 +7,16 @@ INSERT INTO media (
     codec, audio_codec, codec_profile, bit_rate, frame_rate, scan_type, hdr_format,
     color_space, color_primaries, thumbnail_path, type, source_type,
     resolution_label, quality_score, is_3d, stereo_mode, has_dash,
-    dash_manifest_path, transcoding_status, is_extra, date_modified
+    dash_manifest_path, transcoding_status, is_extra, date_modified,
+    language, variant_group_id
 ) VALUES (
     $1, $2, $3, $4, $5,
     $6, $7, $8, $9, $10,
     $11, $12, $13, $14, $15, $16, $17,
     $18, $19, $20, $21, $22,
     $23, $24, $25, $26, $27,
-    $28, $29, $30, $31
+    $28, $29, $30, $31,
+    $32, $33
 ) RETURNING *;
 
 -- name: GetMediaByID :one
@@ -72,8 +74,10 @@ SET library_id = $1,
     transcoding_status = $29,
     is_extra = $30,
     date_modified = $31,
+    language = $32,
+    variant_group_id = $33,
     updated_at = CURRENT_TIMESTAMP
-WHERE id = $32
+WHERE id = $34
 RETURNING *;
 
 -- name: DeleteMedia :exec
@@ -95,3 +99,8 @@ WHERE library_id = $1 AND type = $2;
 -- name: GetFilePathCache :many
 SELECT id, file_path FROM media
 WHERE library_id = $1;
+
+-- name: GetVariantsByGroupID :many
+SELECT * FROM media
+WHERE variant_group_id = $1
+ORDER BY language;

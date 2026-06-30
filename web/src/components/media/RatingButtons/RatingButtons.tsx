@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { ThumbsUp, ThumbsDown, Heart } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isWebOSTV } from '@/utils/device'
 import {
   useGetApiRatingsEntityTypeEntityId,
   usePostApiRatings,
@@ -15,6 +16,8 @@ interface RatingButtonsProps {
   entityId: number
   className?: string
   size?: 'sm' | 'md' | 'lg'
+  /** Hide rating buttons on TV (for TV-optimized layouts) */
+  hideOnTV?: boolean
 }
 
 /**
@@ -28,6 +31,7 @@ export const RatingButtons = ({
   entityId,
   className,
   size = 'md',
+  hideOnTV = false,
 }: RatingButtonsProps) => {
   const queryClient = useQueryClient()
 
@@ -39,10 +43,6 @@ export const RatingButtons = ({
     },
   })
 
-  // Get current rating value (null if not rated or 404)
-  const currentRating: RatingType | null =
-    ratingData?.status === 200 ? (ratingData.data.rating as RatingType) : null
-
   // Mutations
   const { mutate: setRating, isPending: isSettingRating } = usePostApiRatings({
     mutation: {
@@ -50,7 +50,6 @@ export const RatingButtons = ({
         queryClient.invalidateQueries({
           queryKey: getGetApiRatingsEntityTypeEntityIdQueryKey(entityType, entityId),
         })
-        // Also invalidate home sections to update favorites widget
         queryClient.invalidateQueries({ queryKey: ['home'] })
       },
     },
@@ -63,11 +62,19 @@ export const RatingButtons = ({
           queryClient.invalidateQueries({
             queryKey: getGetApiRatingsEntityTypeEntityIdQueryKey(entityType, entityId),
           })
-          // Also invalidate home sections to update favorites widget
           queryClient.invalidateQueries({ queryKey: ['home'] })
         },
       },
     })
+
+  // Don't render on TV if hideOnTV is true
+  if (hideOnTV && isWebOSTV()) {
+    return null
+  }
+
+  // Get current rating value (null if not rated or 404)
+  const currentRating: RatingType | null =
+    ratingData?.status === 200 ? (ratingData.data.rating as RatingType) : null
 
   const isPending = isSettingRating || isDeletingRating
 

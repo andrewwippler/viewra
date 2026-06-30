@@ -58,9 +58,11 @@ func (s *LibraryService) Create(ctx context.Context, req CreateLibraryRequest) (
 		return LibraryResponse{}, fmt.Errorf("validation failed: %w", err)
 	}
 
-	// Check if path exists on filesystem (before transaction)
-	if _, err := os.Stat(lib.Path); os.IsNotExist(err) {
-		return LibraryResponse{}, library.ErrPathNotFound
+	// Check if path exists on filesystem (before transaction) — skip for live_tv
+	if lib.Type != library.LibraryTypeLiveTV {
+		if _, err := os.Stat(lib.Path); os.IsNotExist(err) {
+			return LibraryResponse{}, library.ErrPathNotFound
+		}
 	}
 
 	// Execute within transaction to ensure atomicity of check + create
@@ -143,8 +145,8 @@ func (s *LibraryService) Update(ctx context.Context, id int64, req UpdateLibrary
 		return LibraryResponse{}, fmt.Errorf("validation failed: %w", err)
 	}
 
-	// Check if path exists on filesystem (if path was updated)
-	if req.Path != "" {
+	// Check if path exists on filesystem (if path was updated) — skip for live_tv
+	if req.Path != "" && lib.Type != library.LibraryTypeLiveTV {
 		if _, err := os.Stat(lib.Path); os.IsNotExist(err) {
 			return LibraryResponse{}, library.ErrPathNotFound
 		}

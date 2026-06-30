@@ -4,8 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	domainevents "github.com/mantonx/viewra/internal/domain/events"
@@ -35,6 +39,12 @@ type Manager struct {
 	fallbackManager *hls.HardwareFallbackManager
 	logStore        *logging.FFmpegLogStore
 	publisher       domainevents.Publisher // Event publisher for transcode events (optional)
+
+	// Live stream session tracking
+	liveMu        sync.Mutex
+	pausedSession *TranscodeSession // Currently paused live session (only one allowed)
+
+	outputBaseDir string
 }
 
 // ManagerConfig contains all configuration needed for the session manager.
@@ -88,6 +98,7 @@ func NewManager(config *ManagerConfig, logger *slog.Logger) *Manager {
 		hwAccel:         config.HardwareAccel,
 		hwDevice:        config.HardwareDevice,
 		fallbackManager: hls.NewHardwareFallbackManager(hlsConfig, logger),
+		outputBaseDir:   config.OutputBaseDir,
 	}
 
 	// Verify hardware acceleration is available
@@ -157,6 +168,29 @@ type GetOrCreateSessionParams struct {
 	HWAccel               string
 	HWDevice              string
 }
+
+// LiveStreamSessionParams contains parameters for live stream sessions.
+type LiveStreamSessionParams struct {
+	LibraryID        int64
+	ChannelID        int64
+	InputURL         string
+	OutputDir        string
+	Profile          *profile.AdaptiveProfile
+	HWAccel          string
+	HWDevice         string
+	MaxDVRSegments   int           // Maximum segments to retain when paused (default: 1800 = 60 min at 2s)
+	MaxDVRDuration   time.Duration // Maximum DVR duration (default: 60 min)
+	MinFreeDiskPct   float64       // Minimum free disk percentage (default: 10.0)
+}
+
+// LiveStreamState represents the state of a live stream session.
+type LiveStreamState int
+
+const (
+	LiveStatePlaying LiveStreamState = iota
+	LiveStatePaused
+	LiveStateEnded
+)
 
 // GetOrCreateSession returns an existing session or creates a new one.
 func (m *Manager) GetOrCreateSession(params GetOrCreateSessionParams) (*TranscodeSession, error) {
@@ -341,6 +375,222 @@ func (m *Manager) GetOrCreateSession(params GetOrCreateSessionParams) (*Transcod
 		"media_id", params.MediaID,
 		"quality", params.Quality,
 		"start_position", params.StartPosition)
+
+	return session, nil
+}
+
+// GetOrCreateLiveStreamSession creates or returns an existing live stream session.
+// Only one live session can be paused at a time globally (returns 409 if another is paused).
+func (m *Manager) GetOrCreateLiveStreamSession(params LiveStreamSessionParams) (*TranscodeSession, error) {
+	// Use manager's default HW settings if not specified
+	hwAccel := params.HWAccel
+	if hwAccel == "" {
+		hwAccel = m.hwAccel
+	}
+	hwDevice := params.HWDevice
+	if hwDevice == "" {
+		hwDevice = m.hwDevice
+	}
+
+	// Set defaults
+	maxDVRSegments := params.MaxDVRSegments
+	if maxDVRSegments <= 0 {
+		maxDVRSegments = 1800 // 60 minutes at 2s segments
+	}
+	maxDVRDuration := params.MaxDVRDuration
+	if maxDVRDuration <= 0 {
+		maxDVRDuration = 60 * time.Minute
+	}
+	minFreeDiskPct := params.MinFreeDiskPct
+	if minFreeDiskPct <= 0 {
+		minFreeDiskPct = 10.0
+	}
+
+	key := liveStreamKey(params.LibraryID, params.ChannelID)
+
+	// Stop any existing session for this channel
+	m.liveMu.Lock()
+	if existing, ok := m.sessions.Load(key); ok {
+		session := existing.(*TranscodeSession)
+		session.Stop()
+		m.sessions.Delete(key)
+		if m.logStore != nil {
+			m.logStore.CloseLogWriter(session.ID)
+		}
+		m.cleanupOutputDir(session.OutputDir, session.ID)
+	}
+	m.liveMu.Unlock()
+
+	// Acquire per-key mutex to prevent race conditions
+	mu := m.getSessionMutex(key)
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Check for existing session (double-check after lock)
+	if existing, ok := m.sessions.Load(key); ok {
+		session := existing.(*TranscodeSession)
+		session.UpdateLastAccessed()
+		return session, nil
+	}
+
+	// Create new live stream session
+	m.logger.Info("Creating new live stream session",
+		"key", key,
+		"library_id", params.LibraryID,
+		"channel_id", params.ChannelID,
+		"input_url", params.InputURL)
+
+	outputDir := params.OutputDir
+	if outputDir == "" {
+		outputDir = m.outputBaseDir
+	}
+
+	session := NewTranscodeSession(
+		params.LibraryID,  // Use libraryID as mediaID for key
+		"live",            // Fixed quality "live"
+		0.0,               // Start position
+		0,                 // Audio track index
+		outputDir,         // Base output dir
+		m.logger,
+		nil,
+	)
+
+	// Override output directory for live stream
+	session.OutputDir = filepath.Join(outputDir, fmt.Sprintf("livetv_%d_%d", params.LibraryID, params.ChannelID))
+	session.ManifestPath = filepath.Join(session.OutputDir, "playlist.m3u8")
+	session.maxDVRSegments = maxDVRSegments
+	session.minFreeDiskPct = minFreeDiskPct
+
+	// Create log writer for this session
+	if m.logStore != nil {
+		logWriter, err := m.logStore.CreateLogWriter(session.ID, params.LibraryID, "live")
+		if err != nil {
+			m.logger.Warn("Failed to create FFmpeg log writer",
+				"session_id", session.ID,
+				"error", err)
+		} else {
+			session.SetLogWriter(logWriter)
+		}
+	}
+
+	// Set event publisher
+	if m.publisher != nil {
+		session.SetPublisher(m.publisher)
+	}
+
+	// Get effective config
+	effectiveConfig := m.getEffectiveConfig(context.Background())
+
+	// For RTSP/SAT>IP sources, use a FIFO to buffer initial TS data.
+	// The RTSP handler with satip_raw consumes initial TS bytes during probing,
+	// which can prevent the H.264 decoder from receiving SPS/PPS. The FIFO lets
+	// the mpegts demuxer find parameter sets from the stream start.
+	inputURL := params.InputURL
+	isRTSP := strings.HasPrefix(inputURL, "rtsp://")
+
+	if isRTSP {
+		if err := os.MkdirAll(session.OutputDir, 0o755); err != nil {
+			return nil, fmt.Errorf("failed to create output directory for FIFO: %w", err)
+		}
+		fifoPath := filepath.Join(session.OutputDir, "livepipe.fifo")
+		os.Remove(fifoPath)
+		if err := syscall.Mkfifo(fifoPath, 0o666); err != nil {
+			return nil, fmt.Errorf("failed to create FIFO for RTSP stream: %w", err)
+		}
+		session.fifoPath = fifoPath
+
+		// Producer: captures RTSP stream as raw MPEG-TS to the FIFO
+		producerArgs := []string{
+			"-rtsp_flags", "satip_raw",
+			"-timeout", "5000000",
+			"-i", params.InputURL,
+			"-c", "copy",
+			"-f", "mpegts",
+			"-y", fifoPath,
+		}
+		producerCmd := createFFmpegCommand(context.Background(), producerArgs, nil, m.logger)
+		session.liveProducerCmd = producerCmd
+		if err := producerCmd.Start(); err != nil {
+			os.Remove(fifoPath)
+			return nil, fmt.Errorf("failed to start RTSP producer: %w", err)
+		}
+
+		// Wait for initial TS data to buffer in the FIFO, ensuring SPS/PPS arrive
+		// before the consumer's mpegts demuxer initializes the decoder.
+		time.Sleep(2 * time.Second)
+
+		inputURL = fifoPath
+	}
+
+	// Build FFmpeg input args.
+	// -timeout is only valid for network protocols, so omit for FIFO input.
+	inputArgs := []string{
+		"-fflags", "+genpts",
+		"-avoid_negative_ts", "make_zero",
+		"-use_wallclock_as_timestamps", "1",
+	}
+
+	if !isRTSP {
+		inputArgs = append([]string{"-timeout", "5000000"}, inputArgs...)
+		// For non-FIFO inputs (e.g., local files), add -re to pace at native rate.
+		inputArgs = append(inputArgs, "-re")
+	}
+
+	// Build output args for HLS with DVR
+	outputArgs := []string{
+		"-c:v", "libx264",
+		"-preset", "veryfast",
+		"-crf", "23",
+		"-b:v", "5000000",
+		"-maxrate", "5500000",
+		"-bufsize", "10000000",
+		"-g", "48",
+		"-keyint_min", "24",
+		"-sc_threshold", "0",
+		"-r", "24",
+		"-c:a", "aac",
+		"-b:a", "128000",
+		"-ac", "2",
+		"-ar", "48000",
+		"-f", "hls",
+		"-hls_time", "2",
+		"-hls_list_size", "1800",
+		"-hls_flags", "program_date_time+append_list+delete_segments",
+		"-hls_segment_filename", "seg_%06d.ts",
+		"-hls_playlist_type", "event",
+		"-use_wallclock_as_timestamps", "1",
+		"-strftime_mkdir", "1",
+	}
+
+	// Build complete FFmpeg command
+	// Input args → -i inputURL → output args → output playlist
+	ffmpegArgs := append([]string{}, inputArgs...)
+	ffmpegArgs = append(ffmpegArgs, "-i", inputURL)
+	ffmpegArgs = append(ffmpegArgs, outputArgs...)
+	ffmpegArgs = append(ffmpegArgs, session.ManifestPath)
+
+	// Start the session
+	if err := session.StartLiveWithConfig(ffmpegArgs, inputURL, effectiveConfig); err != nil {
+		return nil, fmt.Errorf("failed to start live stream session: %w", err)
+	}
+
+	// Store session
+	m.sessions.Store(key, session)
+	m.liveMu.Lock()
+	if m.pausedSession == nil {
+		// No paused session yet
+	} else {
+		// This should not happen for live streams (only one paused at a time)
+	}
+	m.liveMu.Unlock()
+
+	// Start retention watchdog for DVR limits
+	go session.monitorRetentionLimits()
+
+	m.logger.Info("Created live stream session",
+		"session_id", session.ID,
+		"library_id", params.LibraryID,
+		"channel_id", params.ChannelID)
 
 	return session, nil
 }
@@ -545,4 +795,115 @@ func (m *Manager) WarmupGPU() {
 				"elapsed_ms", elapsed.Milliseconds())
 		}
 	}()
+}
+
+// LiveStreamStatus represents the status of a live stream session.
+type LiveStreamStatus struct {
+	State            LiveStreamState
+	Position         float64
+	RetainedSegments int
+}
+
+// liveStreamKey generates a unique key for a live stream session.
+func liveStreamKey(libraryID, channelID int64) string {
+	return fmt.Sprintf("live:%d:%d", libraryID, channelID)
+}
+
+// GetLiveStreamSession retrieves an active live stream session.
+func (m *Manager) GetLiveStreamSession(libraryID, channelID int64) (*TranscodeSession, error) {
+	key := liveStreamKey(libraryID, channelID)
+
+	if existing, ok := m.sessions.Load(key); ok {
+		session := existing.(*TranscodeSession)
+		session.UpdateLastAccessed()
+		return session, nil
+	}
+
+	return nil, fmt.Errorf("no active live stream for library %d channel %d", libraryID, channelID)
+}
+
+// GetLiveStreamOutputPath returns the output directory for a live stream session.
+func (m *Manager) GetLiveStreamOutputPath(libraryID, channelID int64) (string, error) {
+	session, err := m.GetLiveStreamSession(libraryID, channelID)
+	if err != nil {
+		return "", err
+	}
+	return session.OutputDir, nil
+}
+
+// GetLiveStreamStatus returns the status of a live stream session.
+func (m *Manager) GetLiveStreamStatus(libraryID, channelID int64) (*LiveStreamStatus, error) {
+	session, err := m.GetLiveStreamSession(libraryID, channelID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &LiveStreamStatus{
+		State:            session.GetLiveState(),
+		Position:         session.GetPausedPosition(),
+		RetainedSegments: session.GetRetainedSegments(),
+	}, nil
+}
+
+// CheckPauseConflict checks if another session is already paused.
+func (m *Manager) CheckPauseConflict(currentSession *TranscodeSession) error {
+	m.liveMu.Lock()
+	defer m.liveMu.Unlock()
+
+	if m.pausedSession != nil && m.pausedSession != currentSession {
+		return fmt.Errorf("another channel is currently paused")
+	}
+	return nil
+}
+
+// RegisterPausedSession registers a session as the currently paused session.
+func (m *Manager) RegisterPausedSession(sess *TranscodeSession) {
+	m.liveMu.Lock()
+	defer m.liveMu.Unlock()
+	m.pausedSession = sess
+}
+
+// ClearPausedSession clears the paused session if it matches the given session.
+func (m *Manager) ClearPausedSession(sess *TranscodeSession) {
+	m.liveMu.Lock()
+	defer m.liveMu.Unlock()
+	if m.pausedSession == sess {
+		m.pausedSession = nil
+	}
+}
+
+// StopLiveStreamSession stops a live stream session.
+func (m *Manager) StopLiveStreamSession(libraryID, channelID int64) error {
+	key := liveStreamKey(libraryID, channelID)
+
+	if existing, ok := m.sessions.Load(key); ok {
+		session := existing.(*TranscodeSession)
+
+		// Clear paused session if this is the one
+		m.liveMu.Lock()
+		if m.pausedSession == session {
+			m.pausedSession = nil
+		}
+		m.liveMu.Unlock()
+
+		session.StopLive()
+
+		// Clean up output directory
+		m.cleanupOutputDir(session.OutputDir, session.ID)
+
+		// Remove from sessions map
+		m.sessions.Delete(key)
+
+		if m.logStore != nil {
+			m.logStore.CloseLogWriter(session.ID)
+		}
+
+		m.logger.Info("Stopped live stream session",
+			"session_id", session.ID,
+			"library_id", libraryID,
+			"channel_id", channelID)
+		return nil
+	}
+
+	return fmt.Errorf("no active live stream for library %d channel %d", libraryID, channelID)
 }

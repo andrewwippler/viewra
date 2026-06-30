@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/mantonx/viewra/internal/application/library/scan"
+	"github.com/mantonx/viewra/internal/application/library/scan/recovery"
 	"github.com/mantonx/viewra/internal/application/library/scan/scanutil"
 	"github.com/mantonx/viewra/internal/domain/library"
 	"github.com/mantonx/viewra/internal/domain/scanner"
@@ -315,9 +316,15 @@ func TestScanLibraryUseCase_ResumeScan(t *testing.T) {
 			uc := &ScanLibraryUseCase{
 				mediaRepos: &scan.MediaRepositories{
 					Library: libRepo,
+					Media:   mocks.NewMediaRepository(t),
+					Movie:   mocks.NewMovieRepository(t),
+					TV:      mocks.NewTVRepository(t),
+					Music:   mocks.NewMusicRepository(t),
 				},
 				scanRepos: &scan.ScanRepositories{
-					ScanJob: scanRepo,
+					ScanJob:    scanRepo,
+					Checkpoint: mocks.NewCheckpointRepository(t),
+					ScanState:  mocks.NewScanStateRepository(t),
 				},
 				config: scan.Config{
 					CheckpointBatchSize: 50,
@@ -492,14 +499,13 @@ func TestScanLibraryUseCase_recoverFromPanic(t *testing.T) {
 				logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 			}
 
-			testFunc := func() {
-				defer uc.recoverFromPanic(1, 10, "test scan")
+			// Must use defer directly to allow recover() to work
+			func() {
+				defer recovery.RecoverFromPanic(uc.logger, uc.scanRepos.ScanJob, 1, 10, "test scan")
 				if tt.panicValue != nil {
 					panic(tt.panicValue)
 				}
-			}
-
-			testFunc()
+			}()
 
 			if tt.panicValue != nil && tt.expectComplete {
 				job, err := scanRepo.GetByID(context.Background(), 1)

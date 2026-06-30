@@ -5,7 +5,7 @@
  */
 
 import { detectDeviceType, getConnectionType } from '@/lib/capabilities'
-import { authFetch } from '@/lib/utils/authFetch'
+import { authFetch, buildAuthenticatedUrl } from '@/lib/utils/authFetch'
 
 export interface QualitySwitchEvent {
   mediaId: number
@@ -322,7 +322,7 @@ export const flushEventsBeacon = (
   }
 
   return navigator.sendBeacon(
-    config.endpoint,
+    buildAuthenticatedUrl(config.endpoint),
     JSON.stringify({ session, events })
   )
 }

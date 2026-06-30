@@ -132,9 +132,9 @@ clean-ffmpeg: ## Clean FFmpeg build artifacts
 	@echo "✓ FFmpeg build cleaned"
 
 build: build-tools ## Build production binaries with version info
-	@echo "Building frontend..."
+	@echo "Building frontends (web + TV)..."
 	cd web && npm run build
-	@echo "Building backend with embedded frontend..."
+	@echo "Building backend with embedded frontends..."
 	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
 	COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
 	BUILD_DATE=$$(date -u '+%Y-%m-%d_%H:%M:%S'); \

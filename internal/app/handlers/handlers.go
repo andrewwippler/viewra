@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 
 	"github.com/mantonx/viewra/internal/api"
@@ -57,7 +59,7 @@ func BuildHandlers(
 	scanJobHandler := handlers.NewScanJobHandler(cases.ScanJob, cases.Library.Scan, cases.Library.Scan, svcs.EventBus, logger)
 
 	// Media handlers
-	mediaHandler := handlers.NewMediaHandler(cases.Media.Get, cases.Media.List, cases.Media.StreamInfo, cases.Media.GetTracks)
+	mediaHandler := handlers.NewMediaHandler(cases.Media.Get, cases.Media.List, cases.Media.Delete, cases.Media.StreamInfo, cases.Media.GetTracks)
 	streamService := streaming.NewService()
 	streamHandler := handlers.NewStreamHandler(cases.Media.Get, streamService, logger)
 	progressHandler := handlers.NewProgressHandler(cases.Progress)
@@ -269,6 +271,12 @@ func BuildHandlers(
 			favorites = appHome.NewFavoritesService(infra.Repos.Movie, infra.Repos.TV, infra.Repos.Ratings)
 		}
 
+		// Create unwatched movies service
+		var unwatchedMovies appHome.UnwatchedMoviesService
+		if infra.Repos.Movie != nil && infra.Repos.Progress != nil {
+			unwatchedMovies = appHome.NewUnwatchedMoviesService(infra.Repos.Movie, infra.Repos.Progress)
+		}
+
 		// Create genres service
 		var genres appHome.GenresService
 		if infra.Repos.Movie != nil {
@@ -313,6 +321,7 @@ func BuildHandlers(
 			favorites,
 			genres,
 			trendingSvc,
+			unwatchedMovies,
 			logger.With("service", "home"),
 		)
 		homeHandler = handlers.NewHomeHandler(homeService)
@@ -354,6 +363,36 @@ func BuildHandlers(
 			configSaver := createConfigSaver(infra.Config.DataDir)
 			systemHandler.SetMigrationService(infra.DB, infra.Config.Database.Driver, configSaver)
 		}
+	}
+
+	// Create Live TV handler
+	liveTvHandler := handlers.NewLiveTvHandler(
+		cases.LiveTv.ListChannels,
+		cases.LiveTv.ListEPG,
+		cases.LiveTv.ScanChannels,
+		cases.LiveTv.ScanEPG,
+		cases.LiveTv.ListMappings,
+		cases.LiveTv.SetMapping,
+		cases.LiveTv.DeleteMapping,
+	)
+
+	// Create Live TV Stream handler (for HLS streaming)
+	var liveTvStreamHandler *handlers.LiveTvStreamHandler
+	if svcs.SessionManager != nil && infra.Repos.LiveTvChannel != nil {
+		getChannelStreamURL := func(ctx context.Context, libraryID, channelID int64) (string, error) {
+			channel, err := infra.Repos.LiveTvChannel.GetByID(ctx, channelID)
+			if err != nil {
+				return "", err
+			}
+			if channel.LibraryID != libraryID {
+				return "", fmt.Errorf("channel %d does not belong to library %d", channelID, libraryID)
+			}
+			return channel.StreamURL, nil
+		}
+		liveTvStreamHandler = handlers.NewLiveTvStreamHandler(svcs.SessionManager, getChannelStreamURL)
+	} else if svcs.SessionManager != nil {
+		// Fallback: create handler without channel lookup (for testing)
+		liveTvStreamHandler = handlers.NewLiveTvStreamHandler(svcs.SessionManager, nil)
 	}
 
 	// Create Jellyfin-compatible API handler
@@ -421,6 +460,8 @@ func BuildHandlers(
 		Search:           searchHandler,
 		AuthValidator:    authService,
 		Jellyfin:         jellyfinHandler,
+		LiveTv:           liveTvHandler,
+			LiveTvStream:     liveTvStreamHandler,
 	}
 }
 

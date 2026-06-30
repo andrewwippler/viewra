@@ -95,7 +95,7 @@ SELECT
     med.updated_at
 FROM movies m
 JOIN media med ON m.media_id = med.id
-WHERE med.library_id = ?
+WHERE (med.library_id = sqlc.arg(library_id) OR sqlc.arg(library_id) = 0)
   AND med.is_extra = 0
 ORDER BY COALESCE(NULLIF(m.sort_title, ''), med.title) COLLATE NOCASE;
 
@@ -508,6 +508,51 @@ WHERE med.is_extra = 0
 ORDER BY med.updated_at DESC
 LIMIT ?;
 
+-- name: ListRandomMovies :many
+-- Returns random movies across all libraries
+SELECT
+    m.*,
+    med.id as media_id,
+    med.library_id,
+    med.title,
+    med.file_path,
+    med.file_size,
+    med.file_hash,
+    med.container_format,
+    med.duration,
+    med.width,
+    med.height,
+    med.aspect_ratio,
+    med.codec,
+    med.audio_codec,
+    med.codec_profile,
+    med.bit_rate,
+    med.frame_rate,
+    med.scan_type,
+    med.hdr_format,
+    med.color_space,
+    med.color_primaries,
+    med.thumbnail_path,
+    med.type,
+    med.source_type,
+    med.resolution_label,
+    med.quality_score,
+    med.is_3d,
+    med.stereo_mode,
+    med.has_dash,
+    med.dash_manifest_path,
+    med.transcoding_status,
+    med.is_extra,
+    med.date_added,
+    med.date_modified,
+    med.created_at,
+    med.updated_at
+FROM movies m
+JOIN media med ON m.media_id = med.id
+WHERE med.is_extra = 0
+ORDER BY RANDOM()
+LIMIT ?;
+
 -- name: ListDistinctMovieGenres :many
 -- Returns distinct genres from all movies (genres are comma-separated in the genre column)
 SELECT DISTINCT TRIM(j.value) as genre
@@ -535,6 +580,55 @@ WHERE med.library_id = sqlc.arg(library_id)
   AND LOWER(med.title) = LOWER(sqlc.arg(title))
   AND COALESCE(m.year, 0) = COALESCE(sqlc.arg(year), 0)
 LIMIT 1;
+
+-- name: GetMoviesWithoutVariantGroup :many
+-- Gets all movies in a library that don't have a variant_group_id set.
+-- Used for post-scan reconciliation of variant groups.
+SELECT
+    m.*,
+    med.id as media_id,
+    med.library_id,
+    med.title,
+    med.file_path,
+    med.file_size,
+    med.file_hash,
+    med.container_format,
+    med.duration,
+    med.width,
+    med.height,
+    med.aspect_ratio,
+    med.codec,
+    med.codec_profile,
+    med.bit_rate,
+    med.frame_rate,
+    med.scan_type,
+    med.hdr_format,
+    med.color_space,
+    med.color_primaries,
+    med.thumbnail_path,
+    med.type,
+    med.source_type,
+    med.resolution_label,
+    med.quality_score,
+    med.is_3d,
+    med.stereo_mode,
+    med.has_dash,
+    med.dash_manifest_path,
+    med.transcoding_status,
+    med.date_added,
+    med.date_modified,
+    med.created_at,
+    med.updated_at,
+    med.is_extra,
+    med.audio_codec,
+    med.language,
+    med.variant_group_id
+FROM movies m
+JOIN media med ON m.media_id = med.id
+WHERE med.library_id = sqlc.arg(library_id)
+  AND med.is_extra = 0
+  AND med.variant_group_id IS NULL
+ORDER BY med.title, m.year;
 
 -- name: ListMoviesByDirector :many
 -- Lists movies directed by a specific person with optional library filter and exclusion list.

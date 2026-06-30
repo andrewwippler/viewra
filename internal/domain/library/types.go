@@ -17,12 +17,15 @@ const (
 
 	// LibraryTypeMusic represents a music library
 	LibraryTypeMusic LibraryType = "music"
+
+	// LibraryTypeLiveTV represents a live TV library
+	LibraryTypeLiveTV LibraryType = "live_tv"
 )
 
 // IsValid checks if the library type is valid
 func (lt LibraryType) IsValid() bool {
 	switch lt {
-	case LibraryTypeMovies, LibraryTypeTV, LibraryTypeMusic:
+	case LibraryTypeMovies, LibraryTypeTV, LibraryTypeMusic, LibraryTypeLiveTV:
 		return true
 	default:
 		return false
@@ -34,10 +37,11 @@ func (lt LibraryType) String() string {
 	return string(lt)
 }
 
-// Directory represents a directory in the filesystem for path selection
+// Directory represents a filesystem entry for path selection
 type Directory struct {
 	Name       string    `json:"name"`
 	Path       string    `json:"path"`
+	IsDir      bool      `json:"is_dir"`
 	Readable   bool      `json:"readable"`
 	Writable   bool      `json:"writable"`
 	ModifiedAt time.Time `json:"modified_at"`

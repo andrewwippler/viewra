@@ -25,9 +25,11 @@ func (s *Service) Create(ctx context.Context, library *Library) error {
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
-	// Validate path exists and is accessible
-	if err := s.validatePathExists(library.Path); err != nil {
-		return err
+	// Validate path exists and is accessible — skip for live_tv (path is M3U URL)
+	if library.Type != LibraryTypeLiveTV {
+		if err := s.validatePathExists(library.Path); err != nil {
+			return err
+		}
 	}
 
 	// Check for duplicate path
@@ -81,9 +83,11 @@ func (s *Service) Update(ctx context.Context, library *Library) error {
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
-	// Validate path exists and is accessible
-	if err := s.validatePathExists(library.Path); err != nil {
-		return err
+	// Validate path exists and is accessible — skip for live_tv (path is M3U URL)
+	if library.Type != LibraryTypeLiveTV {
+		if err := s.validatePathExists(library.Path); err != nil {
+			return err
+		}
 	}
 
 	// Check if library exists

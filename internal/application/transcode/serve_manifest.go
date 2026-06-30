@@ -22,6 +22,10 @@ type ServeManifestRequest struct {
 	// -1 means use default (first audio track), >= 0 is the FFmpeg stream index.
 	AudioTrackIndex int
 
+	// PreferredAudioLanguage is the user's preferred audio language (ISO 639-2 code).
+	// Used to select the best audio track when AudioTrackIndex is not specified.
+	PreferredAudioLanguage string
+
 	// Client capabilities for smart direct play decisions
 	SupportedVideoCodecs []string // e.g., ["h264", "h265", "vp9", "av1"]
 	SupportedContainers  []string // e.g., ["mp4", "webm", "matroska"]
@@ -94,7 +98,8 @@ func (uc *ServeManifestUseCase) Execute(ctx context.Context, req ServeManifestRe
 	}
 
 	// Step 3: Build VideoInfo from database instead of calling ffprobe (slow on network files)
-	videoInfo := buildVideoInfoFromDatabase(mediaEntity, audioTracks)
+	// Use preferred audio language from request to select best audio track
+	videoInfo := buildVideoInfoFromDatabase(mediaEntity, audioTracks, req.PreferredAudioLanguage)
 
 	// Step 4: Determine streaming strategy
 	// Use strategy hint from master playlist if available (ensures consistency)

@@ -82,6 +82,8 @@ export const ContinueWatchingCard = ({ item, onClick, onPlay, onRemove }: Contin
           <img
             src={backdropUrl}
             alt={item.title}
+            width="16"
+            height="9"
             className="absolute inset-0 w-full h-full object-cover"
             loading="lazy"
           />

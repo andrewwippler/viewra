@@ -104,8 +104,11 @@ func getCurrentUserID() int64 {
 // Returns the user ID set by auth middleware, or "1" as fallback for single-user mode.
 func getUserIDFromContext(c *gin.Context) string {
 	if userID, exists := c.Get("user_id"); exists {
-		if id, ok := userID.(string); ok {
-			return id
+		switch v := userID.(type) {
+		case string:
+			return v
+		case int64:
+			return strconv.FormatInt(v, 10)
 		}
 	}
 	return "1"

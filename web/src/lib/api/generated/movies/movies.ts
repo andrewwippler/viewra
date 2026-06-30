@@ -523,7 +523,7 @@ export function useGetApiMoviesSearch<
 }
 
 /**
- * Returns details of a specific movie including all metadata
+ * Returns detailed information for a specific movie
  * @summary Get a movie by ID
  */
 export type getApiMoviesIdResponse200 = {
@@ -541,18 +541,12 @@ export type getApiMoviesIdResponse404 = {
   status: 404
 }
 
-export type getApiMoviesIdResponse500 = {
-  data: InternalApiHandlersAPIError
-  status: 500
-}
-
 export type getApiMoviesIdResponseSuccess = getApiMoviesIdResponse200 & {
   headers: Headers
 }
 export type getApiMoviesIdResponseError = (
   | getApiMoviesIdResponse400
   | getApiMoviesIdResponse404
-  | getApiMoviesIdResponse500
 ) & {
   headers: Headers
 }

@@ -455,9 +455,12 @@ func loadServerConfig(logger *slog.Logger) ServerConfig {
 	corsOrigins := getEnvStringSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:5173", "http://localhost:8080"})
 	corsCredentials := getEnvBool("CORS_ALLOW_CREDENTIALS", true)
 
+	// Allow overriding allowed base paths via environment
+	allowedPaths := getEnvStringSlice("ALLOWED_BASE_PATHS", apiConfig.Browser.AllowedBasePaths)
+
 	return ServerConfig{
 		Port:                 apiConfig.Port,
-		AllowedBasePaths:     apiConfig.Browser.AllowedBasePaths,
+		AllowedBasePaths:     allowedPaths,
 		DefaultBasePath:      apiConfig.Browser.DefaultBasePath,
 		CORSAllowedOrigins:   corsOrigins,
 		CORSAllowCredentials: corsCredentials,

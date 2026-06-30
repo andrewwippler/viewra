@@ -9,24 +9,27 @@ import (
 
 // MediaHandler handles HTTP requests for media
 type MediaHandler struct {
-	getMedia   media.GetMediaExecutor
-	listMedia  media.ListMediaExecutor
-	streamInfo media.StreamInfoExecutor
-	getTracks  media.GetTracksExecutor
+	getMedia    media.GetMediaExecutor
+	listMedia   media.ListMediaExecutor
+	deleteMedia media.DeleteMediaExecutor
+	streamInfo  media.StreamInfoExecutor
+	getTracks   media.GetTracksExecutor
 }
 
 // NewMediaHandler creates a new media handler
 func NewMediaHandler(
 	getMedia media.GetMediaExecutor,
 	listMedia media.ListMediaExecutor,
+	deleteMedia media.DeleteMediaExecutor,
 	streamInfo media.StreamInfoExecutor,
 	getTracks media.GetTracksExecutor,
 ) *MediaHandler {
 	return &MediaHandler{
-		getMedia:   getMedia,
-		listMedia:  listMedia,
-		streamInfo: streamInfo,
-		getTracks:  getTracks,
+		getMedia:    getMedia,
+		listMedia:   listMedia,
+		deleteMedia: deleteMedia,
+		streamInfo:  streamInfo,
+		getTracks:   getTracks,
 	}
 }
 
@@ -99,6 +102,33 @@ func (h *MediaHandler) Get(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, media.GetMediaResponse{Media: resp})
+}
+
+// Delete handles DELETE /api/media/:id
+// @Summary Delete a media item (database only)
+// @Description Removes the media record and all associated metadata from the database.
+// @Description The underlying media file on disk is NOT deleted.
+// @Tags media
+// @Produce json
+// @Param id path int true "Media ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} APIError
+// @Failure 404 {object} APIError
+// @Failure 500 {object} APIError
+// @Router /api/media/{id} [delete]
+func (h *MediaHandler) Delete(c *gin.Context) {
+	id, err := parseID(c.Param("id"))
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "INVALID_MEDIA_ID", err.Error())
+		return
+	}
+
+	if err := h.deleteMedia.Execute(c.Request.Context(), id); err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 // GetStreamInfo handles GET /api/media/:id/stream-info

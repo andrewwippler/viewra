@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -72,6 +73,25 @@ type TranscodeSession struct {
 
 	// Event publisher for transcode lifecycle events (optional)
 	publisher domainevents.Publisher
+
+	// Live stream specific fields
+	liveMu           sync.RWMutex
+	liveState        LiveStreamState
+	pausedAt         time.Time
+	pausedPosition   float64       // Precise position from PROGRAM-DATE-TIME
+	retainedSegments int
+	maxDVRSegments   int           // Max segments to retain when paused (default 1800)
+	minFreeDiskPct   float64       // Min free disk percentage (default 10.0)
+
+	// Custom FFmpeg args for live streams
+	ffmpegArgs []string
+
+	// FFmpeg exit error captured from the wait goroutine
+	ffmpegExitErr error
+
+	// Producer subprocess for live RTSP streams (captures raw TS to FIFO)
+	liveProducerCmd *exec.Cmd
+	fifoPath        string
 }
 
 // NewTranscodeSession creates a new transcode session but does not start it.
@@ -213,6 +233,7 @@ func (s *TranscodeSession) Start(params StartParams) error {
 	go func() {
 		s.waitOnce.Do(func() {
 			err := s.FFmpegCmd.Wait()
+			s.ffmpegExitErr = err
 			duration := time.Since(s.FFmpegStartedAt)
 			if err != nil {
 				s.logger.Error("FFmpeg process exited with error",
@@ -263,7 +284,253 @@ func (s *TranscodeSession) Start(params StartParams) error {
 	return nil
 }
 
-// monitorStdout monitors FFmpeg stdout for HLS muxer progress.
+// StartLive begins a live stream session with custom FFmpeg arguments.
+func (s *TranscodeSession) StartLive(ffmpegArgs []string, inputURL string) error {
+	return s.StartLiveWithConfig(ffmpegArgs, inputURL, nil)
+}
+
+// StartLiveWithConfig begins a live stream session with custom FFmpeg arguments and config.
+func (s *TranscodeSession) StartLiveWithConfig(ffmpegArgs []string, inputURL string, config *Config) error {
+	// Create output directory
+	if err := os.MkdirAll(s.OutputDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// Store FFmpeg args
+	s.ffmpegArgs = ffmpegArgs
+
+	// Create FFmpeg command using the pre-built args (input URL + -i + output args)
+	s.FFmpegCmd = createFFmpegCommand(s.ctx, ffmpegArgs, config, s.logger)
+	s.FFmpegCmd.Dir = s.OutputDir
+
+	// Capture both stdout and stderr
+	stderr, err := s.FFmpegCmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
+
+	stdout, err := s.FFmpegCmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+
+	// Start the process
+	s.FFmpegStartedAt = time.Now()
+	if err := s.FFmpegCmd.Start(); err != nil {
+		return fmt.Errorf("failed to start ffmpeg: %w", err)
+	}
+
+	// Start progress watchdog
+	s.watchdog = NewProgressWatchdog(s, 30*time.Second)
+	s.watchdog.Start()
+
+	// Monitor stdout for HLS muxer progress
+	go s.monitorStdout(stdout)
+
+	// Log FFmpeg stderr in background
+	go s.monitorStderr(stderr)
+
+	// Monitor process exit status
+	go func() {
+		s.waitOnce.Do(func() {
+			err := s.FFmpegCmd.Wait()
+			s.ffmpegExitErr = err
+			_ = time.Since(s.FFmpegStartedAt)
+			if err != nil {
+				s.logger.Error("FFmpeg process exited with error",
+					"session_id", s.ID,
+					"error", err)
+			} else {
+				s.logger.Info("FFmpeg process completed successfully",
+					"session_id", s.ID)
+			}
+			if s.watchdog != nil {
+				s.watchdog.Stop()
+			}
+		})
+	}()
+
+	s.logger.Info("Live stream session started",
+		"session_id", s.ID,
+		"media_id", s.MediaID,
+		"quality", s.Quality)
+
+	// Start watching for generated segments
+	go s.watchSegments()
+
+	// Start retention monitoring for DVR limits
+	go s.monitorRetentionLimits()
+
+	s.liveMu.Lock()
+	s.liveState = LiveStatePlaying
+	s.liveMu.Unlock()
+
+	return nil
+}
+
+// Pause pauses the live stream session, retaining segments for DVR.
+// Returns the precise pause position from PROGRAM-DATE-TIME.
+func (s *TranscodeSession) Pause(position float64) (float64, error) {
+	s.liveMu.Lock()
+	defer s.liveMu.Unlock()
+
+	if s.liveState == LiveStateEnded {
+		return 0, fmt.Errorf("stream has ended")
+	}
+	if s.liveState == LiveStatePaused {
+		return s.pausedPosition, nil
+	}
+
+	s.liveState = LiveStatePaused
+	s.pausedAt = time.Now()
+	s.pausedPosition = position
+	s.retainedSegments = 0
+
+	s.logger.Info("Live stream paused",
+		"session_id", s.ID,
+		"position", position)
+
+	return s.pausedPosition, nil
+}
+
+// Resume resumes the live stream from the paused position.
+func (s *TranscodeSession) Resume() (float64, error) {
+	s.liveMu.Lock()
+	defer s.liveMu.Unlock()
+
+	if s.liveState != LiveStatePaused {
+		return 0, fmt.Errorf("stream is not paused")
+	}
+
+	s.liveState = LiveStatePlaying
+	s.retainedSegments = 0
+
+	s.logger.Info("Live stream resumed",
+		"session_id", s.ID,
+		"position", s.pausedPosition)
+
+	return s.pausedPosition, nil
+}
+
+// StopLive stops the live stream session and cleans up.
+func (s *TranscodeSession) StopLive() error {
+	s.liveMu.Lock()
+	s.liveState = LiveStateEnded
+	s.liveMu.Unlock()
+
+	// Kill producer subprocess first (so consumer will get EOF and exit cleanly)
+	if s.liveProducerCmd != nil && s.liveProducerCmd.Process != nil {
+		s.liveProducerCmd.Process.Kill()
+		_ = s.liveProducerCmd.Wait()
+	}
+
+	// Clean up FIFO
+	if s.fifoPath != "" {
+		os.Remove(s.fifoPath)
+	}
+
+	// Call original Stop implementation
+	return s.Stop()
+}
+
+// monitorRetentionLimits checks DVR retention limits when paused.
+func (s *TranscodeSession) monitorRetentionLimits() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			s.liveMu.Lock()
+			if s.liveState != LiveStatePaused {
+				s.liveMu.Unlock()
+				continue
+			}
+
+			// Count retained segments
+			s.segmentMutex.RLock()
+			retained := len(s.generatedSegments)
+			s.segmentMutex.RUnlock()
+
+			s.retainedSegments = retained
+
+			// Check segment count limit
+			if retained >= s.maxDVRSegments {
+				s.logger.Warn("DVR segment limit reached, stopping stream",
+					"session_id", s.ID,
+					"retained_segments", retained,
+					"max_segments", s.maxDVRSegments)
+				s.liveState = LiveStateEnded
+				s.liveMu.Unlock()
+				s.StopLive()
+				s.cleanupSegments()
+				return
+			}
+
+			// Check disk space
+			if s.minFreeDiskPct > 0 {
+				freePct, err := getFreeDiskPercent(s.OutputDir)
+				if err == nil && freePct < s.minFreeDiskPct {
+					s.logger.Warn("Disk space limit reached, stopping stream",
+						"session_id", s.ID,
+						"free_disk_pct", freePct,
+						"min_free_pct", s.minFreeDiskPct)
+					s.liveState = LiveStateEnded
+					s.liveMu.Unlock()
+					s.StopLive()
+					s.cleanupSegments()
+					return
+				}
+			}
+
+			s.liveMu.Unlock()
+		}
+	}
+}
+
+// GetLiveState returns the current live stream state.
+func (s *TranscodeSession) GetLiveState() LiveStreamState {
+	s.liveMu.RLock()
+	defer s.liveMu.RUnlock()
+	return s.liveState
+}
+
+// GetPausedPosition returns the paused position.
+func (s *TranscodeSession) GetPausedPosition() float64 {
+	s.liveMu.RLock()
+	defer s.liveMu.RUnlock()
+	return s.pausedPosition
+}
+
+// IsEnded returns true if the stream has ended (DVR limit reached).
+func (s *TranscodeSession) IsEnded() bool {
+	s.liveMu.RLock()
+	defer s.liveMu.RUnlock()
+	return s.liveState == LiveStateEnded
+}
+// GetRetainedSegments returns the number of retained segments.
+func (s *TranscodeSession) GetRetainedSegments() int {
+	s.liveMu.RLock()
+	defer s.liveMu.RUnlock()
+	return s.retainedSegments
+}
+
+// GetMinFreeDiskPct returns the minimum free disk percentage.
+func (s *TranscodeSession) GetMinFreeDiskPct() float64 {
+	s.liveMu.RLock()
+	defer s.liveMu.RUnlock()
+	return s.minFreeDiskPct
+}
+
+// GetMaxDVRSegments returns the maximum DVR segments.
+func (s *TranscodeSession) GetMaxDVRSegments() int {
+	s.liveMu.RLock()
+	defer s.liveMu.RUnlock()
+	return s.maxDVRSegments
+}
+
 func (s *TranscodeSession) monitorStdout(stdout io.Reader) {
 	scanner := bufio.NewScanner(stdout)
 	segmentCount := 0
@@ -487,4 +754,41 @@ func (s *TranscodeSession) GetPlaylistMetadata() (hls.PlaylistMetadata, error) {
 		return hls.PlaylistMetadata{}, fmt.Errorf("failed to read playlist: %w", err)
 	}
 	return hls.ParsePlaylistMetadata(string(content)), nil
+}
+
+// cleanupSegments removes all segment files from the output directory.
+func (s *TranscodeSession) cleanupSegments() error {
+	entries, err := os.ReadDir(s.OutputDir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "seg_") && strings.HasSuffix(entry.Name(), ".ts") {
+			os.Remove(filepath.Join(s.OutputDir, entry.Name()))
+		}
+	}
+
+	// Also remove playlist files
+	playlistFiles := []string{"playlist.m3u8", "init.mp4"}
+	for _, f := range playlistFiles {
+		os.Remove(filepath.Join(s.OutputDir, f))
+	}
+
+	return nil
+}
+
+// getFreeDiskPercent returns the free disk percentage for the given path.
+func getFreeDiskPercent(path string) (float64, error) {
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs(path, &stat); err != nil {
+		return 0, err
+	}
+
+	if stat.Blocks == 0 {
+		return 0, fmt.Errorf("invalid block count")
+	}
+
+	freePct := float64(stat.Bfree) / float64(stat.Blocks) * 100.0
+	return freePct, nil
 }

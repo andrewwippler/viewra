@@ -4,8 +4,9 @@ import { Library, Film, Tv, Music, RefreshCw, AlertCircle } from 'lucide-react'
 import { useCallback } from 'react'
 import { SearchHero, WidgetSection, WidgetLocation, HeroBackdrop } from '@/components/home'
 import { useSearchHeroData, useHomeSections, BatchImagesProvider, BatchProgressProvider } from '@/lib/hooks'
+import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
-import { progressApi } from '@/lib/api/progress'
+import { useDeleteProgress } from '@/lib/hooks/useProgress'
 import type { MediaRowData, ContinueWatchingData, ContinueWatchingItem } from '@/components/home/widgets/widget.types'
 
 /**
@@ -19,59 +20,65 @@ import type { MediaRowData, ContinueWatchingData, ContinueWatchingItem } from '@
  * - Error state with retry
  */
 export const Home = () => {
+  const { isLoading: isAuthLoading, isAuthenticated } = useAuth()
   const { data: searchHeroData, isLoading: isLoadingSearch } = useSearchHeroData()
   const { data: homeSections, isLoading: isLoadingSections, error, refetch } = useHomeSections()
 
   // Sections for the main content area
-  const sections = homeSections?.sections ?? []
+  const sections = useMemo(() => homeSections?.sections ?? [], [homeSections])
 
   // Extract hero data from response metadata
   const heroData = homeSections?.meta?.hero
 
   // Handle removing an item from continue watching
-  const handleRemoveContinueWatching = useCallback(async (item: ContinueWatchingItem) => {
+  const deleteProgress = useDeleteProgress()
+  const handleRemoveContinueWatching = useCallback((item: ContinueWatchingItem) => {
     const mediaId = item.entity_type === 'tv_show' && item.episode_context?.episode_media_id
       ? item.episode_context.episode_media_id
       : item.entity_id
-    try {
-      await progressApi.deleteProgress(mediaId)
-      refetch()
-    } catch {
-      // Silently fail - the item might already be gone on next refetch
-    }
-  }, [refetch])
+    deleteProgress.mutate(mediaId)
+  }, [deleteProgress])
 
   // Extract all media IDs and entity IDs from sections for batch loading
   const { mediaIds, tvShowEntityIds } = useMemo(() => {
     const media: number[] = []
     const tvShows: number[] = []
-    
+
     for (const section of sections) {
       // Handle MediaRowData (movies, shows, and recommendation items)
       const mediaData = section.data as MediaRowData
-      if (mediaData?.movies) {
-        media.push(...mediaData.movies.map((m) => m.id))
-      }
-      if (mediaData?.shows) {
-        // TV shows are entities, not media items - use entity IDs
-        tvShows.push(...mediaData.shows.filter((s) => s.id !== null && s.id !== undefined).map((s) => s.id as number))
-      }
-      if (mediaData?.items) {
-        // Separate recommendation items by entity type
-        for (const item of mediaData.items) {
-          if (item.entity_type === 'tv_show') {
-            tvShows.push(item.entity_id)
-          } else {
-            // Movies and other types use media IDs
-            media.push(item.entity_id)
+      if (mediaData) {
+        if (Array.isArray(mediaData.movies)) {
+          media.push(...mediaData.movies.map((m) => m.id))
+        }
+        if (Array.isArray(mediaData.shows)) {
+          // TV shows are entities, not media items - use entity IDs safely
+          tvShows.push(
+            ...mediaData.shows
+              .filter((s) => s && s.id !== null && s.id !== undefined)
+              .map((s) => s.id as number)
+          )
+        }
+        if (Array.isArray(mediaData.items)) {
+          // Separate recommendation items by entity type
+          for (const item of mediaData.items) {
+            if (item) {
+              if (item.entity_type === 'tv_show') {
+                tvShows.push(item.entity_id)
+              } else {
+                // Movies and other types use media IDs
+                media.push(item.entity_id)
+              }
+            }
           }
         }
       }
 
-      // Handle ContinueWatchingData with items array
+      // Handle ContinueWatchingData with items array safely
       const continueData = section.data as ContinueWatchingData
-      if (continueData?.items) {
+      if (continueData?.items && Array.isArray(continueData.items)) {
         for (const item of continueData.items) {
+          if (!item) continue
           if (item.entity_type === 'tv_show' && item.episode_context?.episode_media_id) {
             // TV episodes use episode media ID
             media.push(item.episode_context.episode_media_id)
@@ -86,9 +93,14 @@ export const Home = () => {
     return { mediaIds: media, tvShowEntityIds: tvShows }
   }, [sections])
 
-  // Show loading skeleton
-  if (isLoadingSections) {
+  // Show loading skeleton while auth initializes or content loads
+  if (isAuthLoading || isLoadingSections) {
     return <HomeLoadingSkeleton />
+  }
+
+  // Don't render if user is not authenticated
+  if (!isAuthenticated) {
+    return null
   }
 
   // Show error state
@@ -103,7 +115,7 @@ export const Home = () => {
   }
 
   return (
-    <BatchImagesProvider mediaIds={mediaIds} entityIds={tvShowEntityIds} mediaType="tv_show">
+    <BatchImagesProvider mediaIds={mediaIds} entityIds={tvShowEntityIds}>
       <BatchProgressProvider mediaIds={mediaIds}>
         <div className="relative h-full overflow-auto">
           {/* Hero Backdrop */}

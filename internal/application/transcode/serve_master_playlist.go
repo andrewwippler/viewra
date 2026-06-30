@@ -48,10 +48,11 @@ type ServeMasterPlaylistRequest struct {
 
 // buildVariantParams contains parameters passed to variant playlist URLs.
 type buildVariantParams struct {
-	startPosition        string
-	strategy             strategy.StreamStrategy
-	supportedVideoCodecs []string
-	audioTrackIndex      int // -1 means default, >= 0 is FFmpeg stream index
+	startPosition         string
+	strategy              strategy.StreamStrategy
+	supportedVideoCodecs  []string
+	audioTrackIndex       int    // -1 means default, >= 0 is FFmpeg stream index
+	preferredAudioLanguage string  // ISO 639-2 code
 }
 
 // ServeMasterPlaylistResponse represents the result.
@@ -136,7 +137,7 @@ func (uc *ServeMasterPlaylistUseCase) Execute(ctx context.Context, req ServeMast
 	}
 
 	// Build VideoInfo from database instead of calling ffprobe (which is slow on network files)
-	videoInfo := buildVideoInfoFromDatabase(mediaItem, audioTracks)
+	videoInfo := buildVideoInfoFromDatabase(mediaItem, audioTracks, req.PreferredAudioLanguage)
 
 	// Determine streaming strategy based on client capabilities
 	var clientCaps *strategy.ClientCapabilities
@@ -178,10 +179,11 @@ func (uc *ServeMasterPlaylistUseCase) Execute(ctx context.Context, req ServeMast
 
 	// Build single-variant master playlist
 	variantParams := buildVariantParams{
-		startPosition:        req.StartPosition,
-		strategy:             streamStrategy,
-		supportedVideoCodecs: req.SupportedVideoCodecs,
-		audioTrackIndex:      req.AudioTrackIndex,
+		startPosition:          req.StartPosition,
+		strategy:               streamStrategy,
+		supportedVideoCodecs:   req.SupportedVideoCodecs,
+		audioTrackIndex:        req.AudioTrackIndex,
+		preferredAudioLanguage: req.PreferredAudioLanguage,
 	}
 	playlist := uc.buildSingleVariantPlaylist(mediaItem, selectedQuality, audioTracks, subtitleTracks, variantParams, req.PreferredAudioLanguage, req.PreferredSubtitleLanguage)
 
@@ -479,6 +481,9 @@ func (uc *ServeMasterPlaylistUseCase) buildSingleVariantPlaylist(mediaItem *medi
 	if params.audioTrackIndex >= 0 {
 		queryParams = append(queryParams, fmt.Sprintf("audioTrack=%d", params.audioTrackIndex))
 	}
+	if params.preferredAudioLanguage != "" {
+		queryParams = append(queryParams, "audioLanguage="+params.preferredAudioLanguage)
+	}
 	if len(queryParams) > 0 {
 		variantURL += "?" + strings.Join(queryParams, "&")
 	}
@@ -492,7 +497,7 @@ func (uc *ServeMasterPlaylistUseCase) buildSingleVariantPlaylist(mediaItem *medi
 // scanned and stored this information during library scanning.
 // This is a package-level function so it can be used by both ServeManifestUseCase
 // and ServeMasterPlaylistUseCase.
-func buildVideoInfoFromDatabase(mediaItem *media.Media, audioTracks []*media.AudioTrack) *videoinfo.VideoInfo {
+func buildVideoInfoFromDatabase(mediaItem *media.Media, audioTracks []*media.AudioTrack, preferredLanguage string) *videoinfo.VideoInfo {
 	info := &videoinfo.VideoInfo{
 		VideoInfo: hls.VideoInfo{
 			Codec:           mediaItem.VideoCodec,
@@ -545,7 +550,7 @@ func buildVideoInfoFromDatabase(mediaItem *media.Media, audioTracks []*media.Aud
 	}
 
 	// Select best audio track and populate main audio fields
-	if bestTrack := videoinfo.SelectBestAudioTrack(info.AudioTracks); bestTrack != nil {
+	if bestTrack := videoinfo.SelectBestAudioTrack(info.AudioTracks, preferredLanguage); bestTrack != nil {
 		info.AudioCodec = bestTrack.Codec
 		info.AudioChannels = bestTrack.Channels
 		info.AudioBitrate = bestTrack.Bitrate

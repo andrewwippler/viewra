@@ -22,6 +22,24 @@ type IdentifyTVShowRequest struct {
 	TMDbID *int   `json:"tmdb_id,omitempty"`
 }
 
+type MissingItem struct {
+	MediaID       int64  `json:"media_id,omitempty"`
+	ShowID        int64  `json:"show_id,omitempty"`
+	ItemType      string `json:"item_type"`
+	Title         string `json:"title"`
+	FilePath      string `json:"file_path"`
+	Year          *int   `json:"year,omitempty"`
+	ShowTitle     string `json:"show_title,omitempty"`
+	SeasonNumber  *int   `json:"season_number,omitempty"`
+	EpisodeNumber *int   `json:"episode_number,omitempty"`
+	LibraryName   string `json:"library_name,omitempty"`
+}
+
+type RemoveMissingRequest struct {
+	MediaIDs []int64 `json:"media_ids"`
+	ShowIDs  []int64 `json:"show_ids"`
+}
+
 func SettingsSchema() ([]byte, error) {
 	schema := map[string]interface{}{
 		"type": "object",

@@ -1,12 +1,21 @@
 package common
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 
 	"github.com/mantonx/viewra/internal/domain/media"
 	"github.com/mantonx/viewra/internal/infrastructure/database/unified"
 )
+
+// DBTX is the database interface used by sqlc.
+type DBTX interface {
+	ExecContext(context.Context, string, ...interface{}) (sql.Result, error)
+	PrepareContext(context.Context, string) (*sql.Stmt, error)
+	QueryContext(context.Context, string, ...interface{}) (*sql.Rows, error)
+	QueryRowContext(context.Context, string, ...interface{}) *sql.Row
+}
 
 // BaseRepository provides common repository functionality for all media type repositories.
 // It handles dual-database support (SQLite and PostgreSQL) via the unified Querier.

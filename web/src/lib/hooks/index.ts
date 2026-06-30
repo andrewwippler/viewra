@@ -1,7 +1,7 @@
 // Centralized export for custom hooks
 export { useLibraryFilter } from './useLibraryFilter'
 export type { LibraryType } from './useLibraryFilter'
-export { useMediaProgress, useWatchedList } from './useProgress'
+export { useMediaProgress, useWatchedList, useMarkWatched, useMarkUnwatched } from './useProgress'
 export { useMediaPlayback } from './useMediaPlayback'
 export { useDebounce } from './useDebounce'
 export { useGridNavigation } from './useGridNavigation'
@@ -80,3 +80,7 @@ export {
 } from './useWidgets'
 export { useAutocomplete } from './useAutocomplete'
 export type { AutocompleteSuggestion } from './useAutocomplete'
+export { useAutoFocusTV } from './useAutoFocusTV'
+export { useWebOSInputNavigation, useWebOSKeyboardScroll, TVFocusStyles, TVFocusCSS } from './useWebOSInputNavigation.ts'
+export { WebOSFormWrapper } from '@/components/auth/WebOSFormWrapper'
+export type { UseWebOSInputNavigationOptions } from './useWebOSInputNavigation.ts'

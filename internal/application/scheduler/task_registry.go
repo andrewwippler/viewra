@@ -50,6 +50,12 @@ type RuntimeDeps struct {
 
 	// SessionCleanup: *user.SessionRepository - implements DeleteExpired method
 	SessionCleanup any
+
+	// EPGScanner: *livetv.ScanEPGUseCase - implements Execute method for EPG refresh
+	EPGScanner any
+
+	// LiveTvChannelRepo: livetv.ChannelRepository - implements ListByLibrary and Upsert
+	LiveTvChannelRepo any
 }
 
 // RuntimeConfig holds configuration values that tasks need.

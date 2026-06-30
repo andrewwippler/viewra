@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, CardContent } from '@/components/ui'
 import { PageHeader, LoadingPage, ErrorPage } from '@/components/common'
 import { moviesApi } from '@/lib/api/movies'
-import { useMediaPlayback, useMovieImages } from '@/lib/hooks'
+import { useMediaPlayback, useMovieImages, useMarkWatched, useMarkUnwatched } from '@/lib/hooks'
 import { logger } from '@/lib/utils/logger'
 import { getPosterImage, getImageUrl } from '@/lib/types/images'
-import type { GithubComMantonxViewraInternalApplicationMoviesMovieResponse, GithubComMantonxViewraInternalApplicationMediaMediaResponse } from '@/lib/api/generated/models'
+import type { GithubComMantonxViewraInternalApplicationMoviesMovieResponse, GithubComMantonxViewraInternalApplicationMediaMediaResponse, GithubComMantonxViewraInternalApplicationMoviesMediaVariantResponse } from '@/lib/api/generated/models'
 import type { ViewMode } from '@/components/common'
+import { useMediaProgress } from '@/lib/hooks'
+import { AdminActions } from '@/features/nitpicky-edits'
 
 const MovieDetail = () => {
   const navigate = useNavigate()
@@ -21,9 +23,11 @@ const MovieDetail = () => {
   const [movie, setMovie] = useState<GithubComMantonxViewraInternalApplicationMoviesMovieResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeVariantId, setActiveVariantId] = useState<number | null>(null)
 
   // Fetch movie poster
   const movieImages = useMovieImages(movieId, { enabled: !!movieId })
+  const { data: progress } = useMediaProgress(movieId)
 
   // Fetch movie data
   const loadMovie = useCallback(async () => {
@@ -56,9 +60,39 @@ const MovieDetail = () => {
   const handlePlayMovie = async (startTime?: number) => {
     if (!movie) {return}
     try {
-      await playMedia(movie.id, movie as GithubComMantonxViewraInternalApplicationMediaMediaResponse, startTime)
+      const targetId = activeVariantId || movie.id
+      const mediaPayload: GithubComMantonxViewraInternalApplicationMediaMediaResponse = {
+        id: targetId,
+        title: movie.title,
+        file_path: movie.file_path,
+        file_size: movie.file_size,
+        duration: movie.duration,
+        width: movie.width,
+        height: movie.height,
+        video_codec: movie.video_codec,
+        audio_codec: movie.audio_codec,
+        container_format: movie.container_format,
+        bitrate: movie.bitrate,
+        frame_rate: movie.frame_rate,
+        library_id: movie.library_id,
+        is_extra: movie.is_extra,
+        created_at: movie.created_at,
+        updated_at: movie.updated_at,
+      }
+      await playMedia(targetId, mediaPayload, startTime)
     } catch (err) {
       logger.error('Failed to play movie:', err)
+    }
+  }
+
+  const markWatched = useMarkWatched()
+  const markUnwatched = useMarkUnwatched()
+
+  const handleToggleWatched = () => {
+    if (progress?.is_watched) {
+      markUnwatched.mutate({ media_id: movieId })
+    } else {
+      markWatched.mutate({ media_id: movieId })
     }
   }
 
@@ -126,7 +160,42 @@ const MovieDetail = () => {
       <PageHeader
         title={`${movieTitle}${movieYear}`}
         description={subtitle}
-        actions={<Button onClick={handleBackClick}>← Back to Movies</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <AdminActions
+                mediaType="movie"
+                mediaId={movieId}
+                mediaTitle={movie?.title || ''}
+                isWatched={progress?.is_watched}
+                onDeleteNavigate="/movies"
+              />
+            </div>
+            <button
+              onClick={handleToggleWatched}
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer hover:bg-neutral-100 dark:hover:bg-white/10 ${
+                progress?.is_watched
+                  ? 'text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+              }`}
+              aria-label={progress?.is_watched ? 'Mark as unwatched' : 'Mark as watched'}
+              title={progress?.is_watched ? 'Mark as unwatched' : 'Mark as watched'}
+            >
+              {progress?.is_watched ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              )}
+            </button>
+            <Button onClick={handleBackClick}>← Back to Movies</Button>
+          </div>
+        }
       />
       
       {/* Movie metadata - two column layout: poster left, details right */}
@@ -170,6 +239,27 @@ const MovieDetail = () => {
               <CardContent>
                 <h2 className="font-semibold mb-2">Plot</h2>
                 <p className="text-muted-foreground">{movie.plot}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Language variants */}
+          {movie.variants && movie.variants.length > 0 && (
+            <Card>
+              <CardContent>
+                <h2 className="font-semibold mb-2">Language</h2>
+                <select
+                  value={activeVariantId || ''}
+                  onChange={(e) => setActiveVariantId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Original</option>
+                  {movie.variants.map((v: GithubComMantonxViewraInternalApplicationMoviesMediaVariantResponse) => (
+                    <option key={v.id} value={v.id}>
+                      {v.language ? v.language.toUpperCase() : 'Unknown'}
+                    </option>
+                  ))}
+                </select>
               </CardContent>
             </Card>
           )}
@@ -230,6 +320,7 @@ const MovieDetail = () => {
           </Button>
         </div>
       </div>
+
     </div>
   )
 }

@@ -15,6 +15,7 @@ import (
 
 // mockEnrichmentEnqueuer is a mock for testing enqueueForEnrichment
 type mockEnrichmentEnqueuer struct {
+	mu           sync.Mutex
 	enqueueCalls []struct {
 		mediaID   int64
 		libraryID int64
@@ -25,12 +26,14 @@ type mockEnrichmentEnqueuer struct {
 }
 
 func (m *mockEnrichmentEnqueuer) EnqueueFirstStage(ctx context.Context, mediaID int64, libraryID int64, mediaType enrichment.MediaType, priority int) error {
+	m.mu.Lock()
 	m.enqueueCalls = append(m.enqueueCalls, struct {
 		mediaID   int64
 		libraryID int64
 		mediaType enrichment.MediaType
 		priority  int
 	}{mediaID, libraryID, mediaType, priority})
+	m.mu.Unlock()
 	return m.enqueueErr
 }
 
@@ -56,18 +59,21 @@ func TestEnqueueForEnrichment_Success(t *testing.T) {
 	// Wait briefly for goroutine to execute
 	time.Sleep(50 * time.Millisecond)
 
-	if len(enqueuer.enqueueCalls) != 1 {
-		t.Errorf("Expected 1 enqueue call, got %d", len(enqueuer.enqueueCalls))
+	enqueuer.mu.Lock()
+	calls := enqueuer.enqueueCalls
+	enqueuer.mu.Unlock()
+	if len(calls) != 1 {
+		t.Errorf("Expected 1 enqueue call, got %d", len(calls))
 	}
-	if len(enqueuer.enqueueCalls) > 0 {
-		if enqueuer.enqueueCalls[0].mediaID != 123 {
-			t.Errorf("Expected mediaID 123, got %d", enqueuer.enqueueCalls[0].mediaID)
+	if len(calls) > 0 {
+		if calls[0].mediaID != 123 {
+			t.Errorf("Expected mediaID 123, got %d", calls[0].mediaID)
 		}
-		if enqueuer.enqueueCalls[0].mediaType != enrichment.MediaTypeMovie {
-			t.Errorf("Expected MediaTypeMovie, got %v", enqueuer.enqueueCalls[0].mediaType)
+		if calls[0].mediaType != enrichment.MediaTypeMovie {
+			t.Errorf("Expected MediaTypeMovie, got %v", calls[0].mediaType)
 		}
-		if enqueuer.enqueueCalls[0].priority != 100 {
-			t.Errorf("Expected priority 100, got %d", enqueuer.enqueueCalls[0].priority)
+		if calls[0].priority != 100 {
+			t.Errorf("Expected priority 100, got %d", calls[0].priority)
 		}
 	}
 }
@@ -88,8 +94,11 @@ func TestEnqueueForEnrichment_Error(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Verify call was attempted
-	if len(enqueuer.enqueueCalls) != 1 {
-		t.Errorf("Expected 1 enqueue call attempt, got %d", len(enqueuer.enqueueCalls))
+	enqueuer.mu.Lock()
+	calls := enqueuer.enqueueCalls
+	enqueuer.mu.Unlock()
+	if len(calls) != 1 {
+		t.Errorf("Expected 1 enqueue call attempt, got %d", len(calls))
 	}
 }
 
@@ -116,12 +125,15 @@ func TestEnqueueForEnrichment_AllMediaTypes(t *testing.T) {
 			// Wait briefly for goroutine
 			time.Sleep(50 * time.Millisecond)
 
-			if len(enqueuer.enqueueCalls) != 1 {
-				t.Errorf("Expected 1 enqueue call, got %d", len(enqueuer.enqueueCalls))
+			enqueuer.mu.Lock()
+			calls := enqueuer.enqueueCalls
+			enqueuer.mu.Unlock()
+			if len(calls) != 1 {
+				t.Errorf("Expected 1 enqueue call, got %d", len(calls))
 				return
 			}
-			if enqueuer.enqueueCalls[0].mediaType != tt.mediaType {
-				t.Errorf("Expected %v, got %v", tt.mediaType, enqueuer.enqueueCalls[0].mediaType)
+			if calls[0].mediaType != tt.mediaType {
+				t.Errorf("Expected %v, got %v", tt.mediaType, calls[0].mediaType)
 			}
 		})
 	}

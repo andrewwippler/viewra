@@ -248,7 +248,7 @@ func ParseFFprobeOutput(output []byte) (*VideoInfo, error) {
 	}
 
 	// Select the best audio track (non-commentary, web-compatible, prefer stereo)
-	bestTrack := SelectBestAudioTrack(info.AudioTracks)
+	bestTrack := SelectBestAudioTrack(info.AudioTracks, "")
 	if bestTrack != nil {
 		info.AudioCodec = bestTrack.Codec
 		info.AudioChannels = bestTrack.Channels
@@ -284,33 +284,37 @@ func (v *VideoInfo) ToHLSVideoInfo() *hls.VideoInfo {
 //
 // Selection priority:
 //  1. Non-commentary tracks only
-//  2. Web-compatible codecs (AAC, MP3, Opus) in stereo
-//  3. Web-compatible codecs in multi-channel (will need downmix)
-//  4. Stereo tracks (even if incompatible codec - faster to transcode)
-//  5. Multi-channel tracks (slower to transcode)
+//  2. Preferred language (default: English) with web-compatible codec in stereo
+//  3. Web-compatible codecs (AAC, MP3, Opus) in stereo
+//  4. Web-compatible codecs in multi-channel (will need downmix)
+//  5. Stereo tracks (even if incompatible codec - faster to transcode)
+//  6. Multi-channel tracks (slower to transcode)
 //
 // Examples:
 //
 //	// Movie with multiple audio tracks:
 //	tracks := []AudioTrack{
-//	    {Index: 1, Codec: "aac", Channels: 2, Title: "English"},        // ✅ Priority 1: Web codec + stereo
-//	    {Index: 2, Codec: "ac3", Channels: 6, Title: "English 5.1"},    // Priority 3: Needs downmix
-//	    {Index: 3, Codec: "aac", Channels: 2, Title: "Commentary"},     // Skipped: Commentary
+//	    {Index: 1, Codec: "aac", Channels: 2, Title: "English", Language: "eng"},        // ✅ Priority 2: Preferred lang + web codec + stereo
+//	    {Index: 2, Codec: "ac3", Channels: 6, Title: "English 5.1", Language: "eng"},    // Priority 4: Needs downmix
+//	    {Index: 3, Codec: "aac", Channels: 2, Title: "Commentary", Language: "eng"},     // Skipped: Commentary
 //	}
-//	selected := SelectBestAudioTrack(tracks) // Returns track 1 (English AAC stereo)
+//	selected := SelectBestAudioTrack(tracks, "eng") // Returns track 1 (English AAC stereo)
 //
 //	// Movie with only surround sound:
 //	tracks := []AudioTrack{
-//	    {Index: 1, Codec: "dts", Channels: 8, Title: "English 7.1"},    // Priority 4: Multi-channel
+//	    {Index: 1, Codec: "dts", Channels: 8, Title: "English 7.1", Language: "eng"},    // Priority 5: Multi-channel
 //	}
-//	selected := SelectBestAudioTrack(tracks) // Returns track 1 (will need transcode + downmix)
+//	selected := SelectBestAudioTrack(tracks, "eng") // Returns track 1 (will need transcode + downmix)
 //
 //	// Movie with commentary as only track:
 //	tracks := []AudioTrack{
-//	    {Index: 1, Codec: "aac", Channels: 2, Title: "Director Commentary"},
+//	    {Index: 1, Codec: "aac", Channels: 2, Title: "Director Commentary", Language: "eng"},
 //	}
-//	selected := SelectBestAudioTrack(tracks) // Returns track 1 (commentary is better than no audio)
-func SelectBestAudioTrack(tracks []AudioTrack) *AudioTrack {
+//	selected := SelectBestAudioTrack(tracks, "eng") // Returns track 1 (commentary is better than no audio)
+func SelectBestAudioTrack(tracks []AudioTrack, preferredLanguage string) *AudioTrack {
+	if preferredLanguage == "" {
+		preferredLanguage = "eng"
+	}
 	if len(tracks) == 0 {
 		return nil
 	}
@@ -338,29 +342,69 @@ func SelectBestAudioTrack(tracks []AudioTrack) *AudioTrack {
 			strings.Contains(codecLower, "mp4a") // AAC variants
 	}
 
-	// Priority 1: Web-compatible codec in stereo (perfect - no processing needed)
+	// Helper function to check if track matches preferred language
+	matchesPreferredLang := func(track AudioTrack) bool {
+		return strings.EqualFold(track.Language, preferredLanguage)
+	}
+
+	// Filter tracks by preferred language (non-commentary only)
+	preferredLangTracks := []AudioTrack{}
+	for _, track := range nonCommentary {
+		if matchesPreferredLang(track) {
+			preferredLangTracks = append(preferredLangTracks, track)
+		}
+	}
+
+	// If we have tracks in the preferred language, apply priority within that subset
+	if len(preferredLangTracks) > 0 {
+		// Priority 1: Preferred language + web-compatible codec in stereo
+		for _, track := range preferredLangTracks {
+			if isWebCodec(track.Codec) && track.Channels <= 2 {
+				return &track
+			}
+		}
+
+		// Priority 2: Preferred language + web-compatible codec in multi-channel (needs downmix)
+		for _, track := range preferredLangTracks {
+			if isWebCodec(track.Codec) && track.Channels > 2 {
+				return &track
+			}
+		}
+
+		// Priority 3: Preferred language + stereo (any codec)
+		for _, track := range preferredLangTracks {
+			if track.Channels <= 2 {
+				return &track
+			}
+		}
+
+		// Priority 4: Preferred language + multi-channel
+		return &preferredLangTracks[0]
+	}
+
+	// No tracks in preferred language - fall back to original priority logic on all non-commentary tracks
+	// Priority 5: Web-compatible codec in stereo (perfect - no processing needed)
 	for _, track := range nonCommentary {
 		if isWebCodec(track.Codec) && track.Channels <= 2 {
 			return &track
 		}
 	}
 
-	// Priority 2: Web-compatible codec in multi-channel (needs downmix only)
+	// Priority 6: Web-compatible codec in multi-channel (needs downmix)
 	for _, track := range nonCommentary {
 		if isWebCodec(track.Codec) && track.Channels > 2 {
 			return &track
 		}
 	}
 
-	// Priority 3: Stereo track with any codec (faster transcode - no downmix)
+	// Priority 7: Stereo track with any codec (faster transcode - no downmix)
 	for _, track := range nonCommentary {
 		if track.Channels <= 2 {
 			return &track
 		}
 	}
 
-	// Priority 4: Multi-channel track (slowest - needs codec transcode + downmix)
-	// Just return the first non-commentary multi-channel track
+	// Priority 8: Multi-channel track (slowest - needs codec transcode + downmix)
 	return &nonCommentary[0]
 }
 

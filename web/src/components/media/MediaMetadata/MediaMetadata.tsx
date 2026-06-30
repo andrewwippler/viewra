@@ -52,6 +52,7 @@ export const MediaMetadata = ({
             entityType={rating.entityType}
             entityId={rating.entityId}
             size="sm"
+            hideOnTV={true}
           />
         </div>
       )}

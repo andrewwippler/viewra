@@ -60,6 +60,8 @@ func DefaultServerConfig() ServerConfig {
 				"/media",
 				"/mnt",
 				"/cifs",
+				"/live-tv",
+				"/",
 				filepath.Join(homeDir, "Videos"),
 				filepath.Join(homeDir, "Movies"),
 				filepath.Join(homeDir, "Music"),
@@ -121,6 +123,12 @@ type Handlers struct {
 
 	// Jellyfin provides Jellyfin-compatible API endpoints
 	Jellyfin *jellyfin.Handler
+
+	// Live TV handler
+	LiveTv *handlers.LiveTvHandler
+
+	// Live TV Stream handler (for HLS streaming)
+	LiveTvStream *handlers.LiveTvStreamHandler
 }
 
 // NewServer creates a new HTTP server with the provided configuration and handlers.
@@ -206,6 +214,14 @@ func (s *Server) setupRoutes() {
 	routes.RegisterProgressRoutes(protected, h.Progress)
 	routes.RegisterTranscodeRoutes(protected, h.Transcode)
 	routes.RegisterFFmpegLogRoutes(protected, h.FFmpegLogs)
+
+	// Register Live TV routes
+	if h.LiveTv != nil {
+		routes.RegisterLiveTvRoutes(protected, h.LiveTv)
+	}
+	if h.LiveTvStream != nil {
+		routes.RegisterLiveTvStreamRoutes(protected, h.LiveTvStream)
+	}
 
 	// Register media-type specific routes (protected)
 	routes.RegisterMoviesRoutes(protected, h.Movies)

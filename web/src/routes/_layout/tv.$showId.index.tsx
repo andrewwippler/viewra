@@ -8,6 +8,7 @@ import { tvApi } from '@/lib/api/tv'
 import { useAutoEnrich } from '@/lib/hooks'
 import type { SeasonGroup } from '@/lib/types/tv'
 import type { GithubComMantonxViewraInternalApplicationTvTVEpisodeResponse } from '@/lib/api/generated/models'
+import { AdminActions } from '@/features/nitpicky-edits'
 
 const ShowDetail = () => {
   const navigate = useNavigate()
@@ -100,7 +101,19 @@ const ShowDetail = () => {
         <PageHeader
           title={showTitle}
           description="No episodes found"
-          actions={<Button onClick={handleBackClick}>← Back to TV Shows</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <AdminActions
+                mediaType="tv"
+                mediaId={showIdNumber}
+                mediaTitle={show?.title || ''}
+                onDeleteNavigate="/tv"
+              />
+            </div>
+            <Button onClick={handleBackClick}>← Back to TV Shows</Button>
+          </div>
+        }
         />
         <Card>
           <CardContent>
@@ -122,7 +135,19 @@ const ShowDetail = () => {
       <PageHeader
         title={showTitle}
         description={`${seasons.length} ${seasons.length === 1 ? 'Season' : 'Seasons'} • ${totalEpisodes} ${totalEpisodes === 1 ? 'Episode' : 'Episodes'}`}
-        actions={<Button onClick={handleBackClick}>← Back to TV Shows</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <AdminActions
+                mediaType="tv"
+                mediaId={showIdNumber}
+                mediaTitle={show?.title || ''}
+                onDeleteNavigate="/tv"
+              />
+            </div>
+            <Button onClick={handleBackClick}>← Back to TV Shows</Button>
+          </div>
+        }
       />
 
       {/* Seasons Grid */}

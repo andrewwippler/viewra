@@ -1,6 +1,7 @@
 import { ScanErrorsDialog, type IssueTab } from '@/components/library/ScanErrorsDialog'
 import { LibrarySettingsModal } from '@/components/library/LibrarySettingsModal'
 import { Button, Progress } from '@/components/ui'
+import { Link } from '@tanstack/react-router'
 import {
   useDeleteApiLibrariesId,
   usePostApiLibrariesIdScan,
@@ -266,6 +267,15 @@ const LibraryCard = ({ library }: LibraryCardProps) => {
                 >
                   Delete
                 </Button>
+                {library.type === 'live_tv' && library.id && (
+                  <Link
+                    to="/livetv"
+                    search={{ libraryId: library.id }}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors"
+                  >
+                    Channels
+                  </Link>
+                )}
               </div>
 
               {/* Expand indicator */}

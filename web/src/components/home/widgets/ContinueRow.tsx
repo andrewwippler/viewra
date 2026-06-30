@@ -40,6 +40,14 @@ export const ContinueRow = ({ data, className, onItemRemove }: ContinueRowProps)
   const handleItemClick = (item: ContinueWatchingItem) => {
     if (item.entity_type === 'movie') {
       navigate({ to: `/movies?id=${item.entity_id}` })
+    } else if (item.episode_context) {
+      navigate({
+        to: `/tv/${item.entity_id}/season/${item.episode_context.season}`,
+        search: {
+          episodeId: item.episode_context.episode_media_id,
+          t: Math.floor(item.progress?.position_seconds ?? 0),
+        },
+      })
     } else {
       navigate({ to: `/tv/${item.entity_id}` })
     }
@@ -48,8 +56,13 @@ export const ContinueRow = ({ data, className, onItemRemove }: ContinueRowProps)
   const handleItemPlay = (item: ContinueWatchingItem) => {
     // For TV shows, navigate to the specific episode for playback
     if (item.entity_type === 'tv_show' && item.episode_context?.episode_media_id) {
-      // Navigate to episode playback (adjust route as needed)
-      navigate({ to: `/tv/${item.entity_id}` })
+      navigate({
+        to: `/tv/${item.entity_id}/season/${item.episode_context.season}`,
+        search: {
+          episodeId: item.episode_context.episode_media_id,
+          t: Math.floor(item.progress?.position_seconds ?? 0),
+        },
+      })
     } else {
       handleItemClick(item)
     }

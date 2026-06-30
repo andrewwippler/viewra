@@ -32,7 +32,7 @@ api/proto/plugin/    # gRPC protocol definitions
 tools/
 ├── subtitle-extractor/  # Rust tool for fast subtitle extraction
 └── ffmpeg-viewra/       # Patched FFmpeg with ViewRA fixes
-web/                 # React frontend (TanStack Router)
+web/                 # React frontend (TanStack Router) — dual builds: web + TV
 migrations/          # SQLite migrations
 migrations/postgres/ # PostgreSQL migrations
 data/                # Runtime data (db, cache, transcodes)
@@ -47,7 +47,8 @@ bin/                 # Built binaries
 # Setup & Running
 make setup            # Initial setup (installs Go tools, checks Rust)
 make build-tools      # Build subtitle-extractor (requires Rust)
-make dev              # Start backend (8080) + frontend (5173)
+make dev              # Start backend (8080) + frontend (5173, web UI by default)
+make dev-tv           # Start backend (8080) + frontend (5173, TV UI)
 make dev-debug        # Start with DEBUG logging
 make test             # Run all tests
 
@@ -71,9 +72,59 @@ make reload-plugins                      # Build + reload all plugins
 make new-plugin NAME=myplugin            # Create plugin scaffold
 
 # Production
-make build            # Builds everything: tools, frontend, backend
+make build            # Builds everything: tools, both frontends (web+TV), backend
 make build-ffmpeg     # Build patched FFmpeg (optional, ~10min)
 ```
+
+## Frontend: Dual UI (Web + TV)
+
+The single Go binary embeds **two** frontend builds simultaneously, served at different paths:
+
+| Route | Build | Target | Assets base |
+|---|---|---|---|
+| `GET /` | `dist/web/` | Modern browsers | `/` |
+| `GET /webos/` | `dist/tv/` | WebOS TV (Chrome 79) | `/webos/` |
+
+The TV build applies Chromium-79-specific transforms (optional chaining, nullish coalescing, `@layer` CSS). TV-specific components (TvHome, TvMovieDetail, TvShowDetail, TvSeasonDetail, spatial navigation) are gated by the build-time constant `__TV_MODE__` and tree-shaken from the web build.
+
+**Chrome 79 constraints:** The WebOS TV browser is Chrome 79-based. All code and CSS in the TV build **must** avoid:
+- `?.` (optional chaining) — use `&&` chaining
+- `??` (nullish coalescing) — use `||`
+- `@layer` CSS — use regular cascade
+- ES2020+ features — target is `chrome79` in Vite config
+- CSS `gap` in flexbox — not supported; use margins
+- CSS `inset` shorthand — not supported; use `top`/`right`/`bottom`/`left` longhands
+- CSS `:focus-visible` — not supported; use `:focus`
+- CSS `backdrop-filter` — not supported (even prefixed); glass effects degrade to solid backgrounds
+
+```bash
+# Build both frontends
+cd web && npm run build        # runs build:web + build:tv
+
+# Individual builds
+npm run build:web              # VITE_UI_MODE=web → dist/web/
+npm run build:tv               # VITE_UI_MODE=tv  → dist/tv/
+
+# Development
+npm run dev                    # VITE_UI_MODE=web (standard ViewRA UI)
+npm run dev:tv                 # VITE_UI_MODE=tv  (TV UI on WebOS)
+
+# Make shortcuts
+make build                     # builds both frontends + Go binary
+make dev                       # web UI (default)
+make dev-tv                    # TV UI
+```
+
+The Jellyfin API is always compiled and mounted regardless of UI mode. The `SystemInfo` and `SystemInfoPublic` endpoints return `WebPath: "/webos/"` so Jellyfin-compatible clients can discover the TV frontend.
+
+### Jellyfin App Compatibility (jellyfin-webos)
+
+The official Jellyfin WebOS app (`github.com/jellyfin/jellyfin-webos`) hardcodes two endpoints during connection:
+
+1. **`GET /System/Info/Public`** — Must return `ProductName: "Jellyfin Server"` (see `internal/jellyfin/auth.go`). The app's auto-discovery silently rejects servers with other values.
+2. **`GET /web/manifest.json`** — This is hardcoded by the app. Served at `cmd/viewra/bootstrap/bootstrap.go:71`. **DO NOT remove** — without it, the app cannot discover the web client URL. Returns `{"start_url": "/webos/"}` so the iframe loads the TV build at `/webos/`.
+
+After these two calls, the app loads the `start_url` in an iframe. The app does NOT call `POST /Users/AuthenticateByName` or any other API — auth happens inside the iframe via the jellyfin-web UI.
 
 ## Database
 
@@ -116,6 +167,7 @@ Dev credentials: `dev` / `dev`
 - Exports at end of file
 - Prettier: no semicolons, single quotes, trailing commas
 - Use functional patterns with React hooks, not class instances
+- **No `??` (nullish coalescing) or `?.` (optional chaining)** — TV target is Chrome 79 which lacks support. Use `||` and `&&` instead.
 
 See [docs/development/CONVENTIONS.md](docs/development/CONVENTIONS.md) for full Go conventions.
 See [web/docs/CODING_STYLE.md](web/docs/CODING_STYLE.md) for full frontend conventions.

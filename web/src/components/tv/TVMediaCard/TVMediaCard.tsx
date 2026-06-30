@@ -23,6 +23,8 @@ interface TVMediaCardProps {
   posterUrl?: string
   /** Overlay content (e.g., progress bar) */
   overlay?: React.ReactNode
+  /** Whether the media is fully watched */
+  isWatched?: boolean
   /** Additional CSS classes */
   className?: string
   /** Click handler */
@@ -40,6 +42,7 @@ export const TVMediaCard = ({
   year,
   posterUrl,
   overlay,
+  isWatched,
   className,
   onClick,
   onHover,
@@ -79,6 +82,8 @@ export const TVMediaCard = ({
           <img
             src={posterUrl}
             alt={`${title} poster`}
+            width="2"
+            height="3"
             className="w-full h-full object-cover"
             loading="lazy"
           />
@@ -94,6 +99,15 @@ export const TVMediaCard = ({
         <h3 className="text-white text-sm font-medium line-clamp-2">{title}</h3>
         {year && <span className="text-neutral-400 text-xs">{year}</span>}
       </div>
+
+      {/* Watched badge */}
+      {isWatched && (
+        <div className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-green-500 flex items-center justify-center shadow-lg">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+      )}
 
       {/* Progress/Status Overlay */}
       {overlay && (

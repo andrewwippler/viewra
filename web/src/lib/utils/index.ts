@@ -3,7 +3,7 @@
  */
 
 export { cn } from './cn'
-export { formatFileSize, formatDuration, formatDate, formatTime } from './format'
+export { breakTitle, formatFileSize, formatDuration, formatDate, formatTime } from './format'
 export {
   DEFAULT_USER_ID,
   getProgressPercentage,

@@ -232,8 +232,8 @@ func TestSessionBuildFFmpegArgs(t *testing.T) {
 		}
 		args := session.buildFFmpegArgs(params)
 		argsStr := strings.Join(args, " ")
-		if !strings.Contains(argsStr, "-f segment") {
-			t.Error("Remux should use segment muxer format")
+		if !strings.Contains(argsStr, "-f hls") {
+			t.Error("Remux should use HLS muxer format for proper EVENT-type playlists")
 		}
 		if !strings.Contains(argsStr, "-c:a copy") {
 			t.Error("Remux should copy audio codec")

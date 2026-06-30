@@ -123,7 +123,11 @@ func (b *Builder) AddStreamMapping() *Builder {
 	b.args = append(b.args, "-map", "0:v:0")
 
 	if b.opts.UseSpecificAudioTrack {
-		b.args = append(b.args, "-map", "0:a:"+strconv.Itoa(b.opts.AudioTrackIndex))
+		audioIndex := b.opts.AudioTrackIndex - 1
+		if audioIndex < 0 {
+			audioIndex = 0
+		}
+		b.args = append(b.args, "-map", "0:a:"+strconv.Itoa(audioIndex))
 	} else {
 		b.args = append(b.args, "-map", "0:a:0")
 	}

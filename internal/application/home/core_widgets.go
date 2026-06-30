@@ -21,6 +21,17 @@ func CoreWidgets() []sdk.Widget {
 			},
 		},
 		{
+			ID:              "unwatched-movies",
+			Type:            sdk.WidgetTypeMediaRow,
+			Location:        sdk.LocationHomepageSections,
+			ClientTypes:     []string{sdk.ClientTypeAll},
+			Priority:        88,
+			CacheTTLSeconds: 120,
+			Config: map[string]any{
+				"title": "Unwatched Movies",
+			},
+		},
+		{
 			ID:              "recently-added",
 			Type:            sdk.WidgetTypeMediaRow,
 			Location:        sdk.LocationHomepageSections,
