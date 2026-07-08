@@ -208,7 +208,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 		duration REAL NOT NULL DEFAULT 0,
 		updated_at DATETIME NOT NULL
 	);
-	CREATE TABLE IF NOT EXISTS ratings (
+	CREATE TABLE IF NOT EXISTS user_ratings (
 		entity_type TEXT NOT NULL,
 		entity_id INTEGER NOT NULL
 	);
@@ -398,7 +398,7 @@ func TestDeleteTVShow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec("INSERT INTO ratings (entity_type, entity_id) VALUES ('tv_show', 1)")
+	_, err = db.Exec("INSERT INTO user_ratings (entity_type, entity_id) VALUES ('tv_show', 1)")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -417,7 +417,7 @@ func TestDeleteTVShow(t *testing.T) {
 	if count != 0 {
 		t.Error("watch_progress should be deleted")
 	}
-	db.QueryRow("SELECT COUNT(*) FROM ratings WHERE entity_type = 'tv_show' AND entity_id = 1").Scan(&count)
+	db.QueryRow("SELECT COUNT(*) FROM user_ratings WHERE entity_type = 'tv_show' AND entity_id = 1").Scan(&count)
 	if count != 0 {
 		t.Error("ratings should be deleted")
 	}

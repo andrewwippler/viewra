@@ -115,7 +115,7 @@ export const Home = () => {
   }
 
   return (
-    <BatchImagesProvider mediaIds={mediaIds} entityIds={tvShowEntityIds}>
+    <BatchImagesProvider mediaIds={mediaIds} entityIds={tvShowEntityIds} mediaType="tv_show">
       <BatchProgressProvider mediaIds={mediaIds}>
         <div className="relative h-full overflow-auto">
           {/* Hero Backdrop */}

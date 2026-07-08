@@ -67,7 +67,7 @@ func deleteTVShow(ctx context.Context, db *sql.DB, showID int64, driver string) 
 		return fmt.Errorf("delete show seasons: %w", err)
 	}
 	// Delete ratings
-	if _, err := db.ExecContext(ctx, rebind("DELETE FROM ratings WHERE entity_type = 'tv_show' AND entity_id = $1", driver), showID); err != nil {
+	if _, err := db.ExecContext(ctx, rebind("DELETE FROM user_ratings WHERE entity_type = 'tv_show' AND entity_id = $1", driver), showID); err != nil {
 		return fmt.Errorf("delete show ratings: %w", err)
 	}
 	// Delete the show

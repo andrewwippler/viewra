@@ -175,7 +175,7 @@ func removeMissingItems(ctx context.Context, db *sql.DB, req RemoveMissingReques
 			if _, err := tx.ExecContext(ctx, rebind("DELETE FROM tv_seasons WHERE show_id = $1", driver), id); err != nil {
 				return fmt.Errorf("delete show %d seasons: %w", id, err)
 			}
-			if _, err := tx.ExecContext(ctx, rebind("DELETE FROM ratings WHERE entity_type = 'tv_show' AND entity_id = $1", driver), id); err != nil {
+			if _, err := tx.ExecContext(ctx, rebind("DELETE FROM user_ratings WHERE entity_type = 'tv_show' AND entity_id = $1", driver), id); err != nil {
 				return fmt.Errorf("delete show %d ratings: %w", id, err)
 			}
 			result, err := tx.ExecContext(ctx, rebind("DELETE FROM tv_shows WHERE id = $1", driver), id)
