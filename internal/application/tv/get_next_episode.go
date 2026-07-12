@@ -9,7 +9,10 @@ import (
 	domainprogress "github.com/mantonx/viewra/internal/domain/progress"
 )
 
-// GetNextEpisodeUseCase handles the business logic for getting the next episode to watch for a show
+// PLAY NEXT FEATURE - GetNextEpisodeUseCase handles the business logic for getting the next episode to watch for a show
+// This is the CORRECT implementation - considers in-progress episodes, unwatched episodes, and loops to first episode.
+// BUG: Frontend cross-season next/prev buttons do NOT use this use case. They use purely chronological
+// sorting which ignores watch status. If user skipped episodes, frontend "next" skips over unwatched ones.
 type GetNextEpisodeUseCase struct {
 	tvRepo       media.TVRepository
 	progressRepo domainprogress.Repository

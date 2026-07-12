@@ -296,9 +296,12 @@ func (h *TVHandler) ListIDs(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// GetNextEpisode handles GET /api/tv/shows/:id/next-episode
+// PLAY NEXT FEATURE - GetNextEpisode handles GET /api/tv/shows/:id/next-episode
 // @Summary Get next episode to watch for a show
 // @Description Returns the next episode to watch for a show based on watch progress. Returns in-progress episode if exists, otherwise first unwatched episode, or first episode if all watched
+// BUG: This backend endpoint correctly considers watch status (in-progress > unwatched > first episode),
+// but the frontend cross-season next/prev buttons do NOT use this endpoint. They use purely
+// chronological sorting in allSortedEpisodes. The backend logic and frontend logic are inconsistent.
 // @Tags tv
 // @Produce json
 // @Param id path int true "Show ID"

@@ -24,17 +24,17 @@ interface VideoPlayerContainerProps {
   overlay?: React.ReactNode
   /** Callback to change quality - rebuilds URL and reloads stream */
   onQualityChange?: (qualityId: string, currentPosition: number) => Promise<void>
-  /** Keep player visible when playback ends (for auto-play countdown) */
+  /** PLAY NEXT FEATURE - Keep player visible when playback ends (for auto-play countdown) */
   showOnEnd?: boolean
-  /** Info about the next episode (for auto-play overlay) */
+  /** PLAY NEXT FEATURE - Info about the next episode (for auto-play overlay) */
   nextEpisodeInfo?: { title: string; season: number; episode: number; episodeTitle?: string }
-  /** Called when next episode should start (auto-play) */
+  /** PLAY NEXT FEATURE - Called when next episode should start (auto-play) */
   onAutoPlayNext?: () => void
-  /** Called when user cancels auto-play */
+  /** PLAY NEXT FEATURE - Called when user cancels auto-play */
   onAutoPlayCancel?: () => void
-  /** Navigate to next episode */
+  /** PLAY NEXT FEATURE - Navigate to next episode */
   onPlayNext?: () => void
-  /** Navigate to previous episode */
+  /** PLAY NEXT FEATURE - Navigate to previous episode */
   onPlayPrev?: () => void
 }
 

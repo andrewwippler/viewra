@@ -63,6 +63,7 @@ export const AudioPlayerProvider = ({ children }: AudioPlayerProviderProps) => {
   // Use extracted hooks for playback and queue management
   const queueHook = useAudioQueue()
   
+  // PLAY NEXT FEATURE - Handle track ended: auto-advance to next track or repeat
   const handleTrackEnded = useCallback(() => {
     reportProgress()
     
@@ -142,6 +143,7 @@ export const AudioPlayerProvider = ({ children }: AudioPlayerProviderProps) => {
     playback.loadAndPlay(tracks[startIndex])
   }, [queueHook, playback])
 
+  // PLAY NEXT FEATURE - playNext: advance to next track in queue
   const playNext = useCallback(() => {
     const nextIdx = queueHook.getNextIndex()
     if (nextIdx !== null) {
@@ -150,6 +152,7 @@ export const AudioPlayerProvider = ({ children }: AudioPlayerProviderProps) => {
     }
   }, [queueHook, playback])
 
+  // PLAY NEXT FEATURE - playPrevious: restart current track if >3s in, else go to previous
   const playPrevious = useCallback(() => {
     // If more than 3 seconds in, restart current track
     if (playback.audioRef.current && playback.audioRef.current.currentTime > 3) {

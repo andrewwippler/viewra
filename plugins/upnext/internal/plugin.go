@@ -86,6 +86,16 @@ func (p *UpNextPlugin) HandleHTTP(ctx context.Context, req *sdk.HTTPRequest) (*s
 	return jsonResponse(http.StatusNotFound, map[string]string{"error": "route not found"})
 }
 
+// PLAY NEXT FEATURE - Up Next plugin: shows "next unwatched episode" on home screen
+// BUG: Groups episodes by showTitle string. If show has title variations across episodes
+// (metadata inconsistencies), they're treated as different shows. Should group by show ID.
+//
+// BUG: Searches only 50 episodes per show (line 222). Shows with 50+ episodes may have
+// incorrect "next unwatched" detection if the next unwatched falls beyond the 50th result.
+//
+// BUG: N+1 query pattern - makes individual GetMediaDetails calls for every watched episode
+// (up to 100) and every search result (up to 50 per show, up to 10 shows). Can make 600+
+// individual data calls, causing slow performance.
 func (p *UpNextPlugin) handleUpNext(ctx context.Context, req *sdk.HTTPRequest) (*sdk.HTTPResponse, error) {
 	p.mu.RLock()
 	enabled := p.enabled
@@ -150,7 +160,9 @@ func (p *UpNextPlugin) handleUpNext(ctx context.Context, req *sdk.HTTPRequest) (
 		})
 	}
 
-	// Group by show title, keep latest watched episode per show
+	// PLAY NEXT FEATURE - Group by show title, keep latest watched episode per show
+	// BUG: Uses showTitle string as grouping key. Title mismatches = wrong grouping.
+	// Should use show ID if available from metadata.
 	showLatest := make(map[string]*watchedEpisode)
 	for i := range watchedEps {
 		ep := &watchedEps[i]
@@ -218,7 +230,8 @@ func (p *UpNextPlugin) handleUpNext(ctx context.Context, req *sdk.HTTPRequest) (
 			}
 		}
 
-		// Search for all episodes of this show
+		// PLAY NEXT FEATURE - Search for all episodes of this show
+		// BUG: Limited to 50 results. Shows with 50+ episodes may miss the correct next unwatched.
 		searchResults, err := dataClient.SearchMedia(ctx, ep.showTitle, 0, "tv_episode", 50)
 		if err != nil {
 			p.Log().Debug("search failed for show", "show", ep.showTitle, "error", err)
@@ -229,7 +242,8 @@ func (p *UpNextPlugin) handleUpNext(ctx context.Context, req *sdk.HTTPRequest) (
 			continue
 		}
 
-		// Get details for each result to find season/episode
+		// PLAY NEXT FEATURE - Get details for each result to find season/episode
+		// BUG: N+1 query - individual GetMediaDetails call per search result (up to 50 per show)
 		type epInfo struct {
 			season  int
 			episode int
@@ -262,7 +276,7 @@ func (p *UpNextPlugin) handleUpNext(ctx context.Context, req *sdk.HTTPRequest) (
 			return allEps[i].episode < allEps[j].episode
 		})
 
-		// Find first unwatched episode after the latest watched one
+		// PLAY NEXT FEATURE - Find first unwatched episode after the latest watched one
 		for _, e := range allEps {
 			key := [2]int{e.season, e.episode}
 			if !watchedSet[key] {

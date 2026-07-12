@@ -7,6 +7,10 @@ import type { MusicTrackResponse } from '@/lib/types/music'
 
 export type RepeatMode = 'off' | 'one' | 'all'
 
+// PLAY NEXT FEATURE - Music audio queue management
+// Handles queue operations, shuffle, repeat modes, next/previous track navigation.
+// This is the core queue logic used by AudioPlayerContext.
+// No known bugs in this hook itself - issues are in how consumers wire it up.
 export const useAudioQueue = () => {
   const [queue, setQueue] = useState<MusicTrackResponse[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)

@@ -7,6 +7,9 @@ import { moviesApi } from '@/lib/api/movies'
 import { useMediaPlayback, useMovieImages, useMarkWatched, useMarkUnwatched } from '@/lib/hooks'
 import { logger } from '@/lib/utils/logger'
 import { getPosterImage, getImageUrl } from '@/lib/types/images'
+import { useGetApiMediaIdTracks } from '@/lib/api/generated/media/media'
+import { getLanguageName, formatChannels } from '@/lib/utils/language'
+import { getCodecDisplayName, formatBitrate } from '@/lib/types/streamStats'
 import type { GithubComMantonxViewraInternalApplicationMoviesMovieResponse, GithubComMantonxViewraInternalApplicationMediaMediaResponse, GithubComMantonxViewraInternalApplicationMoviesMediaVariantResponse } from '@/lib/api/generated/models'
 import type { ViewMode } from '@/components/common'
 import { useMediaProgress } from '@/lib/hooks'
@@ -16,7 +19,6 @@ const MovieDetail = () => {
   const navigate = useNavigate()
   const { playMedia, stopPlayback, changeQuality, playbackState } = useMediaPlayback()
   const { id } = Route.useParams()
-  const search = Route.useSearch()
   const movieId = parseInt(id, 10)
 
   // State for movie data
@@ -28,6 +30,8 @@ const MovieDetail = () => {
   // Fetch movie poster
   const movieImages = useMovieImages(movieId, { enabled: !!movieId })
   const { data: progress } = useMediaProgress(movieId)
+  const { data: tracksData } = useGetApiMediaIdTracks(movieId)
+  const audioTracks = tracksData?.status === 200 ? tracksData.data.audio_tracks || [] : []
 
   // Fetch movie data
   const loadMovie = useCallback(async () => {
@@ -96,8 +100,8 @@ const MovieDetail = () => {
     }
   }
 
-  // Determine if we should show the video player (when URL has playback params)
-  const shouldShowPlayer = search.t !== undefined
+  // Show video player when playing (matches TV version pattern)
+  const shouldShowPlayer = playbackState.isPlaying && playbackState.mediaId === movieId
 
   const handleClosePlayer = () => {
     stopPlayback()
@@ -285,7 +289,7 @@ const MovieDetail = () => {
           )}
 
           {/* Technical specs */}
-          {(movie.runtime_minutes || movie.content_rating) && (
+          {(movie.runtime_minutes || movie.content_rating || audioTracks.length > 0) && (
             <Card>
               <CardContent>
                 <h2 className="font-semibold mb-2">Details</h2>
@@ -300,6 +304,67 @@ const MovieDetail = () => {
                     <div className="flex justify-between">
                       <span>Content Rating:</span>
                       <span className="text-muted-foreground">{movie.content_rating}</span>
+                    </div>
+                  )}
+                  {movie.video_codec && (
+                    <div className="flex justify-between">
+                      <span>Video:</span>
+                      <span className="text-muted-foreground">
+                        {getCodecDisplayName(movie.video_codec)}
+                        {movie.height && ` · ${movie.height}p`}
+                        {movie.frame_rate && ` · ${movie.frame_rate} fps`}
+                      </span>
+                    </div>
+                  )}
+                  {movie.bitrate && (
+                    <div className="flex justify-between">
+                      <span>Bitrate:</span>
+                      <span className="text-muted-foreground">{formatBitrate(movie.bitrate)}</span>
+                    </div>
+                  )}
+                  {movie.file_size && (
+                    <div className="flex justify-between">
+                      <span>File Size:</span>
+                      <span className="text-muted-foreground">
+                        {movie.file_size >= 1_000_000_000
+                          ? `${(movie.file_size / 1_000_000_000).toFixed(2)} GB`
+                          : `${(movie.file_size / 1_000_000).toFixed(1)} MB`}
+                      </span>
+                    </div>
+                  )}
+                  {movie.container_format && (
+                    <div className="flex justify-between">
+                      <span>Container:</span>
+                      <span className="text-muted-foreground">{movie.container_format.toUpperCase()}</span>
+                    </div>
+                  )}
+                  {audioTracks.length > 0 && (
+                    <div className="pt-2 mt-2 border-t border-border">
+                      <div className="flex justify-between items-start">
+                        <span>Audio:</span>
+                        <div className="text-muted-foreground text-right">
+                          {audioTracks.length === 1 ? (
+                            <span>
+                              {getLanguageName(audioTracks[0].language || 'und')}
+                              {' · '}
+                              {getCodecDisplayName(audioTracks[0].codec || '')}
+                              {audioTracks[0].channels && ` · ${formatChannels(audioTracks[0].channels)}`}
+                            </span>
+                          ) : (
+                            <div className="space-y-1">
+                              {audioTracks.map((track, idx) => (
+                                <div key={track.id || idx}>
+                                  {getLanguageName(track.language || 'und')}
+                                  {' · '}
+                                  {getCodecDisplayName(track.codec || '')}
+                                  {track.channels && ` · ${formatChannels(track.channels)}`}
+                                  {track.is_default && idx === 0 && ' (Default)'}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

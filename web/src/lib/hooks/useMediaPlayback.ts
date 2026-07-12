@@ -25,6 +25,7 @@ export interface SavedPreferences {
   selectedQuality: string | null
   selectedAudioTrack: number | null
   selectedSubtitleTrack: number | null
+  autoplay?: boolean | null // Optional: user preference for auto-play next episode
 }
 
 export interface PlaybackState {

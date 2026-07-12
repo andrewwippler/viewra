@@ -678,7 +678,7 @@ video::cue {
   display: none !important;
 }
 
-/* Show minimal exit hint */
+/* Show minimal exit hint (hidden on TV — remote users exit via back button) */
 .fullscreen-fallback::after {
   content: 'Press ESC to exit fullscreen';
   position: fixed;
@@ -690,6 +690,10 @@ video::cue {
   pointer-events: none;
   animation: fadeInOut 3s ease-in-out;
   z-index: 2147483648;
+}
+
+html[data-tv] .fullscreen-fallback::after {
+  content: none;
 }
 
 @keyframes fadeInOut {
