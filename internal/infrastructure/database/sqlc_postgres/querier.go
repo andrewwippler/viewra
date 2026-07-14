@@ -306,6 +306,14 @@ type Querier interface {
 	GetMusicTrackByMediaID(ctx context.Context, mediaID int64) (GetMusicTrackByMediaIDRow, error)
 	GetNextPipelinePosition(ctx context.Context, mediaType string) (int64, error)
 	GetNextPipelineStage(ctx context.Context, arg GetNextPipelineStageParams) (EnrichmentPipeline, error)
+	// ============================================================================
+	// Up Next: Next unwatched episode per show
+	// ============================================================================
+	// For each TV show where the user has watched at least one episode,
+	// find the first unwatched episode that comes strictly after the latest
+	// watched episode (by season+episode ordering). Returns results sorted
+	// by most recently watched show first.
+	GetNextUnwatchedEpisodes(ctx context.Context, userID sql.NullInt64) ([]GetNextUnwatchedEpisodesRow, error)
 	// Find enrichment statuses where a stage completed but the next stage was never enqueued.
 	// This happens when the server crashes between marking a stage complete and enqueuing the next.
 	// Returns the media items that need their next stage enqueued.

@@ -26,7 +26,7 @@ export const Route = createFileRoute('/webos/tv/$showId/season/$seasonNumber')({
     const parsedT = typeof t === 'string' ? parseInt(t, 10) : typeof t === 'number' ? t : undefined
     return {
       episodeId: parsedId && !isNaN(parsedId) ? parsedId : undefined,
-      t: parsedT && !isNaN(parsedT) ? parsedT : undefined,
+      t: parsedT !== undefined && !isNaN(parsedT) ? parsedT : undefined,
     }
   },
 })

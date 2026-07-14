@@ -38,6 +38,34 @@ const HLS_CONFIG = {
   START_FRAG_PREFETCH: true,
 } as const
 
+// TV-specific HLS configuration for WebOS/Chrome 79 devices.
+// Without the web worker, all segment parsing runs on the main thread.
+// Combined with potentially slow progressive transcoding (especially in K8s),
+// the TV needs more patient buffer management to avoid skipping to random segments.
+const TV_HLS_CONFIG = {
+  // Allow a larger initial buffer before playback starts - gives FFmpeg time to
+  // generate enough segments on slow K8s pods or network-attached storage
+  MAX_BUFFER_LENGTH: 10,
+  // Allow a larger max buffer for seeking ahead during slow transcoding
+  MAX_MAX_BUFFER_LENGTH: 45,
+  // Smaller memory buffer for TV devices with limited RAM (WebOS TVs often have 1-2GB)
+  MAX_BUFFER_SIZE: 30 * 1000 * 1000,
+  // More tolerant buffer hole detection - without the worker, segment processing
+  // timing is less precise and small gaps during slow transcoding are normal
+  MAX_BUFFER_HOLE: 2,
+  // Keep a longer back buffer so seeking backward works reliably
+  // Without this, seeking back may trigger a full stream restart
+  BACK_BUFFER_LENGTH: 60,
+  // Less aggressive watchdog - TV's main thread is shared with UI
+  HIGH_BUFFER_WATCHDOG_PERIOD: 4,
+  // More retries for slow segment generation in constrained environments
+  FRAG_LOADING_MAX_RETRY: 12,
+  // Longer retry timeout - K8s pods may take longer to start transcoding
+  FRAG_LOADING_MAX_RETRY_TIMEOUT: 128000,
+  // More nudge retries for timestamp corrections without the worker
+  NUDGE_MAX_RETRY: 20,
+} as const
+
 // Chrome 79 (WebOS) cannot parse the ES2020+ syntax in HLS.js's inline Web Worker
 // (optional chaining, nullish coalescing), causing silent worker failure and no playback.
 // Disable the worker on TV builds where the target browser is Chrome 79.
@@ -297,21 +325,37 @@ export const useHlsPlayer = ({
       })
     }
 
+    // Merge TV-specific overrides into base config
+    // TV build runs without the web worker on Chrome 79 (WebOS), which needs
+    // more patient buffer management to handle slow progressive transcoding
+    const isTV = import.meta.env.VITE_UI_MODE === 'tv'
+    const config = isTV
+      ? { ...HLS_CONFIG, ...TV_HLS_CONFIG }
+      : HLS_CONFIG
+
+    logger.info('[HLS] Using config', {
+      isTV,
+      maxBufferLength: config.MAX_BUFFER_LENGTH,
+      maxBufferHole: config.MAX_BUFFER_HOLE,
+      backBufferLength: config.BACK_BUFFER_LENGTH,
+      fragLoadingMaxRetry: config.FRAG_LOADING_MAX_RETRY,
+    })
+
     // Create hls.js instance
     const hls = new Hls({
-      debug: HLS_CONFIG.DEBUG,
+      debug: isTV || HLS_CONFIG.DEBUG,
       enableWorker: ENABLE_WORKER,
       lowLatencyMode: HLS_CONFIG.LOW_LATENCY_MODE,
-      maxBufferLength: HLS_CONFIG.MAX_BUFFER_LENGTH,
-      maxMaxBufferLength: HLS_CONFIG.MAX_MAX_BUFFER_LENGTH,
-      maxBufferSize: HLS_CONFIG.MAX_BUFFER_SIZE,
-      maxBufferHole: HLS_CONFIG.MAX_BUFFER_HOLE,
-      backBufferLength: HLS_CONFIG.BACK_BUFFER_LENGTH,
-      highBufferWatchdogPeriod: HLS_CONFIG.HIGH_BUFFER_WATCHDOG_PERIOD,
-      fragLoadingMaxRetry: HLS_CONFIG.FRAG_LOADING_MAX_RETRY,
-      fragLoadingMaxRetryTimeout: HLS_CONFIG.FRAG_LOADING_MAX_RETRY_TIMEOUT,
+      maxBufferLength: config.MAX_BUFFER_LENGTH,
+      maxMaxBufferLength: config.MAX_MAX_BUFFER_LENGTH,
+      maxBufferSize: config.MAX_BUFFER_SIZE,
+      maxBufferHole: config.MAX_BUFFER_HOLE,
+      backBufferLength: config.BACK_BUFFER_LENGTH,
+      highBufferWatchdogPeriod: config.HIGH_BUFFER_WATCHDOG_PERIOD,
+      fragLoadingMaxRetry: config.FRAG_LOADING_MAX_RETRY,
+      fragLoadingMaxRetryTimeout: config.FRAG_LOADING_MAX_RETRY_TIMEOUT,
       nudgeOffset: HLS_CONFIG.NUDGE_OFFSET,
-      nudgeMaxRetry: HLS_CONFIG.NUDGE_MAX_RETRY,
+      nudgeMaxRetry: config.NUDGE_MAX_RETRY,
       startFragPrefetch: HLS_CONFIG.START_FRAG_PREFETCH,
       // Single-quality playback: Backend picks optimal quality, we just play it
       // startLevel=0 means play the first (and only) variant in the master playlist
@@ -459,13 +503,24 @@ export const useHlsPlayer = ({
           onFragLoadedRef.current(bytes, durationMs)
         }
       }
+
+      // Log fragment loading on TV for debugging slow transcoding issues
+      if (isTV && data.frag) {
+        const level = data.frag.level
+        const sn = data.frag.sn
+        const start = data.frag.start
+        const duration = data.frag.duration
+        logger.debug('[HLS-TV] Fragment loaded', { level, sn, start, duration })
+      }
     })
 
     // Error handling with recovery limits
+    // TV builds get more recovery attempts since they run without the web worker
+    // and may experience more transient errors from slow progressive transcoding
     let mediaErrorRecoveryAttempts = 0
     let streamReloadAttempts = 0
-    const MAX_MEDIA_ERROR_RECOVERY = 3
-    const MAX_STREAM_RELOAD = 1
+    const MAX_MEDIA_ERROR_RECOVERY = isTV ? 5 : 3
+    const MAX_STREAM_RELOAD = isTV ? 2 : 1
 
     hls.on(Hls.Events.ERROR, (_event, data) => {
       // Log all errors for debugging
@@ -475,6 +530,7 @@ export const useHlsPlayer = ({
         fatal: data.fatal,
         url: data.url,
         reason: data.reason,
+        isTV,
       })
 
       if (data.fatal) {
@@ -482,7 +538,15 @@ export const useHlsPlayer = ({
           case Hls.ErrorTypes.NETWORK_ERROR:
             logger.error('[HLS] Fatal network error, retrying...', data.details)
             onErrorRef.current('Network issue: Retrying...')
-            hls.startLoad()
+            // On TV, add a delay before retrying to give FFmpeg time to generate segments
+            // The main thread may be busy processing UI events without the worker
+            if (isTV) {
+              setTimeout(() => {
+                hls.startLoad()
+              }, 1000)
+            } else {
+              hls.startLoad()
+            }
             break
           case Hls.ErrorTypes.MEDIA_ERROR:
             mediaErrorRecoveryAttempts++
@@ -496,13 +560,21 @@ export const useHlsPlayer = ({
               mediaErrorRecoveryAttempts = 0
               logger.error('[HLS] Media error recovery failed, reloading stream')
               onErrorRef.current('Playback error: Reloading stream...')
-              const currentUrl = hls.url
-              if (currentUrl) {
-                hls.loadSource(currentUrl)
+              // On TV, delay stream reload to allow FFmpeg to catch up with segment generation
+              const reloadStream = () => {
+                const currentUrl = hls.url
+                if (currentUrl) {
+                  hls.loadSource(currentUrl)
+                } else {
+                  hls.destroy()
+                  hlsRef.current = null
+                  onErrorRef.current('Playback failed - please refresh the page')
+                }
+              }
+              if (isTV) {
+                setTimeout(reloadStream, 2000)
               } else {
-                hls.destroy()
-                hlsRef.current = null
-                onErrorRef.current('Playback failed - please refresh the page')
+                reloadStream()
               }
             } else {
               // Give up - too many failures

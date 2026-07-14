@@ -365,6 +365,7 @@ type (
 	GetMovieByMediaIDRow = sqlc_sqlite.GetMovieByMediaIDRow
 	GetMoviesWithoutVariantGroupRow = sqlc_sqlite.GetMoviesWithoutVariantGroupRow
 	GetMusicTrackByMediaIDRow = sqlc_sqlite.GetMusicTrackByMediaIDRow
+	GetNextUnwatchedEpisodesRow = sqlc_sqlite.GetNextUnwatchedEpisodesRow
 	GetOrphanedPipelineStatesRow = sqlc_sqlite.GetOrphanedPipelineStatesRow
 	GetOverallPlaybackSummaryRow = sqlc_sqlite.GetOverallPlaybackSummaryRow
 	GetOverallTranscodeSummaryRow = sqlc_sqlite.GetOverallTranscodeSummaryRow

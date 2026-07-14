@@ -12,10 +12,11 @@ import (
 
 // Type aliases for backward compatibility - types are now defined in querier package.
 type (
-	LibraryInfo      = querier.LibraryInfo
-	MediaInfo        = querier.MediaInfo
-	MediaDetailsInfo = querier.MediaDetailsInfo
-	CastMemberInfo   = querier.CastMemberInfo
+	LibraryInfo          = querier.LibraryInfo
+	MediaInfo            = querier.MediaInfo
+	MediaDetailsInfo     = querier.MediaDetailsInfo
+	CastMemberInfo       = querier.CastMemberInfo
+	NextUnwatchedEpisode = querier.NextUnwatchedEpisode
 )
 
 // MediaQuerier is the interface for querying media data.
@@ -57,6 +58,11 @@ type MediaQuerier interface {
 	// libraryID=0 means all libraries.
 	// excludeIDs are entity IDs to exclude from results.
 	ListMediaByDirector(ctx context.Context, mediaType, directorName string, libraryID int64, excludeIDs []int64, limit int) ([]*MediaInfo, error)
+
+	// GetNextUnwatchedEpisodes returns the next unwatched episode for each TV show
+	// the user is currently watching. Results are sorted by most recently watched show first.
+	// Returns at most limit results (0 means no limit).
+	GetNextUnwatchedEpisodes(ctx context.Context, userID int64, limit int) ([]*NextUnwatchedEpisode, error)
 }
 
 // DataServer implements the HostData gRPC service.
@@ -141,6 +147,47 @@ func (s *DataServer) SearchMedia(ctx context.Context, req *pluginv1.SearchQuery)
 	}
 
 	return &pluginv1.MediaList{Items: items}, nil
+}
+
+// GetNextUnwatchedEpisodes returns the next unwatched episode for each TV show
+// the user is currently watching.
+func (s *DataServer) GetNextUnwatchedEpisodes(ctx context.Context, req *pluginv1.GetNextUnwatchedRequest) (*pluginv1.GetNextUnwatchedResponse, error) {
+	if req.UserId == "" {
+		return nil, errors.New("user_id is required")
+	}
+
+	userID := parseUserID(req.UserId)
+	limit := int(req.Limit)
+	if limit <= 0 {
+		limit = 10
+	}
+
+	s.logger.Debug("GetNextUnwatchedEpisodes called",
+		"user_id", req.UserId,
+		"limit", limit,
+	)
+
+	items, err := s.querier.GetNextUnwatchedEpisodes(ctx, userID, limit)
+	if err != nil {
+		s.logger.Error("failed to get next unwatched episodes",
+			"user_id", req.UserId,
+			"error", err)
+		return nil, err
+	}
+
+	protoItems := make([]*pluginv1.NextUnwatchedEpisode, len(items))
+	for i, item := range items {
+		protoItems[i] = &pluginv1.NextUnwatchedEpisode{
+			ShowId:         item.ShowID,
+			ShowTitle:      item.ShowTitle,
+			EpisodeMediaId: item.EpisodeMediaID,
+			SeasonNumber:   int32(item.SeasonNumber),
+			EpisodeNumber:  int32(item.EpisodeNumber),
+			EpisodeTitle:   item.EpisodeTitle,
+		}
+	}
+
+	return &pluginv1.GetNextUnwatchedResponse{Items: protoItems}, nil
 }
 
 // GetLibrary retrieves library information.

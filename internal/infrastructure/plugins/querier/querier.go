@@ -466,3 +466,32 @@ func (q *DBMediaQuerier) listMoviesByDirector(ctx context.Context, directorName 
 
 	return result, nil
 }
+
+// GetNextUnwatchedEpisodes returns the next unwatched episode for each TV show
+// the user is currently watching. Uses a single SQL CTE query that joins
+// watch_progress, media, tv_episodes, and tv_shows. No per-show limit on episodes scanned.
+func (q *DBMediaQuerier) GetNextUnwatchedEpisodes(ctx context.Context, userID int64, limit int) ([]*NextUnwatchedEpisode, error) {
+	rows, err := q.querier.GetNextUnwatchedEpisodes(ctx, common.NullInt64(userID))
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*NextUnwatchedEpisode, 0, len(rows))
+	for _, row := range rows {
+		ep := &NextUnwatchedEpisode{
+			ShowID:         row.ShowID,
+			ShowTitle:      row.ShowTitle,
+			EpisodeMediaID: row.EpisodeMediaID,
+			SeasonNumber:   int(row.SeasonNumber),
+			EpisodeNumber:  int(row.EpisodeNumber),
+			EpisodeTitle:   row.EpisodeTitle.String,
+		}
+		result = append(result, ep)
+	}
+
+	if limit > 0 && len(result) > limit {
+		result = result[:limit]
+	}
+
+	return result, nil
+}

@@ -197,7 +197,9 @@ export const useMediaPlayback = (): UseMediaPlaybackReturn => {
     let resumePosition = 0
     let savedQuality: string | null = null
 
-    if (urlTime !== undefined && urlTime > 0) {
+    if (urlTime !== undefined) {
+      // Explicit position provided: 0 = restart from beginning, >0 = resume from position
+      // This skips the progress API fetch entirely — caller controls the start position
       resumePosition = urlTime
     } else {
       // Fetch progress with preferences (include device profile for device-specific preferences)

@@ -14,7 +14,7 @@ export const Route = createFileRoute('/webos/movies/$id')({
     const t = search.t
     const parsedT = typeof t === 'string' ? parseInt(t, 10) : typeof t === 'number' ? t : undefined
     return {
-      t: parsedT && !isNaN(parsedT) ? parsedT : undefined,
+      t: parsedT !== undefined && !isNaN(parsedT) ? parsedT : undefined,
     }
   },
 })

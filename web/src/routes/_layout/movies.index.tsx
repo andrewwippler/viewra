@@ -527,7 +527,7 @@ export const Route = createFileRoute('/_layout/movies/')({
 
     return {
       id: parsedId && !isNaN(parsedId) ? parsedId : undefined,
-      t: parsedT && !isNaN(parsedT) ? parsedT : undefined,
+      t: parsedT !== undefined && !isNaN(parsedT) ? parsedT : undefined,
       q,
       sort,
       genres,

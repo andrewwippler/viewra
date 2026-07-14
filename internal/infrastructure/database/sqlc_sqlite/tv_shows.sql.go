@@ -357,6 +357,105 @@ func (q *Queries) GetEpisodeWithShowTitle(ctx context.Context, mediaID int64) (G
 	return i, err
 }
 
+const getNextUnwatchedEpisodes = `-- name: GetNextUnwatchedEpisodes :many
+
+WITH watched_episode_keys AS (
+    SELECT
+        e.show_id,
+        wp.last_watched,
+        e.season_number * 10000 + e.episode_number AS episode_key
+    FROM watch_progress wp
+    JOIN media med ON wp.media_id = med.id
+    JOIN tv_episodes e ON med.id = e.media_id
+    WHERE wp.user_id = ?
+      AND wp.watched = TRUE
+      AND med.type = 'tv_episode'
+),
+latest_per_show AS (
+    SELECT
+        show_id,
+        MAX(episode_key) AS max_key,
+        MAX(last_watched) AS last_watched
+    FROM watched_episode_keys
+    GROUP BY show_id
+),
+next_episodes AS (
+    SELECT
+        lps.show_id,
+        lps.last_watched,
+        ep.media_id AS episode_media_id,
+        ep.season_number,
+        ep.episode_number,
+        ep.episode_title,
+        ROW_NUMBER() OVER (PARTITION BY lps.show_id ORDER BY ep.season_number, ep.episode_number) AS rn
+    FROM latest_per_show lps
+    JOIN tv_episodes ep ON ep.show_id = lps.show_id
+    JOIN media med ON ep.media_id = med.id
+    WHERE (ep.season_number * 10000 + ep.episode_number) > lps.max_key
+      AND med.is_extra = 0
+)
+SELECT
+    ne.show_id,
+    s.title AS show_title,
+    ne.episode_media_id,
+    ne.season_number,
+    ne.episode_number,
+    ne.episode_title,
+    ne.last_watched
+FROM next_episodes ne
+JOIN tv_shows s ON s.id = ne.show_id
+WHERE ne.rn = 1
+ORDER BY ne.last_watched DESC
+`
+
+type GetNextUnwatchedEpisodesRow struct {
+	ShowID         int64          `json:"show_id"`
+	ShowTitle      string         `json:"show_title"`
+	EpisodeMediaID int64          `json:"episode_media_id"`
+	SeasonNumber   int64          `json:"season_number"`
+	EpisodeNumber  int64          `json:"episode_number"`
+	EpisodeTitle   sql.NullString `json:"episode_title"`
+	LastWatched    interface{}    `json:"last_watched"`
+}
+
+// ============================================================================
+// Up Next: Next unwatched episode per show
+// ============================================================================
+// For each TV show where the user has watched at least one episode,
+// find the first unwatched episode that comes strictly after the latest
+// watched episode (by season+episode ordering). Returns results sorted
+// by most recently watched show first.
+func (q *Queries) GetNextUnwatchedEpisodes(ctx context.Context, userID sql.NullInt64) ([]GetNextUnwatchedEpisodesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getNextUnwatchedEpisodes, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetNextUnwatchedEpisodesRow{}
+	for rows.Next() {
+		var i GetNextUnwatchedEpisodesRow
+		if err := rows.Scan(
+			&i.ShowID,
+			&i.ShowTitle,
+			&i.EpisodeMediaID,
+			&i.SeasonNumber,
+			&i.EpisodeNumber,
+			&i.EpisodeTitle,
+			&i.LastWatched,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTVEpisodeByMediaID = `-- name: GetTVEpisodeByMediaID :one
 SELECT
     e.media_id, e.show_id, e.season_id, e.season_number, e.episode_number, e.absolute_number, e.dvd_season, e.dvd_episode, e.episode_title, e.original_title, e.air_date, e.plot, e.content_rating, e.maturity_rating, e.imdb_id, e.tmdb_id, e.tvdb_id, e.rating, e.rating_votes, e.runtime_minutes,

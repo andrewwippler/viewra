@@ -1833,6 +1833,14 @@ func (q *Querier) GetNextPipelineStage(ctx context.Context, arg sqlc_sqlite.GetN
 	return q.sqlite.GetNextPipelineStage(ctx, arg)
 }
 
+func (q *Querier) GetNextUnwatchedEpisodes(ctx context.Context, userID sql.NullInt64) ([]sqlc_sqlite.GetNextUnwatchedEpisodesRow, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.GetNextUnwatchedEpisodes(ctx, userID)
+		return castSlice[sqlc_postgres.GetNextUnwatchedEpisodesRow, sqlc_sqlite.GetNextUnwatchedEpisodesRow](r0), err
+	}
+	return q.sqlite.GetNextUnwatchedEpisodes(ctx, userID)
+}
+
 func (q *Querier) GetOrphanedPipelineStates(ctx context.Context) ([]sqlc_sqlite.GetOrphanedPipelineStatesRow, error) {
 	if q.isPostgres {
 		r0, err := q.postgres.GetOrphanedPipelineStates(ctx)

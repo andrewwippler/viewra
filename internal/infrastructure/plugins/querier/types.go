@@ -109,3 +109,14 @@ type CastMemberInfo struct {
 	Character string
 	Order     int
 }
+
+// NextUnwatchedEpisode represents the next unwatched episode for a TV show.
+type NextUnwatchedEpisode struct {
+	ShowID         int64
+	ShowTitle      string
+	EpisodeMediaID int64
+	SeasonNumber   int
+	EpisodeNumber  int
+	EpisodeTitle   string
+	LibraryID      int64
+}

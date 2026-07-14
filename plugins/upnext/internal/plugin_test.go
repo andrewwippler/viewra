@@ -33,14 +33,10 @@ func TestPlugin_Initialize(t *testing.T) {
 	if p.data != nil {
 		t.Error("expected data to be nil when services is nil")
 	}
-	if p.progress != nil {
-		t.Error("expected progress to be nil when services is nil")
-	}
 
 	// With services
 	services := &sdk.HostServices{
-		Data:     &sdk.DataClient{},
-		Progress: &sdk.ProgressClient{},
+		Data: &sdk.DataClient{},
 	}
 	err = p.Initialize(context.Background(), t.TempDir(), nil, services)
 	if err != nil {
@@ -48,9 +44,6 @@ func TestPlugin_Initialize(t *testing.T) {
 	}
 	if p.data == nil {
 		t.Error("expected data to be set when services.Data is non-nil")
-	}
-	if p.progress == nil {
-		t.Error("expected progress to be set when services.Progress is non-nil")
 	}
 }
 

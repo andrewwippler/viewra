@@ -269,7 +269,7 @@ const SeasonDetail = () => {
             <AdminActions
               mediaType="tv"
               mediaId={showIdNumber}
-              mediaTitle={show?.title || ''}, ||.
+              mediaTitle={show?.title || ''}
               seasonId={seasonDbId}
               onDeleteNavigate="/tv"
             />

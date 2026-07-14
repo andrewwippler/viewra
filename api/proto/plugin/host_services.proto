@@ -39,6 +39,11 @@ service HostData {
   // ListMediaByDirector lists media items featuring work by a specific director.
   // Used for director-based recommendations and themed collections.
   rpc ListMediaByDirector(ListMediaByDirectorRequest) returns (MediaList);
+
+  // GetNextUnwatchedEpisodes returns the next unwatched episode for each TV show
+  // the user is currently watching. Replaces the fragile plugin-based algorithm
+  // that grouped by show title string and limited to 50 episodes per show.
+  rpc GetNextUnwatchedEpisodes(GetNextUnwatchedRequest) returns (GetNextUnwatchedResponse);
 }
 
 // HostStorage provides plugin-scoped storage.
@@ -880,4 +885,27 @@ message ListMediaByDirectorRequest {
   int32 limit = 3;                // Max results (default: 20)
   repeated int64 exclude_ids = 4; // Entity IDs to exclude from results
   int64 library_id = 5;           // Optional: 0 means all libraries
+}
+
+// --- GetNextUnwatchedEpisodes Messages ---
+
+// GetNextUnwatchedRequest requests the next unwatched episodes for a user.
+message GetNextUnwatchedRequest {
+  string user_id = 1;   // Required: the user ID
+  int32 limit = 2;      // Optional: max results (default: 10, 0 = no limit)
+}
+
+// GetNextUnwatchedResponse contains next unwatched episodes grouped by show.
+message GetNextUnwatchedResponse {
+  repeated NextUnwatchedEpisode items = 1;
+}
+
+// NextUnwatchedEpisode represents the next unwatched episode for a TV show.
+message NextUnwatchedEpisode {
+  int64 show_id = 1;            // TV show ID (for navigation)
+  string show_title = 2;        // Show title
+  int64 episode_media_id = 3;   // Episode media ID (for playback)
+  int32 season_number = 4;      // Season number
+  int32 episode_number = 5;     // Episode number
+  string episode_title = 6;     // Episode title
 }

@@ -211,6 +211,49 @@ func (c *DataClient) ListMediaByDirector(ctx context.Context, mediaType, directo
 	return items, nil
 }
 
+// NextUnwatchedEpisode represents the next unwatched episode for a TV show.
+type NextUnwatchedEpisode struct {
+	ShowID         int64
+	ShowTitle      string
+	EpisodeMediaID int64
+	SeasonNumber   int
+	EpisodeNumber  int
+	EpisodeTitle   string
+}
+
+// GetNextUnwatchedEpisodes returns the next unwatched episode for each TV show
+// the user is currently watching. This is a single efficient SQL query that
+// replaces the plugin-based algorithm with its N+1 query pattern and 50-episode limit.
+//
+// Parameters:
+//   - userID: the user ID string
+//   - limit: max results (default: 10, 0 = no limit)
+func (c *DataClient) GetNextUnwatchedEpisodes(ctx context.Context, userID string, limit int) ([]*NextUnwatchedEpisode, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	resp, err := c.client.GetNextUnwatchedEpisodes(ctx, &pluginv1.GetNextUnwatchedRequest{
+		UserId: userID,
+		Limit:  int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]*NextUnwatchedEpisode, len(resp.Items))
+	for i, item := range resp.Items {
+		items[i] = &NextUnwatchedEpisode{
+			ShowID:         item.ShowId,
+			ShowTitle:      item.ShowTitle,
+			EpisodeMediaID: item.EpisodeMediaId,
+			SeasonNumber:   int(item.SeasonNumber),
+			EpisodeNumber:  int(item.EpisodeNumber),
+			EpisodeTitle:   item.EpisodeTitle,
+		}
+	}
+	return items, nil
+}
+
 // Library represents a media library.
 type Library struct {
 	ID        int64

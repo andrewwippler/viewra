@@ -19,6 +19,7 @@ const MovieDetail = () => {
   const navigate = useNavigate()
   const { playMedia, stopPlayback, changeQuality, playbackState } = useMediaPlayback()
   const { id } = Route.useParams()
+  const search = Route.useSearch()
   const movieId = parseInt(id, 10)
 
   // State for movie data
@@ -83,6 +84,11 @@ const MovieDetail = () => {
         created_at: movie.created_at,
         updated_at: movie.updated_at,
       }
+      navigate({
+        to: `/movies/${movieId}`,
+        search: { t: startTime && startTime > 0 ? Math.floor(startTime) : 0 },
+        replace: true,
+      })
       await playMedia(targetId, mediaPayload, startTime)
     } catch (err) {
       logger.error('Failed to play movie:', err)
@@ -100,8 +106,8 @@ const MovieDetail = () => {
     }
   }
 
-  // Show video player when playing (matches TV version pattern)
-  const shouldShowPlayer = playbackState.isPlaying && playbackState.mediaId === movieId
+  // Show video player when URL has playback params
+  const shouldShowPlayer = search.t !== undefined
 
   const handleClosePlayer = () => {
     stopPlayback()
@@ -405,7 +411,7 @@ export const Route = createFileRoute('/_layout/movies/$id')({
     const view = typeof search.view === 'string' && (search.view === 'grid' || search.view === 'list') ? search.view as ViewMode : undefined
 
     return {
-      t: parsedT && !isNaN(parsedT) ? parsedT : undefined,
+      t: parsedT !== undefined && !isNaN(parsedT) ? parsedT : undefined,
       q,
       sort,
       genres,
