@@ -30,9 +30,9 @@ import { Route as LayoutSettingsSystemRouteImport } from './routes/_layout/setti
 import { Route as LayoutSettingsSchedulerRouteImport } from './routes/_layout/settings.scheduler'
 import { Route as LayoutSettingsPreferencesRouteImport } from './routes/_layout/settings.preferences'
 import { Route as LayoutSettingsPluginsRouteImport } from './routes/_layout/settings.plugins'
+import { Route as LayoutSettingsNitpickyRouteImport } from './routes/_layout/settings.nitpicky'
 import { Route as LayoutSettingsDisplayRouteImport } from './routes/_layout/settings.display'
 import { Route as LayoutSettingsAccountRouteImport } from './routes/_layout/settings.account'
-import { Route as LayoutSettingsNitpickyRouteImport } from './routes/_layout/settings.nitpicky'
 import { Route as LayoutMoviesIdRouteImport } from './routes/_layout/movies.$id'
 import { Route as LayoutLivetvPlayRouteImport } from './routes/_layout/livetv.play'
 import { Route as LayoutLivetvMappingsRouteImport } from './routes/_layout/livetv.mappings'
@@ -149,6 +149,11 @@ const LayoutSettingsPluginsRoute = LayoutSettingsPluginsRouteImport.update({
   path: '/settings/plugins',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutSettingsNitpickyRoute = LayoutSettingsNitpickyRouteImport.update({
+  id: '/settings/nitpicky',
+  path: '/settings/nitpicky',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutSettingsDisplayRoute = LayoutSettingsDisplayRouteImport.update({
   id: '/settings/display',
   path: '/settings/display',
@@ -157,11 +162,6 @@ const LayoutSettingsDisplayRoute = LayoutSettingsDisplayRouteImport.update({
 const LayoutSettingsAccountRoute = LayoutSettingsAccountRouteImport.update({
   id: '/settings/account',
   path: '/settings/account',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutSettingsNitpickyRoute = LayoutSettingsNitpickyRouteImport.update({
-  id: '/settings/nitpicky',
-  path: '/settings/nitpicky',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutMoviesIdRoute = LayoutMoviesIdRouteImport.update({
@@ -589,18 +589,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsPluginsRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/settings/display': {
-      id: '/_layout/settings/display'
-      path: '/settings/display'
-      fullPath: '/settings/display'
-      preLoaderRoute: typeof LayoutSettingsDisplayRouteImport
-      parentRoute: typeof LayoutRoute
-    }
     '/_layout/settings/nitpicky': {
       id: '/_layout/settings/nitpicky'
       path: '/settings/nitpicky'
       fullPath: '/settings/nitpicky'
       preLoaderRoute: typeof LayoutSettingsNitpickyRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/settings/display': {
+      id: '/_layout/settings/display'
+      path: '/settings/display'
+      fullPath: '/settings/display'
+      preLoaderRoute: typeof LayoutSettingsDisplayRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/settings/account': {

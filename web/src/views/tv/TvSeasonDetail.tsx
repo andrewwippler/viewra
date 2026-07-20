@@ -133,6 +133,9 @@ export const TvSeasonDetail = ({ showId, seasonNumber, onBack, episodeId: urlEpi
     return nextUnwatched || remainingEpisodes[0] || null
   }, [currentIndex, allSortedEpisodes, watchedEpisodeIds])
 
+  const nextEpisodeRef = useRef(nextEpisode)
+  nextEpisodeRef.current = nextEpisode
+
   // Previous episode calculation stays linear/chronological for user convenience
   const prevEpisode = useMemo(() => {
     if (currentIndex <= 0) return null
@@ -213,14 +216,14 @@ export const TvSeasonDetail = ({ showId, seasonNumber, onBack, episodeId: urlEpi
   // Monitor playback termination states
   useEffect(() => {
     if (prevPlayingRef.current && !playbackState.isPlaying && !isClosingRef.current) {
-      if (nextEpisode) {
+      if (nextEpisodeRef.current) {
         setShowAutoPlayEnded(true)
       } else {
         navigate({ to: '/webos' })
       }
     }
     prevPlayingRef.current = playbackState.isPlaying
-  }, [playbackState.isPlaying, nextEpisode, navigate])
+  }, [playbackState.isPlaying, navigate])
 
   if ((playbackState.isPlaying || showAutoPlayEnded) && playingEpisode) {
     return (

@@ -134,13 +134,15 @@ const SeasonDetail = () => {
   }, [urlEpisodeId])
 
   // Watch for active context changes to bring up Autoplay Prompt cards
+  const nextEpisodeRef = useRef(nextEpisode)
+  nextEpisodeRef.current = nextEpisode
   const prevPlayingRef = useRef(playbackState.isPlaying)
   useEffect(() => {
-    if (prevPlayingRef.current && !playbackState.isPlaying && nextEpisode && !isClosingRef.current) {
+    if (prevPlayingRef.current && !playbackState.isPlaying && nextEpisodeRef.current && !isClosingRef.current) {
       setShowAutoPlayEnded(true)
     }
     prevPlayingRef.current = playbackState.isPlaying
-  }, [playbackState.isPlaying, nextEpisode])
+  }, [playbackState.isPlaying])
 
   const handlePlayEpisode = async (episode: TVEpisodeResponse, startTime?: number) => {
     logger.debug('Playing episode:', episode.show_title, `S${episode.season}E${episode.episode}`)
