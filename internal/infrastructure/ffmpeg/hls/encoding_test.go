@@ -292,6 +292,116 @@ func TestAddAudioEncoding(t *testing.T) {
 	}
 }
 
+func TestAddAudioEncodingDownmixFilter(t *testing.T) {
+	tests := []struct {
+		name          string
+		algorithm     string
+		boost         float64
+		sourceChans   int
+		wantFilter    bool
+		wantPan       bool
+		wantVolume    bool
+	}{
+		{
+			name:        "AC4 5.1 to stereo - filter applied",
+			algorithm:   "ac4",
+			boost:       2.0,
+			sourceChans: 6,
+			wantFilter:  true,
+			wantPan:     true,
+			wantVolume:  true,
+		},
+		{
+			name:        "Dave750 5.1 to stereo - filter applied",
+			algorithm:   "dave750",
+			boost:       4.25,
+			sourceChans: 6,
+			wantFilter:  true,
+			wantPan:     true,
+			wantVolume:  true,
+		},
+		{
+			name:        "None 5.1 to stereo - volume only",
+			algorithm:   "none",
+			boost:       2.0,
+			sourceChans: 6,
+			wantFilter:  true,
+			wantPan:     false,
+			wantVolume:  true,
+		},
+		{
+			name:        "None 5.1 boost 1.0 - no filter",
+			algorithm:   "none",
+			boost:       1.0,
+			sourceChans: 6,
+			wantFilter:  false,
+		},
+		{
+			name:        "empty algorithm 5.1 to stereo - volume only",
+			algorithm:   "",
+			boost:       2.0,
+			sourceChans: 6,
+			wantFilter:  true,
+			wantPan:     false,
+			wantVolume:  true,
+		},
+		{
+			name:        "AC4 stereo source - no filter needed",
+			algorithm:   "ac4",
+			boost:       2.0,
+			sourceChans: 2,
+			wantFilter:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := Options{
+				Profile: &Profile{
+					AudioBitrate:    192000,
+					AudioChannels:   2,
+					AudioSampleRate: 48000,
+				},
+				VideoInfo: &VideoInfo{
+					AudioChannels: tt.sourceChans,
+				},
+				DownmixAlgorithm: tt.algorithm,
+				DownmixBoost:     tt.boost,
+			}
+
+			args := NewBuilder(opts).AddAudioEncoding().Build()
+
+			hasAF := false
+			hasPan := false
+			hasVolume := false
+			for i, arg := range args {
+				if arg == "-af" {
+					hasAF = true
+					if i+1 < len(args) {
+						filter := args[i+1]
+						if strings.Contains(filter, "pan=") {
+							hasPan = true
+						}
+						if strings.Contains(filter, "volume=") {
+							hasVolume = true
+						}
+					}
+				}
+			}
+
+			if hasAF != tt.wantFilter {
+				t.Errorf("-af present = %v, want %v, args: %v", hasAF, tt.wantFilter, args)
+			}
+			if hasPan != tt.wantPan {
+				t.Errorf("pan filter present = %v, want %v", hasPan, tt.wantPan)
+			}
+			if hasVolume != tt.wantVolume {
+				t.Errorf("volume filter present = %v, want %v", hasVolume, tt.wantVolume)
+			}
+		})
+	}
+}
+
 func TestAddAudioDownmix(t *testing.T) {
 	opts := Options{
 		Profile: &Profile{
@@ -313,6 +423,93 @@ func TestAddAudioDownmix(t *testing.T) {
 
 	if !foundStereo {
 		t.Error("AddAudioDownmix should force -ac 2")
+	}
+}
+
+func TestAddAudioDownmixFilter(t *testing.T) {
+	tests := []struct {
+		name        string
+		algorithm   string
+		boost       float64
+		sourceChans int
+		wantFilter  bool
+		wantPan     bool
+	}{
+		{
+			name:        "AC4 5.1 - pan and volume",
+			algorithm:   "ac4",
+			boost:       2.0,
+			sourceChans: 6,
+			wantFilter:  true,
+			wantPan:     true,
+		},
+		{
+			name:        "Dave750 7.1 - cascaded pan",
+			algorithm:   "dave750",
+			boost:       4.25,
+			sourceChans: 8,
+			wantFilter:  true,
+			wantPan:     true,
+		},
+		{
+			name:        "None 5.1 boost 1.0 - no filter",
+			algorithm:   "none",
+			boost:       1.0,
+			sourceChans: 6,
+			wantFilter:  false,
+		},
+		{
+			name:        "no VideoInfo - no filter",
+			algorithm:   "ac4",
+			boost:       2.0,
+			sourceChans: 0,
+			wantFilter:  false,
+		},
+		{
+			name:        "stereo source - no filter",
+			algorithm:   "ac4",
+			boost:       2.0,
+			sourceChans: 2,
+			wantFilter:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := Options{
+				Profile: &Profile{
+					AudioBitrate:    192000,
+					AudioSampleRate: 48000,
+				},
+				DownmixAlgorithm: tt.algorithm,
+				DownmixBoost:     tt.boost,
+			}
+			if tt.sourceChans > 0 {
+				opts.VideoInfo = &VideoInfo{
+					AudioChannels: tt.sourceChans,
+				}
+			}
+
+			args := NewBuilder(opts).AddAudioDownmix().Build()
+
+			hasAF := false
+			hasPan := false
+			for i, arg := range args {
+				if arg == "-af" {
+					hasAF = true
+					if i+1 < len(args) && strings.Contains(args[i+1], "pan=") {
+						hasPan = true
+					}
+				}
+			}
+
+			if hasAF != tt.wantFilter {
+				t.Errorf("-af present = %v, want %v, args: %v", hasAF, tt.wantFilter, args)
+			}
+			if hasPan != tt.wantPan {
+				t.Errorf("pan filter present = %v, want %v", hasPan, tt.wantPan)
+			}
+		})
 	}
 }
 

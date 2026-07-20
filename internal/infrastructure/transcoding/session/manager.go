@@ -62,6 +62,8 @@ type ManagerConfig struct {
 	ToneMappingBackend         string
 	LibPlaceboPeakDetect       bool
 	LibPlaceboContrastRecovery float64
+	DownmixAlgorithm           string
+	DownmixBoost               float64
 }
 
 // NewManager creates a new session manager.
@@ -81,6 +83,8 @@ func NewManager(config *ManagerConfig, logger *slog.Logger) *Manager {
 		ToneMappingBackend:         config.ToneMappingBackend,
 		LibPlaceboPeakDetect:       config.LibPlaceboPeakDetect,
 		LibPlaceboContrastRecovery: config.LibPlaceboContrastRecovery,
+		DownmixAlgorithm:           config.DownmixAlgorithm,
+		DownmixBoost:               config.DownmixBoost,
 	}
 
 	// Convert to hls config for fallback manager

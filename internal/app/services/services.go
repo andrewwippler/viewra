@@ -395,6 +395,8 @@ func initTranscodeServices(
 		ToneMappingBackend:         transcodeConfig.ToneMappingBackend,
 		LibPlaceboPeakDetect:       transcodeConfig.LibPlaceboPeakDetect,
 		LibPlaceboContrastRecovery: transcodeConfig.LibPlaceboContrastRecovery,
+		DownmixAlgorithm:           transcodeConfig.DownmixAlgorithm,
+		DownmixBoost:               transcodeConfig.DownmixBoost,
 	}, logger)
 
 	// Initialize FFmpeg log store

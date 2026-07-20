@@ -190,6 +190,8 @@ func (e *JobExecutor) prepareOptions(
 		ToneMappingBackend:         e.executor.Cfg.ToneMappingBackend,
 		LibPlaceboPeakDetect:       e.executor.Cfg.LibPlaceboPeakDetect,
 		LibPlaceboContrastRecovery: e.executor.Cfg.LibPlaceboContrastRecovery,
+		DownmixAlgorithm:           e.executor.Cfg.DownmixAlgorithm,
+		DownmixBoost:               e.executor.Cfg.DownmixBoost,
 		VideoInfo:                  videoInfo,
 	}
 

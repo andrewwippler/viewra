@@ -133,6 +133,18 @@ func (b *Builder) AddAudioEncoding() *Builder {
 		"-ar", strconv.Itoa(p.AudioSampleRate),
 	)
 
+	// Apply downmix filter chain when reducing multi-channel to stereo
+	if targetChannels <= 2 && b.opts.VideoInfo != nil && b.opts.VideoInfo.AudioChannels > 2 {
+		filterChain := buildDownmixFilterChain(
+			DownMixAlgorithm(b.opts.DownmixAlgorithm),
+			b.opts.VideoInfo.AudioChannels,
+			b.opts.DownmixBoost,
+		)
+		if filterChain != "" {
+			b.args = append(b.args, "-af", filterChain)
+		}
+	}
+
 	return b
 }
 
@@ -146,6 +158,18 @@ func (b *Builder) AddAudioDownmix() *Builder {
 		"-ac", "2",
 		"-ar", strconv.Itoa(p.AudioSampleRate),
 	)
+
+	// Apply downmix filter chain for multi-channel sources
+	if b.opts.VideoInfo != nil && b.opts.VideoInfo.AudioChannels > 2 {
+		filterChain := buildDownmixFilterChain(
+			DownMixAlgorithm(b.opts.DownmixAlgorithm),
+			b.opts.VideoInfo.AudioChannels,
+			b.opts.DownmixBoost,
+		)
+		if filterChain != "" {
+			b.args = append(b.args, "-af", filterChain)
+		}
+	}
 
 	return b
 }

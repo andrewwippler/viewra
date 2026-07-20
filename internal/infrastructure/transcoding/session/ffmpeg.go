@@ -53,6 +53,8 @@ func (s *TranscodeSession) buildFFmpegArgs(params StartParams) []string {
 		ToneMappingBackend:         params.Config.ToneMappingBackend,
 		LibPlaceboPeakDetect:       params.Config.LibPlaceboPeakDetect,
 		LibPlaceboContrastRecovery: params.Config.LibPlaceboContrastRecovery,
+		DownmixAlgorithm:           params.Config.DownmixAlgorithm,
+		DownmixBoost:               params.Config.DownmixBoost,
 		VideoCodec:                 targetCodec,
 	}
 	builder := hls.NewBuilder(ffmpegOpts)

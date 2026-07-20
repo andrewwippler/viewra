@@ -224,6 +224,39 @@ var SystemSettingDefinitions = []Definition{
 		AdminOnly:   true,
 		Restartable: false,
 	},
+	{
+		Key:         "transcoding.downmix_algorithm",
+		Type:        TypeString,
+		Category:    CategoryTranscoding,
+		Label:       "Stereo Downmix Algorithm",
+		Description: "Algorithm used to downmix surround sound to stereo",
+		Default:     "ac4",
+		Options: []Option{
+			{Value: "none", Label: "None (FFmpeg default)"},
+			{Value: "dave750", Label: "Dave750 (Enhanced volume)"},
+			{Value: "ac4", Label: "AC-4 (Industry standard)"},
+		},
+		AdminOnly:   true,
+		Restartable: false,
+	},
+	{
+		Key:         "transcoding.downmix_boost",
+		Type:        TypeString,
+		Category:    CategoryTranscoding,
+		Label:       "Downmix Audio Boost",
+		Description: "Volume multiplier when downmixing to stereo (higher = louder)",
+		Default:     "2.0",
+		EnvVar:      "DOWNMIX_BOOST",
+		Options: []Option{
+			{Value: "1.0", Label: "1.0 (No boost)"},
+			{Value: "1.5", Label: "1.5 (Mild)"},
+			{Value: "2.0", Label: "2.0 (Default)"},
+			{Value: "2.5", Label: "2.5 (Loud)"},
+			{Value: "3.0", Label: "3.0 (Maximum)"},
+		},
+		AdminOnly:   true,
+		Restartable: false,
+	},
 	// ============================================================
 	// SCANNING
 	// ============================================================

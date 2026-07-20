@@ -44,6 +44,8 @@ func convertToFFmpegTranscodeOptions(opts TranscodeOptions) hls.Options {
 		ToneMappingBackend:         opts.ToneMappingBackend,
 		LibPlaceboPeakDetect:       opts.LibPlaceboPeakDetect,
 		LibPlaceboContrastRecovery: opts.LibPlaceboContrastRecovery,
+		DownmixAlgorithm:           opts.DownmixAlgorithm,
+		DownmixBoost:               opts.DownmixBoost,
 		VideoCodec:                 hls.VideoCodec(opts.VideoCodec),
 	}
 }
@@ -135,6 +137,8 @@ type TranscodeOptions struct {
 	LibPlaceboPeakDetect       bool           // Enable dynamic peak detection for libplacebo (default: true)
 	LibPlaceboContrastRecovery float64        // Contrast recovery for libplacebo (0.0-3.0, default: 0.3)
 	VideoCodec                 hls.VideoCodec // Target codec: h264, h265, vp9, av1 (default: h264)
+	DownmixAlgorithm           string         // Downmix algorithm: "none", "dave750", "ac4"
+	DownmixBoost               float64        // Volume multiplier for downmix (0.5-3.0)
 }
 
 // TranscodeToHLS executes FFmpeg to transcode a video file to HLS format.

@@ -54,6 +54,8 @@ type Options struct {
 	LibPlaceboPeakDetect       bool       // Enable dynamic peak detection for libplacebo (default: true)
 	LibPlaceboContrastRecovery float64    // Contrast recovery for libplacebo (0.0-3.0, default: 0.3)
 	VideoCodec                 VideoCodec // Target codec: h264, h265, vp9, av1 (default: h264)
+	DownmixAlgorithm           string     // Downmix algorithm: "none", "dave750", "ac4"
+	DownmixBoost               float64    // Volume multiplier for downmix (0.5-3.0, default 2.0)
 }
 
 // Profile defines granular bitrate-based quality profiles for adaptive streaming.

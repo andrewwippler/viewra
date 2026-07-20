@@ -2,6 +2,7 @@ package transcode
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/mantonx/viewra/internal/application/settings"
 	"github.com/mantonx/viewra/internal/infrastructure/transcoding/config"
@@ -36,6 +37,8 @@ func NewSettingsConfigProvider(
 // Settings that can be changed at runtime:
 // - transcoding.tone_mapping_enabled
 // - transcoding.tone_mapping_algorithm
+// - transcoding.downmix_algorithm
+// - transcoding.downmix_boost
 //
 // Settings that require restart (use base config):
 // - Hardware acceleration (determined at startup)
@@ -50,6 +53,8 @@ func (p *SettingsConfigProvider) GetConfig(ctx context.Context) *session.Config 
 		ToneMappingBackend:         p.baseConfig.ToneMappingBackend,
 		LibPlaceboPeakDetect:       p.baseConfig.LibPlaceboPeakDetect,
 		LibPlaceboContrastRecovery: p.baseConfig.LibPlaceboContrastRecovery,
+		DownmixAlgorithm:           p.baseConfig.DownmixAlgorithm,
+		DownmixBoost:               p.baseConfig.DownmixBoost,
 	}
 
 	// If no settings service, return base config
@@ -71,6 +76,27 @@ func (p *SettingsConfigProvider) GetConfig(ctx context.Context) *session.Config 
 	if effectiveValue, err := p.settingsService.GetEffectiveSystemValue(ctx, "transcoding.tone_mapping_algorithm"); err == nil {
 		if algorithm, ok := effectiveValue.Value.(string); ok && algorithm != "" {
 			cfg.ToneMappingAlgorithm = algorithm
+		}
+	}
+
+	// Downmix algorithm
+	if effectiveValue, err := p.settingsService.GetEffectiveSystemValue(ctx, "transcoding.downmix_algorithm"); err == nil {
+		if algorithm, ok := effectiveValue.Value.(string); ok && algorithm != "" {
+			cfg.DownmixAlgorithm = algorithm
+		}
+	}
+
+	// Downmix boost
+	if effectiveValue, err := p.settingsService.GetEffectiveSystemValue(ctx, "transcoding.downmix_boost"); err == nil {
+		switch v := effectiveValue.Value.(type) {
+		case float64:
+			if v >= 0.5 && v <= 3.0 {
+				cfg.DownmixBoost = v
+			}
+		case string:
+			if val, err := strconv.ParseFloat(v, 64); err == nil && val >= 0.5 && val <= 3.0 {
+				cfg.DownmixBoost = val
+			}
 		}
 	}
 

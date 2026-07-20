@@ -163,6 +163,8 @@ type Config struct {
 	ToneMappingBackend         string
 	LibPlaceboPeakDetect       bool
 	LibPlaceboContrastRecovery float64
+	DownmixAlgorithm           string
+	DownmixBoost               float64
 }
 
 // Start begins the FFmpeg transcoding process.

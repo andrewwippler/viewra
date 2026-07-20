@@ -91,6 +91,16 @@ type TranscodeConfig struct {
 	// Environment variable: LIBPLACEBO_CONTRAST_RECOVERY (default: 0.3)
 	LibPlaceboContrastRecovery float64
 
+	// DownmixAlgorithm specifies which stereo downmix algorithm to use
+	// Options: none (FFmpeg default), dave750, ac4 (ETSI TS 103 190)
+	// Environment variable: DOWNMIX_ALGORITHM (default: ac4)
+	DownmixAlgorithm string
+
+	// DownmixBoost is the volume multiplier applied during stereo downmix
+	// Range: 0.5-3.0 (1.0 = no boost, 2.0 = default for FFmpeg's built-in downmix)
+	// Environment variable: DOWNMIX_BOOST (default: 2.0)
+	DownmixBoost float64
+
 	// FFmpegLogEnabled enables persistent FFmpeg log capture for debugging
 	// When true, FFmpeg stderr output is saved to files for later inspection
 	// Environment variable: FFMPEG_LOG_ENABLED (default: true)
@@ -190,6 +200,20 @@ func DefaultFromProfile(hwAccelType string, encoderChecker EncoderChecker) *Tran
 		}
 	}
 
+	// Get downmix algorithm from environment (default: ac4)
+	downmixAlgorithm := os.Getenv("DOWNMIX_ALGORITHM")
+	if downmixAlgorithm == "" {
+		downmixAlgorithm = "ac4"
+	}
+
+	// Get downmix boost from environment (default: 2.0)
+	downmixBoost := 2.0
+	if envBoost := os.Getenv("DOWNMIX_BOOST"); envBoost != "" {
+		if val, err := strconv.ParseFloat(envBoost, 64); err == nil && val >= 0.5 && val <= 3.0 {
+			downmixBoost = val
+		}
+	}
+
 	return &TranscodeConfig{
 		FFmpegPaths:                ffmpegPaths,
 		HardwareAccel:              hwaccel,
@@ -206,6 +230,8 @@ func DefaultFromProfile(hwAccelType string, encoderChecker EncoderChecker) *Tran
 		LibPlaceboContrastRecovery: libPlaceboContrastRecovery, // Default: 0.3
 		FFmpegLogEnabled:           ffmpegLogEnabled,        // Default: true
 		FFmpegLogRetentionHours:    ffmpegLogRetentionHours, // Default: 48 hours
+		DownmixAlgorithm:           downmixAlgorithm,        // Default: ac4 (AC-4 standard)
+		DownmixBoost:               downmixBoost,            // Default: 2.0
 	}
 }
 
