@@ -164,10 +164,15 @@ const Movies = () => {
     isFetchingNextPage,
   } = useInfiniteMovies({ sort: apiSort, search: debouncedSearch, pageSize: 100 })
 
-  // Choose data source: search results when querying, infinite scroll otherwise
+  // Choose data source: search results when querying, infinite scroll otherwise.
+  // When search returns empty items, fall back to infinite query data which uses
+  // SQL LIKE search — handles cases where semantic search fails but text search works.
   const allMovies = useMemo(() => {
     if (debouncedSearch && searchResult) {
-      return searchResult.items
+      if (searchResult.items.length > 0) {
+        return searchResult.items
+      }
+      return data ? flattenMovies(data.pages) : []
     }
     return data ? flattenMovies(data.pages) : []
   }, [debouncedSearch, searchResult, data])
