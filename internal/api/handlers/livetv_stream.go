@@ -93,7 +93,6 @@ func (h *LiveTvStreamHandler) GetPlaylist(c *gin.Context) {
 
 	// Serve the playlist
 	c.Header("Content-Type", "application/vnd.apple.mpegurl")
-	c.Header("Access-Control-Allow-Origin", "*")
 	c.File(playlistPath)
 }
 
@@ -126,9 +125,7 @@ func (h *LiveTvStreamHandler) GetSegment(c *gin.Context) {
 
 	segmentPath := outputPath + "/" + filename
 
-	// Set appropriate content type for TS segments
-	c.Header("Access-Control-Allow-Origin", "*")
-	c.Header("Access-Control-Expose-Headers", "Content-Length,Content-Range")
+	// Serve the segment file
 	c.File(segmentPath)
 }
 

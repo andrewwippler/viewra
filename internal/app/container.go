@@ -265,7 +265,6 @@ func seedDevUser(
 
 	logger.Info("Development user created",
 		"username", "dev",
-		"password", "devdev00",
 		"note", "Only in development mode when no users exist")
 }
 

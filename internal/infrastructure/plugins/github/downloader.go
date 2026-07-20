@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mantonx/viewra/internal/infrastructure/plugins/manifest"
 )
@@ -38,7 +39,7 @@ type ProgressCallback func(percent int)
 func NewDownloader(pluginDir, tempDir string, logger *slog.Logger) *Downloader {
 	return &Downloader{
 		httpClient: &http.Client{
-			Timeout: 0, // No timeout for large downloads; use context
+			Timeout: 30 * time.Minute, // Safety net for large downloads; context provides finer control
 		},
 		pluginDir: pluginDir,
 		tempDir:   tempDir,

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
@@ -56,7 +57,7 @@ func (p *AnthropicProvider) ConfigureClient(apiKey string) error {
 		return nil
 	}
 
-	client := anthropic.NewClient(option.WithAPIKey(apiKey))
+	client := anthropic.NewClient(option.WithAPIKey(apiKey), option.WithHTTPClient(&http.Client{Timeout: 120 * time.Second}))
 	p.client = &client
 	p.apiKey = apiKey
 	p.logger.Debug("configured Anthropic provider")

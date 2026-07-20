@@ -3,16 +3,23 @@ package routes
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/mantonx/viewra/internal/api/handlers"
+	"github.com/mantonx/viewra/internal/api/middleware"
 )
 
 func RegisterLiveTvStreamRoutes(rg *gin.RouterGroup, handler *handlers.LiveTvStreamHandler) {
-	stream := rg.Group("/livetv/:libraryId/channels/:channelId")
-	stream.GET("/hls/playlist.m3u8", handler.GetPlaylist)
-	stream.GET("/hls/live/playlist.m3u8", handler.GetPlaylist)
-	stream.GET("/hls/live/:filename", handler.GetSegment)
-	stream.GET("/hls/:filename", handler.GetSegment)
-	stream.GET("/status", handler.StreamStatus)
-	stream.POST("/pause", handler.Pause)
-	stream.POST("/resume", handler.Resume)
-	stream.POST("/stop", handler.Stop)
+	// HLS streaming routes need broader CORS for cross-origin segment loading
+	stream := rg.Group("/livetv/:libraryId/channels/:channelId/hls")
+	stream.Use(middleware.StreamingCORS())
+
+	stream.GET("/playlist.m3u8", handler.GetPlaylist)
+	stream.GET("/live/playlist.m3u8", handler.GetPlaylist)
+	stream.GET("/live/:filename", handler.GetSegment)
+	stream.GET("/:filename", handler.GetSegment)
+
+	// Non-streaming routes use standard CORS
+	status := rg.Group("/livetv/:libraryId/channels/:channelId")
+	status.GET("/status", handler.StreamStatus)
+	status.POST("/pause", handler.Pause)
+	status.POST("/resume", handler.Resume)
+	status.POST("/stop", handler.Stop)
 }

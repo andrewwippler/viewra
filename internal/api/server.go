@@ -19,10 +19,11 @@ import (
 
 // Server represents the HTTP server
 type Server struct {
-	router   *gin.Engine
-	logger   *slog.Logger
-	handlers *Handlers
-	server   *http.Server
+	router           *gin.Engine
+	logger           *slog.Logger
+	handlers         *Handlers
+	server           *http.Server
+	globalRateLimiter *middleware.RateLimiter
 }
 
 // ServerConfig holds server configuration
@@ -34,6 +35,7 @@ type ServerConfig struct {
 	Browser              BrowserConfig
 	CORSAllowedOrigins   []string
 	CORSAllowCredentials bool
+	GlobalRateLimit      int // Max requests per minute per IP (0 = disabled)
 }
 
 // BrowserConfig holds filesystem browser configuration
@@ -145,6 +147,9 @@ func NewServer(config ServerConfig, logger *slog.Logger, h *Handlers) *Server {
 	// Add request ID middleware (must be before logger to include ID in logs)
 	router.Use(middleware.RequestID(logger))
 
+	// Add security headers middleware
+	router.Use(middleware.SecurityHeaders(middleware.DefaultSecurityHeadersConfig()))
+
 	// Add CORS middleware with configuration
 	router.Use(middleware.CORS(middleware.CORSConfig{
 		AllowedOrigins:   config.CORSAllowedOrigins,
@@ -154,10 +159,23 @@ func NewServer(config ServerConfig, logger *slog.Logger, h *Handlers) *Server {
 	// Add our custom logging middleware
 	router.Use(middleware.Logger(logger))
 
+	// Add global body size limit middleware (10 MB default)
+	router.Use(middleware.BodyLimit(middleware.DefaultBodyLimit()))
+
+	// Create global rate limiter for protected routes (if configured)
+	var globalRateLimiter *middleware.RateLimiter
+	if config.GlobalRateLimit > 0 {
+		globalRateLimiter = middleware.NewRateLimiter(config.GlobalRateLimit, time.Minute)
+		logger.Info("Global API rate limiting enabled",
+			"rate", config.GlobalRateLimit,
+			"window", "1m")
+	}
+
 	server := &Server{
-		router:   router,
-		logger:   logger,
-		handlers: h,
+		router:           router,
+		logger:           logger,
+		handlers:         h,
+		globalRateLimiter: globalRateLimiter,
 	}
 
 	// Setup routes
@@ -203,6 +221,11 @@ func (s *Server) setupRoutes() {
 	} else {
 		// If auth is not configured, routes are public
 		protected = api
+	}
+
+	// Apply global rate limiting to protected routes
+	if s.globalRateLimiter != nil {
+		protected.Use(middleware.RateLimitByIP(s.globalRateLimiter))
 	}
 
 	// Register protected route groups

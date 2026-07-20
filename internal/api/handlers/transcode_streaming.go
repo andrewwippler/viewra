@@ -93,8 +93,6 @@ func (h *TranscodeHandler) ServePlaylist(c *gin.Context) {
 	case transcode.StrategyServe:
 		// Manifest generated - serve it with audio track parameter injected into segment URLs
 		c.Header("Content-Type", "application/vnd.apple.mpegurl")
-		c.Header("Access-Control-Allow-Origin", "*") // CORS for HLS
-		c.Header("Access-Control-Expose-Headers", "X-Session-ID")
 
 		// Include transcode session ID for frontend analytics correlation
 		if response.SessionID != "" {
@@ -184,7 +182,6 @@ func (h *TranscodeHandler) ServeHLSSegment(c *gin.Context) {
 		session.UpdateLastAccessed()
 		h.queue.RecordAccess(mediaID, quality)
 		c.Header("Content-Type", "video/mp4")
-		c.Header("Access-Control-Allow-Origin", "*")
 		c.File(initPath)
 		return
 	}
@@ -214,7 +211,6 @@ func (h *TranscodeHandler) ServeHLSSegment(c *gin.Context) {
 		contentType = "video/mp2t"
 	}
 	c.Header("Content-Type", contentType)
-	c.Header("Access-Control-Allow-Origin", "*")
 	c.File(segmentPath)
 }
 
@@ -328,8 +324,6 @@ func (h *TranscodeHandler) ServeMasterPlaylist(c *gin.Context) {
 	case transcode.StrategyServePlaylist:
 		// Serve the generated master playlist
 		c.Header("Content-Type", "application/vnd.apple.mpegurl")
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Expose-Headers", "X-Available-Qualities")
 		c.Header("Cache-Control", "no-cache")
 
 		// Include available qualities as JSON header for frontend quality picker
@@ -409,7 +403,6 @@ func (h *TranscodeHandler) ServeSubtitle(c *gin.Context) {
 
 	// Serve the WebVTT content
 	c.Header("Content-Type", "text/vtt; charset=utf-8")
-	c.Header("Access-Control-Allow-Origin", "*")
 	c.Header("Cache-Control", "public, max-age=86400") // Cache for 24 hours
 	c.String(http.StatusOK, vttContent)
 }

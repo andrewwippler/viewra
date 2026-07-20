@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
@@ -66,6 +67,7 @@ func (p *OpenAIProvider) ConfigureClient(apiKey, baseURL string) error {
 
 	opts := []option.RequestOption{
 		option.WithAPIKey(apiKey),
+		option.WithHTTPClient(&http.Client{Timeout: 120 * time.Second}),
 	}
 
 	if baseURL != "" {

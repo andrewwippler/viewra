@@ -113,14 +113,35 @@ Complete reference for ViewRA configuration via environment variables.
 | `PLUGINS_ENABLED` | `true` | Enable external plugin loading |
 | `PLUGINS_DIR` | `{DATA_DIR}/plugins` | Directory containing plugin binaries |
 | `PLUGINS_STORAGE_DIR` | `{DATA_DIR}/plugins/storage` | Plugin data storage directory |
-| `VIEWRA_DEV_MODE` | `0` | Enable development mode features (pprof, etc.) |
 
 ## CORS
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CORS_ALLOWED_ORIGINS` | `*` | Comma-separated allowed origins |
-| `CORS_ALLOW_CREDENTIALS` | `false` | Allow credentials in CORS requests |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:8080` | Comma-separated allowed origins |
+| `CORS_ALLOW_CREDENTIALS` | `true` | Allow credentials in CORS requests |
+
+## Security
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GLOBAL_RATE_LIMIT` | `100` | Max API requests per minute per IP (0 = disabled) |
+| `VIEWRA_DEV_MODE` | (none) | Set to `1` to enable dev mode (pprof server, auth bypass) |
+
+### Security Features
+
+- **Rate limiting**: Global 100 req/min per IP on protected routes; auth endpoints have stricter limits (5 login/min, 30 refresh/min)
+- **Security headers**: HSTS, CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
+- **Body size limits**: 10 MB default on all request bodies
+- **Streaming CORS**: HLS streaming endpoints reflect the requesting origin instead of using wildcard `*`
+
+### Production Recommendations
+
+1. **Set `JWT_SECRET`** to a secure random string (required in production)
+2. **Deploy behind a reverse proxy** (nginx, Caddy) for TLS termination
+3. **Set `ENVIRONMENT=production`** to disable debug logging
+4. **Do not set `VIEWRA_DEV_MODE=1`** in production (exposes pprof, bypasses auth)
+5. **Restrict `CORS_ALLOWED_ORIGINS`** to your actual domain(s)
 
 ---
 

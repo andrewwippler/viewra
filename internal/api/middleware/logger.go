@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"log/slog"
+	"net/url"
 	"strings"
 	"time"
 
@@ -13,7 +14,7 @@ func Logger(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
-		query := c.Request.URL.RawQuery
+		query := sanitizeQueryForLogging(c.Request.URL.RawQuery)
 
 		// Process request
 		c.Next()
@@ -62,4 +63,27 @@ func Logger(logger *slog.Logger) gin.HandlerFunc {
 		// Successful requests (2xx, 3xx) are not logged
 		}
 	}
+}
+
+// sensitiveQueryParams are query parameters that may contain authentication tokens.
+var sensitiveQueryParams = []string{"api_key", "ApiKey", "token", "access_token"}
+
+// sanitizeQueryForLogging strips sensitive parameters from query strings before logging.
+func sanitizeQueryForLogging(rawQuery string) string {
+	if rawQuery == "" {
+		return ""
+	}
+
+	params, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return ""
+	}
+
+	for _, key := range sensitiveQueryParams {
+		if _, exists := params[key]; exists {
+			params.Set(key, "[REDACTED]")
+		}
+	}
+
+	return params.Encode()
 }

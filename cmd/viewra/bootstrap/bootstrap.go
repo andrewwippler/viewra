@@ -188,18 +188,20 @@ func (a *Application) Run() error {
 	// Ensure database is closed on exit
 	defer a.Database.Close(a.Logger)
 
-	// Start pprof server on a separate port for debugging
-	go func() {
-		// Add endpoint to force memory release to OS
-		http.HandleFunc("/debug/freeOSMemory", func(w http.ResponseWriter, r *http.Request) {
-			debug.FreeOSMemory()
-			w.Write([]byte("Memory released to OS\n"))
-		})
-		a.Logger.Info("pprof server starting", "url", "http://localhost:6060/debug/pprof/")
-		if err := http.ListenAndServe(":6060", nil); err != nil {
-			a.Logger.Error("pprof server error", "error", err)
-		}
-	}()
+	// Start pprof server only in dev mode (security: exposes profiling data without auth)
+	if os.Getenv("VIEWRA_DEV_MODE") == "1" {
+		go func() {
+			// Add endpoint to force memory release to OS
+			http.HandleFunc("/debug/freeOSMemory", func(w http.ResponseWriter, r *http.Request) {
+				debug.FreeOSMemory()
+				w.Write([]byte("Memory released to OS\n"))
+			})
+			a.Logger.Info("pprof server starting (dev mode only)", "url", "http://localhost:6060/debug/pprof/")
+			if err := http.ListenAndServe(":6060", nil); err != nil {
+				a.Logger.Error("pprof server error", "error", err)
+			}
+		}()
+	}
 
 	// Start transcode queue if available
 	if a.Container.TranscodeQueue != nil {

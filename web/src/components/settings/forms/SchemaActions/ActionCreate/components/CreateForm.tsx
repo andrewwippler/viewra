@@ -65,7 +65,7 @@ export const CreateForm = ({
 
   // Subscribe to form changes and sync back to parent
   useEffect(() => {
-    const unsubscribe = form.store.subscribe(() => {
+    const subscription = form.store.subscribe(() => {
       const values = form.state.values
       for (const [key, value] of Object.entries(values)) {
         if (formData[key] !== value) {
@@ -73,7 +73,9 @@ export const CreateForm = ({
         }
       }
     })
-    return unsubscribe
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [form, formData, onChange])
 
   if (!schema?.properties) {

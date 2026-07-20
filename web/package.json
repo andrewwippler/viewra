@@ -11,7 +11,9 @@
     "build:tv": "tsc -b && VITE_UI_MODE=tv vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "generate:api": "orval"
+    "generate:api": "orval",
+    "audit": "npm audit",
+    "audit:fix": "npm audit fix"
   },
   "dependencies": {
     "@rjsf/core": "^6.1.2",

@@ -78,6 +78,7 @@ type ServerConfig struct {
 	DefaultBasePath      string
 	CORSAllowedOrigins   []string
 	CORSAllowCredentials bool
+	GlobalRateLimit      int // Max requests per minute per IP (0 = disabled)
 }
 
 // MediaConfig holds media transcoding configuration including worker pool settings.
@@ -455,6 +456,9 @@ func loadServerConfig(logger *slog.Logger) ServerConfig {
 	corsOrigins := getEnvStringSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:5173", "http://localhost:8080"})
 	corsCredentials := getEnvBool("CORS_ALLOW_CREDENTIALS", true)
 
+	// Rate limiting configuration
+	globalRateLimit := getEnvIntWithLog(logger, "GLOBAL_RATE_LIMIT", 100) // 100 req/min default
+
 	// Allow overriding allowed base paths via environment
 	allowedPaths := getEnvStringSlice("ALLOWED_BASE_PATHS", apiConfig.Browser.AllowedBasePaths)
 
@@ -464,6 +468,7 @@ func loadServerConfig(logger *slog.Logger) ServerConfig {
 		DefaultBasePath:      apiConfig.Browser.DefaultBasePath,
 		CORSAllowedOrigins:   corsOrigins,
 		CORSAllowCredentials: corsCredentials,
+		GlobalRateLimit:      globalRateLimit,
 	}
 }
 
@@ -561,6 +566,7 @@ func (c *ServerConfig) ToAPIServerConfig() api.ServerConfig {
 		},
 		CORSAllowedOrigins:   c.CORSAllowedOrigins,
 		CORSAllowCredentials: c.CORSAllowCredentials,
+		GlobalRateLimit:      c.GlobalRateLimit,
 	}
 }
 

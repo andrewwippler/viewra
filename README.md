@@ -35,6 +35,13 @@ ViewRA brings a polished "Cinema at Home" experience to your movies, TV shows, a
 - "Cinema at Home" design aesthetic
 - Stats for Nerds panel
 
+**Security**
+- Security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options)
+- Rate limiting (auth endpoints + global API rate limit)
+- Request body size limits (10 MB default)
+- Path traversal prevention
+- CORS policy with streaming-specific handling
+
 ## Quick Start
 
 ### Prerequisites

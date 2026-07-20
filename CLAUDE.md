@@ -186,6 +186,39 @@ See [docs/core/ARCHITECTURE.md](docs/core/ARCHITECTURE.md) for detailed system a
 9. **STOP and THINK** before implementing - fix root causes, not symptoms
 10. Use `~/go/bin/air` for auto-reload instead of manual rebuilds
 
+## Security
+
+ViewRA includes several security hardening measures:
+
+### Transport & Headers
+- **Security headers middleware** (`internal/api/middleware/security_headers.go`): HSTS, CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
+- **TLS**: Not built-in — deploy behind a reverse proxy (nginx, Caddy) for HTTPS
+- **CORS**: Configurable via `CORS_ALLOWED_ORIGINS` env var; streaming endpoints use `StreamingCORS` middleware that reflects the requesting origin
+
+### Rate Limiting
+- **Auth endpoints**: 5 login/min, 30 refresh/min, 3 setup/min per IP
+- **Global API rate limiting**: 100 req/min per IP on protected routes (configurable via `GLOBAL_RATE_LIMIT`)
+- **Plugin rate limiting**: External API clients (TMDb, MusicBrainz) have built-in rate limits
+
+### Request Protection
+- **Body size limits**: 10 MB default via `MaxBytesReader` middleware
+- **Path traversal prevention**: Comprehensive validation in transcoding and path browser
+- **Input validation**: Zod schemas (frontend), Gin binding tags (backend), domain-level validation
+- **HTTP timeouts**: All outbound HTTP clients enforce explicit timeouts (30-120s); no `http.DefaultClient` usage
+
+### Authentication
+- **Password hashing**: Argon2id with OWASP-recommended parameters
+- **JWT tokens**: HS256, 15-minute access tokens, cryptographically random refresh tokens
+- **Dev mode**: Gated behind `VIEWRA_DEV_MODE=1` env var; pprof server only starts in dev mode
+
+### Logging & Secrets
+- **Query string sanitization**: Auth tokens (`api_key`, `token`) are redacted from error logs
+- **Dev credentials**: Not included in production log messages or frontend builds
+
+### Dependency Security
+- **npm audit**: Run `npm run audit` in `web/` to check for vulnerable packages
+- **Go modules**: Use `govulncheck ./...` to scan for known vulnerabilities
+
 ## MCP Tools
 
 - Use `context7` to search documentation for Go, React, TypeScript, FFmpeg, HLS, etc.
