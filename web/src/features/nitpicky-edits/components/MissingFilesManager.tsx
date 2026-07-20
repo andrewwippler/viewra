@@ -106,16 +106,6 @@ export const MissingFilesManager = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-1">
-          Storage Cleanup
-        </h2>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          Scan your media directories to detect files that have been moved or deleted.
-          Missing items can be removed from the database.
-        </p>
-      </div>
-
       <div className="flex items-center gap-3">
         <Button
           onClick={handleScan}

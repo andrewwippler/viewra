@@ -6,7 +6,7 @@ import { ErrorBoundary } from '@/components/common'
 import { MaintenanceBanner } from '@/components/settings'
 import { useAuth } from '@/contexts'
 import { isWebOSTV } from '@/utils/device'
-import { Home, Library, Film, Tv, Music, Radio, Clock, Eye, LogOut, User, Users, KeyRound, Settings2, SlidersHorizontal, Puzzle, Trash2 } from 'lucide-react'
+import { Home, Library, Film, Tv, Music, Radio, Clock, Eye, LogOut, User, Users, KeyRound, Settings2, SlidersHorizontal, Puzzle } from 'lucide-react'
 
 // Component that listens to route changes and notifies the audio player
 const RouteChangeListener = () => {
@@ -184,14 +184,6 @@ const Layout = () => {
                   >
                     <Puzzle className="w-5 h-5" />
                     <span>Plugins</span>
-                  </Link>
-                  <Link
-                    to="/settings/nitpicky"
-                    className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors"
-                    activeProps={{ className: 'bg-neutral-100 dark:bg-white/10' }}
-                  >
-                    <Trash2 className="w-5 h-5" />
-                    <span>Storage Cleanup</span>
                   </Link>
                   <Link
                     to="/settings/system"
