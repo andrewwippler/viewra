@@ -9,6 +9,7 @@ import (
 	"github.com/mantonx/viewra/internal/application/library/scan/scanutil"
 	"github.com/mantonx/viewra/internal/domain/enrichment"
 	domainevents "github.com/mantonx/viewra/internal/domain/events"
+	domainimages "github.com/mantonx/viewra/internal/domain/images"
 	"github.com/mantonx/viewra/internal/domain/scanner"
 	"github.com/mantonx/viewra/internal/infrastructure/filesystem"
 )
@@ -21,6 +22,9 @@ type EnrichmentEnqueuer interface {
 	// Use pipeline.CalculatePriorityFromMetadata() to compute priority.
 	EnqueueFirstStage(ctx context.Context, mediaID int64, libraryID int64, mediaType enrichment.MediaType, priority int) error
 }
+
+// ImageRepository provides read access to image records for checking enrichment state.
+type ImageRepository = domainimages.Repository
 
 // Deps bundles all dependencies needed by media processing functions.
 // This allows functions to be standalone (not methods) while receiving
@@ -41,6 +45,9 @@ type Deps struct {
 
 	// Enrichment - optional, if set, media is enqueued for enrichment after scanning
 	EnrichmentEnqueuer EnrichmentEnqueuer
+
+	// Image repository - optional, used to check if items already have images before enqueueing
+	ImageRepo ImageRepository
 
 	// Event publisher - optional, if set, media lifecycle events are published
 	Publisher domainevents.Publisher

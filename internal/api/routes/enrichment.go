@@ -12,6 +12,14 @@ func RegisterEnrichmentRoutes(router *gin.RouterGroup, handler *handlers.Enrichm
 		// Queue statistics
 		enrichment.GET("/stats", handler.GetStats)
 
+		// Queue listing with pagination and status filter
+		enrichment.GET("/queue", handler.ListQueue)
+
+		// Pipeline control
+		enrichment.GET("/status", handler.GetPipelineStatus)
+		enrichment.POST("/pause", handler.Pause)
+		enrichment.POST("/resume", handler.Resume)
+
 		// Stage status including circuit breaker state
 		enrichment.GET("/stages", handler.GetStages)
 		enrichment.POST("/stages/:stage/reset", handler.ResetStageCircuitBreaker)

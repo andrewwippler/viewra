@@ -178,6 +178,13 @@ func (q *Querier) CountCreditsForEntity(ctx context.Context, arg sqlc_sqlite.Cou
 	return q.sqlite.CountCreditsForEntity(ctx, arg)
 }
 
+func (q *Querier) CountEnrichmentQueue(ctx context.Context, status interface{}) (int64, error) {
+	if q.isPostgres {
+		return q.postgres.CountEnrichmentQueue(ctx, status)
+	}
+	return q.sqlite.CountEnrichmentQueue(ctx, status)
+}
+
 func (q *Querier) CountEnrichmentStatusByStage(ctx context.Context, stage string) (sqlc_sqlite.CountEnrichmentStatusByStageRow, error) {
 	if q.isPostgres {
 		r0, err := q.postgres.CountEnrichmentStatusByStage(ctx, stage)
@@ -2648,6 +2655,14 @@ func (q *Querier) ListEnabledScheduledTasks(ctx context.Context) ([]sqlc_sqlite.
 		return castSlice[sqlc_postgres.ScheduledTask, sqlc_sqlite.ScheduledTask](r0), err
 	}
 	return q.sqlite.ListEnabledScheduledTasks(ctx)
+}
+
+func (q *Querier) ListEnrichmentQueue(ctx context.Context, arg sqlc_sqlite.ListEnrichmentQueueParams) ([]sqlc_sqlite.ListEnrichmentQueueRow, error) {
+	if q.isPostgres {
+		r0, err := q.postgres.ListEnrichmentQueue(ctx, sqlc_postgres.ListEnrichmentQueueParams(arg))
+		return castSlice[sqlc_postgres.ListEnrichmentQueueRow, sqlc_sqlite.ListEnrichmentQueueRow](r0), err
+	}
+	return q.sqlite.ListEnrichmentQueue(ctx, arg)
 }
 
 func (q *Querier) ListEntityIDsByPositiveRating(ctx context.Context, arg sqlc_sqlite.ListEntityIDsByPositiveRatingParams) ([]int64, error) {

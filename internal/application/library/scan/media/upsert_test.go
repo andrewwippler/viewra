@@ -63,7 +63,7 @@ func TestUpsertCallbacks_Fields(t *testing.T) {
 		SetMediaID: func(id int64) { mediaID = id },
 		Update:     func(ctx context.Context) error { return nil },
 		Create:     func(ctx context.Context) error { return nil },
-		PostSave:   func(ctx context.Context) {},
+		PostSave:   func(ctx context.Context, isNewItem bool) {},
 	}
 
 	// Test GetMediaID returns initial value

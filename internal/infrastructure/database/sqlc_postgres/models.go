@@ -361,6 +361,15 @@ type MusicTrack struct {
 	ArtistID            sql.NullInt64  `json:"artist_id"`
 }
 
+type PendingIdentification struct {
+	ID         int64        `json:"id"`
+	LibraryID  int64        `json:"library_id"`
+	FilePath   string       `json:"file_path"`
+	Provider   string       `json:"provider"`
+	ExternalID string       `json:"external_id"`
+	CreatedAt  sql.NullTime `json:"created_at"`
+}
+
 type Person struct {
 	ID        int64          `json:"id"`
 	Name      string         `json:"name"`
@@ -468,6 +477,19 @@ type PluginUserMetadatum struct {
 	Value     []byte    `json:"value"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type ProcessingQueue struct {
+	ID           int64          `json:"id"`
+	LibraryID    int64          `json:"library_id"`
+	FilePath     string         `json:"file_path"`
+	FileHash     sql.NullString `json:"file_hash"`
+	Status       string         `json:"status"`
+	MediaID      sql.NullInt64  `json:"media_id"`
+	ErrorMessage sql.NullString `json:"error_message"`
+	Attempts     sql.NullInt64  `json:"attempts"`
+	CreatedAt    sql.NullTime   `json:"created_at"`
+	UpdatedAt    sql.NullTime   `json:"updated_at"`
 }
 
 type QualitySwitchEvent struct {

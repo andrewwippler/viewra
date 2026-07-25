@@ -26,6 +26,7 @@ type Manager struct {
 	enrichers         map[string]appenrich.Enricher
 	mu                sync.RWMutex
 	running           bool
+	paused            bool
 	ctx               context.Context
 	cancel            context.CancelFunc
 	wg                sync.WaitGroup
@@ -287,6 +288,41 @@ func (m *Manager) Stop() {
 	m.wg.Wait()
 
 	m.deps.Logger.Info("pipeline manager stopped")
+}
+
+// Pause stops all workers from claiming new jobs. In-flight jobs complete naturally.
+func (m *Manager) Pause() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if !m.running || m.paused {
+		return
+	}
+	m.paused = true
+	for _, pool := range m.workerPools {
+		pool.Pause()
+	}
+	m.deps.Logger.Info("pipeline manager paused")
+}
+
+// Resume restarts worker polling after a pause.
+func (m *Manager) Resume() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if !m.running || !m.paused {
+		return
+	}
+	m.paused = false
+	for _, pool := range m.workerPools {
+		pool.Resume()
+	}
+	m.deps.Logger.Info("pipeline manager resumed")
+}
+
+// IsPaused returns whether the pipeline is currently paused.
+func (m *Manager) IsPaused() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.paused
 }
 
 // recoverStuckJobs resets jobs that were stuck in 'processing' status from a previous crash.

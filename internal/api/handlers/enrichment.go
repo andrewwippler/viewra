@@ -877,3 +877,135 @@ func (h *EnrichmentHandler) RetryJob(c *gin.Context) {
 	h.logger.Info("Retried enrichment job", "job_id", req.JobID)
 	c.Status(http.StatusNoContent)
 }
+
+// EnrichmentQueueItem represents a single enrichment queue item for display.
+type EnrichmentQueueItem struct {
+	ID            int64  `json:"id"`
+	MediaID       int64  `json:"media_id"`
+	LibraryID     int64  `json:"library_id"`
+	MediaType     string `json:"media_type"`
+	Title         string `json:"title"`
+	Stage         string `json:"stage"`
+	Priority      int    `json:"priority"`
+	Status        string `json:"status"`
+	Attempts      int    `json:"attempts"`
+	MaxAttempts   int    `json:"max_attempts"`
+	ErrorMessage  string `json:"error_message,omitempty"`
+	ErrorCategory string `json:"error_category,omitempty"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+// ListEnrichmentQueueResponse represents the paginated queue listing.
+type ListEnrichmentQueueResponse struct {
+	Items []EnrichmentQueueItem `json:"items"`
+	Total int64                 `json:"total"`
+}
+
+// ListQueue returns enrichment queue items with optional status filter, paginated.
+//
+// @Summary List enrichment queue items
+// @Description Returns enrichment queue items with optional status filter, paginated
+// @Tags enrichment
+// @Produce json
+// @Param status query string false "Filter by status (empty = all)"
+// @Param limit query int false "Maximum results (default 50, max 200)"
+// @Param offset query int false "Results offset (default 0)"
+// @Success 200 {object} ListEnrichmentQueueResponse
+// @Failure 500 {object} handlers.APIError
+// @Router /api/enrichment/queue [get]
+func (h *EnrichmentHandler) ListQueue(c *gin.Context) {
+	status := c.DefaultQuery("status", "")
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	if offset < 0 {
+		offset = 0
+	}
+
+	items, err := h.queueRepo.ListQueue(c.Request.Context(), status, limit, offset)
+	if err != nil {
+		h.logger.Error("Failed to list enrichment queue", "error", err)
+		respondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list queue")
+		return
+	}
+
+	total, err := h.queueRepo.CountQueue(c.Request.Context(), status)
+	if err != nil {
+		h.logger.Error("Failed to count enrichment queue", "error", err)
+		respondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to count queue")
+		return
+	}
+
+	resp := ListEnrichmentQueueResponse{
+		Items: make([]EnrichmentQueueItem, len(items)),
+		Total: total,
+	}
+
+	for i, item := range items {
+		resp.Items[i] = EnrichmentQueueItem{
+			ID:            item.ID,
+			MediaID:       item.MediaID,
+			LibraryID:     item.LibraryID,
+			MediaType:     string(item.MediaType),
+			Title:         item.Title,
+			Stage:         item.Stage,
+			Priority:      item.Priority,
+			Status:        item.Status,
+			Attempts:      item.Attempts,
+			MaxAttempts:   item.MaxAttempts,
+			ErrorMessage:  item.ErrorMessage,
+			ErrorCategory: string(item.ErrorCategory),
+			CreatedAt:     item.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:     item.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		}
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// PipelineStatusResponse represents the current pipeline status.
+type PipelineStatusResponse struct {
+	IsPaused bool `json:"is_paused"`
+}
+
+// Pause pauses all enrichment worker pools. In-flight jobs complete naturally.
+//
+// @Summary Pause enrichment pipeline
+// @Description Pauses all enrichment workers. In-flight jobs complete naturally.
+// @Tags enrichment
+// @Success 200 {object} PipelineStatusResponse
+// @Router /api/enrichment/pause [post]
+func (h *EnrichmentHandler) Pause(c *gin.Context) {
+	h.manager.Pause()
+	h.logger.Info("Enrichment pipeline paused via API")
+	c.JSON(http.StatusOK, PipelineStatusResponse{IsPaused: true})
+}
+
+// Resume resumes all enrichment worker pools.
+//
+// @Summary Resume enrichment pipeline
+// @Description Resumes enrichment workers after a pause.
+// @Tags enrichment
+// @Success 200 {object} PipelineStatusResponse
+// @Router /api/enrichment/resume [post]
+func (h *EnrichmentHandler) Resume(c *gin.Context) {
+	h.manager.Resume()
+	h.logger.Info("Enrichment pipeline resumed via API")
+	c.JSON(http.StatusOK, PipelineStatusResponse{IsPaused: false})
+}
+
+// GetPipelineStatus returns whether the pipeline is paused.
+//
+// @Summary Get enrichment pipeline status
+// @Description Returns whether the enrichment pipeline is currently paused
+// @Tags enrichment
+// @Success 200 {object} PipelineStatusResponse
+// @Router /api/enrichment/status [get]
+func (h *EnrichmentHandler) GetPipelineStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, PipelineStatusResponse{IsPaused: h.manager.IsPaused()})
+}

@@ -10,6 +10,7 @@ import {
   DatabaseWarningBanner,
   DatabaseCard,
   StorageCleanupCard,
+  EnrichmentQueueCard,
   getCategoryConfig,
 } from '@/components/settings'
 import { LiveTvHeader } from '@/components/livetv/LiveTvHeader'
@@ -219,6 +220,7 @@ export const SystemSettings = () => {
         <ServerRestartCard />
         <MaintenanceCard />
         <StorageCleanupCard />
+        <EnrichmentQueueCard />
       </div>
 
       {/* Live TV Management */}

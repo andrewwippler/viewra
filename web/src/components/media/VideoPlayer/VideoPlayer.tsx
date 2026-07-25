@@ -71,7 +71,7 @@ export const VideoPlayer = ({
 
   // Auto-play conditional calculation based on backend layout specifications
   const isAutoplayEnabled = useMemo(() => {
-    if (!onAutoPlayNext) return false
+    if (!onAutoPlayNext) {return false}
     // Checks backend setting preference fallback. Defaults to true if missing.
     return savedPreferences?.autoplay ?? true
   }, [onAutoPlayNext, savedPreferences?.autoplay])
@@ -289,12 +289,12 @@ export const VideoPlayer = ({
   autoPlayCancelRef.current = onAutoPlayCancel
 
   useEffect(() => {
-    if (typeof __TV_MODE__ === 'undefined' || !__TV_MODE__) return
+    if (typeof __TV_MODE__ === 'undefined' || !__TV_MODE__) {return}
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const video = videoRef.current
-      if (!video) return
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (!video) {return}
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {return}
 
       switch (e.keyCode) {
         case 461:
@@ -340,10 +340,10 @@ export const VideoPlayer = ({
   }, [onClose, videoDuration, autoPlayCountdown, clearAutoPlayTimer])
 
   useEffect(() => {
-    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) {return}
 
     const video = videoRef.current
-    if (!video) return
+    if (!video) {return}
 
     navigator.mediaSession.setActionHandler('play', () => { video.play() })
     navigator.mediaSession.setActionHandler('pause', () => { video.pause() })
@@ -389,15 +389,15 @@ export const VideoPlayer = ({
   useEffect(() => {
     const video = videoRef.current
     const container = videoContainerRef.current
-    if (!video || !container) return
+    if (!video || !container) {return}
 
     const autoFullscreenEnabled = getAutoFullscreenPreference()
-    if (!autoFullscreenEnabled || !isPlaying) return
+    if (!autoFullscreenEnabled || !isPlaying) {return}
 
     let cancelled = false
     const timer = setTimeout(() => {
-      if (cancelled) return
-      if (document.fullscreenElement || isInCSSFullscreen(container)) return
+      if (cancelled) {return}
+      if (document.fullscreenElement || isInCSSFullscreen(container)) {return}
 
       enterFullscreen(container).catch(() => {})
     }, 500)
@@ -410,7 +410,7 @@ export const VideoPlayer = ({
 
   useEffect(() => {
     const heartbeat = async () => {
-      if (!selectedQualityId) return
+      if (!selectedQualityId) {return}
       const params = new URLSearchParams({ quality: selectedQualityId })
       if (currentAudioStreamIndex > 0) {
         params.set('audioTrack', String(currentAudioStreamIndex))
@@ -444,11 +444,11 @@ export const VideoPlayer = ({
   // Time-based overlay presentation checks bounds matching user preferences
   const UP_NEXT_THRESHOLD = 20
   useEffect(() => {
-    if (!isAutoplayEnabled) return
-    if (autoPlayCountdownShownRef.current) return
-    if (videoDuration <= 0 || currentTime <= 0) return
+    if (!isAutoplayEnabled) {return}
+    if (autoPlayCountdownShownRef.current) {return}
+    if (videoDuration <= 0 || currentTime <= 0) {return}
     const remaining = videoDuration - currentTime
-    if (remaining > UP_NEXT_THRESHOLD || remaining <= 0) return
+    if (remaining > UP_NEXT_THRESHOLD || remaining <= 0) {return}
 
     autoPlayCountdownShownRef.current = true
     setAutoPlayCountdown(10)
@@ -500,9 +500,9 @@ export const VideoPlayer = ({
 
   const appliedAudioPrefRef = useRef(false)
   useEffect(() => {
-    if (appliedAudioPrefRef.current) return
-    if (!savedPreferences?.selectedAudioTrack) return
-    if (availableAudioTracks.length === 0) return
+    if (appliedAudioPrefRef.current) {return}
+    if (!savedPreferences?.selectedAudioTrack) {return}
+    if (availableAudioTracks.length === 0) {return}
 
     const trackExists = availableAudioTracks.some(t => t.id === savedPreferences.selectedAudioTrack)
     if (trackExists && savedPreferences.selectedAudioTrack !== currentAudioStreamIndex) {
@@ -513,9 +513,9 @@ export const VideoPlayer = ({
 
   const appliedSubtitlePrefRef = useRef(false)
   useEffect(() => {
-    if (appliedSubtitlePrefRef.current) return
-    if (savedPreferences?.selectedSubtitleTrack === undefined) return
-    if (availableSubtitles.length === 0 && savedPreferences.selectedSubtitleTrack !== null) return
+    if (appliedSubtitlePrefRef.current) {return}
+    if (savedPreferences?.selectedSubtitleTrack === undefined) {return}
+    if (availableSubtitles.length === 0 && savedPreferences.selectedSubtitleTrack !== null) {return}
 
     if (savedPreferences.selectedSubtitleTrack === null || savedPreferences.selectedSubtitleTrack === -1) {
       if (currentSubtitle !== null) {
@@ -546,7 +546,7 @@ export const VideoPlayer = ({
   const handleQualityChange = useCallback(
     (qualityId: string) => {
       const video = videoRef.current
-      if (!video || !onQualityChangeCallback) return
+      if (!video || !onQualityChangeCallback) {return}
 
       const currentPosition = video.currentTime + (streamOffsetRef.current || 0)
 

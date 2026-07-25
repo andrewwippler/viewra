@@ -17,6 +17,7 @@ import (
 	"github.com/mantonx/viewra/internal/application/enrichment/pipeline"
 	appHome "github.com/mantonx/viewra/internal/application/home"
 	"github.com/mantonx/viewra/internal/application/library/monitor"
+	"github.com/mantonx/viewra/internal/application/library/scan/processing"
 	appSearch "github.com/mantonx/viewra/internal/application/search"
 	"github.com/mantonx/viewra/internal/application/settings"
 	"github.com/mantonx/viewra/internal/application/transcode"
@@ -222,6 +223,9 @@ type Services struct {
 
 	// Trending service for trending media data
 	Trending *appTrending.Service
+
+	// Enrichment worker for processing the processing queue
+	EnrichmentWorker *processing.EnrichmentWorker
 }
 
 // BuildServices creates and initializes all infrastructure services.
@@ -519,7 +523,7 @@ func initEnrichmentPipeline(
 	imageExtractor := infraimages.NewExtractor()
 
 	// Register builtin enrichers with their pipeline positions.
-	// These run BEFORE external plugins (position 0 = nfo, position 1 = local-images).
+	// These run BEFORE external plugins (position 0 = nfo, position 1 = local-images, position 1000 = nfo-writer).
 	// External plugins will be added at position 2+ when they register.
 	builtinEnrichers := []struct {
 		enricher enrichment.Enricher
@@ -527,6 +531,7 @@ func initEnrichmentPipeline(
 	}{
 		{builtin.NewNFOEnricher(), 0},
 		{builtin.NewLocalImagesEnricher(imageExtractor, logger), 1},
+		{builtin.NewNFOWriterEnricher(logger), 1000},
 	}
 
 	ctx := context.Background()

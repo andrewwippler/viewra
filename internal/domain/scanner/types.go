@@ -21,6 +21,7 @@ type ScanPhase string
 const (
 	ScanPhaseDiscovering ScanPhase = "discovering" // Walking directory tree to find files
 	ScanPhaseProcessing  ScanPhase = "processing"  // Processing discovered files with FFprobe
+	ScanPhaseEnriching   ScanPhase = "enriching"   // Enrichment in progress (background worker)
 	ScanPhaseCompleted   ScanPhase = "completed"   // Scan finished
 )
 
@@ -69,6 +70,10 @@ type ScanJob struct {
 	// Targeted scanning (optional - if set, only scan these specific paths)
 	// Paths are relative to the library root
 	TargetPaths []string
+
+	// New fields for simplified scan flow
+	PendingEnrichmentCount int64 // Items in processing queue
+	MediaFileCount         int64 // Total media files (not images)
 }
 
 // FileInfo represents a discovered file during scanning
@@ -182,6 +187,10 @@ type Progress struct {
 	Phase           ScanPhase // Current phase of the scan
 	EstimatedTotal  int64     // Estimated total files from previous scan (0 if unknown)
 	DiscoveryDone   bool      // True when file discovery is complete
+
+	// New fields for simplified scan flow
+	PendingEnrichmentCount int64 // Items in processing queue
+	MediaFileCount         int64 // Total media files (not images)
 }
 
 // GetPercentage calculates the completion percentage

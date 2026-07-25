@@ -197,7 +197,7 @@ ViewRA includes several security hardening measures:
 
 ### Rate Limiting
 - **Auth endpoints**: 5 login/min, 30 refresh/min, 3 setup/min per IP
-- **Global API rate limiting**: 100 req/min per IP on protected routes (configurable via `GLOBAL_RATE_LIMIT`)
+- **Global API rate limiting**: 600 req/min per IP on protected routes (configurable via `GLOBAL_RATE_LIMIT`)
 - **Plugin rate limiting**: External API clients (TMDb, MusicBrainz) have built-in rate limits
 
 ### Request Protection

@@ -16,7 +16,7 @@ const QualityIndicator = ({
   selectedQuality: QualityOption | null
   availableQualities: QualityOption[]
 }) => {
-  if (!selectedQuality) return null
+  if (!selectedQuality) {return null}
 
   const maxHeight = Math.max(...availableQualities.map(q => q.height), 0)
   const isOriginal = selectedQuality.height === maxHeight
@@ -129,10 +129,10 @@ export const VideoControls = ({
 
   // TV mode: auto-hide on inactivity, show on any keypress, arrow navigation
   useEffect(() => {
-    if (typeof __TV_MODE__ === 'undefined' || !__TV_MODE__) return
+    if (typeof __TV_MODE__ === 'undefined' || !__TV_MODE__) {return}
 
     const container = controlsRef.current
-    if (!container) return
+    if (!container) {return}
 
     const getFocusableControls = (): HTMLElement[] => {
       const selector = 'button, input:not([type="hidden"]), [tabindex="0"]'
@@ -205,11 +205,11 @@ export const VideoControls = ({
 
   // TV mode: auto-focus primary interface trigger when HUD mounts
   useEffect(() => {
-    if (typeof __TV_MODE__ === 'undefined' || !__TV_MODE__) return
-    if (!showControls) return
+    if (typeof __TV_MODE__ === 'undefined' || !__TV_MODE__) {return}
+    if (!showControls) {return}
 
     const container = controlsRef.current
-    if (!container) return
+    if (!container) {return}
 
     const playPauseBtn = container.querySelector(
       'button[aria-label="Pause"], button[aria-label="Play"]'
@@ -221,7 +221,7 @@ export const VideoControls = ({
 
   const handleTimelineInteraction = (e: React.MouseEvent<HTMLDivElement>) => {
     const timeline = timelineRef.current
-    if (!timeline || duration === 0) return
+    if (!timeline || duration === 0) {return}
 
     const rect = timeline.getBoundingClientRect()
     const pos = (e.clientX - rect.left) / rect.width
@@ -232,7 +232,7 @@ export const VideoControls = ({
 
   const handleTimelineMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const timeline = timelineRef.current
-    if (!timeline || duration === 0) return
+    if (!timeline || duration === 0) {return}
 
     const rect = timeline.getBoundingClientRect()
     const pos = (e.clientX - rect.left) / rect.width
@@ -242,7 +242,7 @@ export const VideoControls = ({
   }
 
   const handleTimelineKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (duration === 0) return
+    if (duration === 0) {return}
 
     const SMALL_SKIP = 5
     const LARGE_SKIP = 10
@@ -282,7 +282,7 @@ export const VideoControls = ({
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
 
   const getEndTime = () => {
-    if (duration === 0 || currentTime === 0) return null
+    if (duration === 0 || currentTime === 0) {return null}
     const remainingSeconds = duration - currentTime
     const now = new Date()
     const endTime = new Date(now.getTime() + remainingSeconds * 1000)

@@ -109,6 +109,20 @@ func (q *Queries) CompleteEnrichmentJob(ctx context.Context, id int64) error {
 	return err
 }
 
+const countEnrichmentQueue = `-- name: CountEnrichmentQueue :one
+SELECT COUNT(*) as total
+FROM enrichment_queue
+WHERE (?1 = '' OR status = ?1)
+`
+
+// Count total enrichment queue items with optional status filter.
+func (q *Queries) CountEnrichmentQueue(ctx context.Context, status interface{}) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countEnrichmentQueue, status)
+	var total int64
+	err := row.Scan(&total)
+	return total, err
+}
+
 const countLibraryEnrichmentFailures = `-- name: CountLibraryEnrichmentFailures :one
 SELECT COUNT(*) as total
 FROM enrichment_queue
@@ -647,6 +661,103 @@ func (q *Queries) GetRetryableEnrichmentJobs(ctx context.Context, arg GetRetryab
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.LibraryID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEnrichmentQueue = `-- name: ListEnrichmentQueue :many
+SELECT
+    eq.id,
+    eq.media_id,
+    eq.library_id,
+    eq.media_type,
+    eq.stage,
+    eq.priority,
+    eq.status,
+    eq.attempts,
+    eq.max_attempts,
+    eq.error_message,
+    eq.error_category,
+    eq.created_at,
+    eq.updated_at,
+    COALESCE(
+        m.title,
+        ts.title,
+        tsn.name,
+        ma.title,
+        mart.name,
+        ''
+    ) as title
+FROM enrichment_queue eq
+LEFT JOIN media m ON eq.media_type IN ('movie', 'tv', 'music') AND eq.media_id = m.id
+LEFT JOIN tv_shows ts ON eq.media_type = 'tv_show' AND eq.media_id = ts.id
+LEFT JOIN tv_seasons tsn ON eq.media_type = 'tv_season' AND eq.media_id = tsn.id
+LEFT JOIN music_albums ma ON eq.media_type = 'music_album' AND eq.media_id = ma.id
+LEFT JOIN music_artists mart ON eq.media_type = 'music_artist' AND eq.media_id = mart.id
+WHERE (?1 = '' OR eq.status = ?1)
+ORDER BY eq.priority DESC, eq.created_at ASC
+LIMIT ?3 OFFSET ?2
+`
+
+type ListEnrichmentQueueParams struct {
+	Status interface{} `json:"status"`
+	Offset int64       `json:"offset"`
+	Limit  int64       `json:"limit"`
+}
+
+type ListEnrichmentQueueRow struct {
+	ID            int64          `json:"id"`
+	MediaID       int64          `json:"media_id"`
+	LibraryID     sql.NullInt64  `json:"library_id"`
+	MediaType     string         `json:"media_type"`
+	Stage         string         `json:"stage"`
+	Priority      sql.NullInt64  `json:"priority"`
+	Status        sql.NullString `json:"status"`
+	Attempts      sql.NullInt64  `json:"attempts"`
+	MaxAttempts   sql.NullInt64  `json:"max_attempts"`
+	ErrorMessage  sql.NullString `json:"error_message"`
+	ErrorCategory sql.NullString `json:"error_category"`
+	CreatedAt     sql.NullTime   `json:"created_at"`
+	UpdatedAt     sql.NullTime   `json:"updated_at"`
+	Title         string         `json:"title"`
+}
+
+// List enrichment queue items with optional status filter, paginated.
+// Joins with media tables to get titles for display.
+func (q *Queries) ListEnrichmentQueue(ctx context.Context, arg ListEnrichmentQueueParams) ([]ListEnrichmentQueueRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEnrichmentQueue, arg.Status, arg.Offset, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListEnrichmentQueueRow{}
+	for rows.Next() {
+		var i ListEnrichmentQueueRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.MediaID,
+			&i.LibraryID,
+			&i.MediaType,
+			&i.Stage,
+			&i.Priority,
+			&i.Status,
+			&i.Attempts,
+			&i.MaxAttempts,
+			&i.ErrorMessage,
+			&i.ErrorCategory,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Title,
 		); err != nil {
 			return nil, err
 		}

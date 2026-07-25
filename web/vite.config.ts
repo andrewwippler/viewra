@@ -3,11 +3,20 @@ import react from '@vitejs/plugin-react'
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 import path from 'path'
 import fs from 'fs'
+import { execSync } from 'child_process'
 
 const uiMode = process.env.VITE_UI_MODE || 'web'
 const isTV = uiMode === 'tv'
 
 const apiTarget = process.env.VITE_API_URL || 'http://localhost:8080'
+
+// Get git short SHA for version display
+let appVersion = 'dev'
+try {
+  appVersion = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim()
+} catch {
+  // Fallback if not in a git repo
+}
 
 const fixNullishCoalescing = (code: string) => {
   let out = ''
@@ -285,6 +294,7 @@ export default defineConfig({
   base: isTV ? '/webos/' : '/',
   define: {
     __TV_MODE__: isTV ? 'true' : 'false',
+    __APP_VERSION__: JSON.stringify(appVersion),
   },
   plugins,
   resolve: {

@@ -36,7 +36,7 @@ func ProcessMediaWithCache(
 		if err := callbacks.Update(ctx); err != nil {
 			return nil, err
 		}
-		callbacks.PostSave(ctx)
+		callbacks.PostSave(ctx, false)
 		id := callbacks.GetMediaID()
 		// Publish media.updated event
 		publishMediaEvent(deps, domainevents.EventMediaUpdated, id, libraryID, filePath, callbacks.EventMeta)
@@ -68,7 +68,7 @@ func ProcessMediaWithCache(
 		if updateErr := callbacks.Update(ctx); updateErr != nil {
 			return nil, updateErr
 		}
-		callbacks.PostSave(ctx)
+		callbacks.PostSave(ctx, false)
 		id := callbacks.GetMediaID()
 		// Publish media.updated event (race condition path - another worker created it)
 		publishMediaEvent(deps, domainevents.EventMediaUpdated, id, libraryID, filePath, callbacks.EventMeta)
@@ -77,7 +77,7 @@ func ProcessMediaWithCache(
 
 	// Success: add newly created media to cache so other workers don't try to create it again
 	cache.Store(filePath, callbacks.GetMediaID())
-	callbacks.PostSave(ctx)
+	callbacks.PostSave(ctx, true)
 	id := callbacks.GetMediaID()
 	// Publish media.discovered event (new media created)
 	publishMediaEvent(deps, domainevents.EventMediaDiscovered, id, libraryID, filePath, callbacks.EventMeta)
@@ -87,9 +87,15 @@ func ProcessMediaWithCache(
 // enqueueForEnrichment fires off enrichment for newly saved/updated media.
 // This is fire-and-forget - errors are logged but don't fail the scan.
 // priority determines processing order (higher = processed sooner).
-func enqueueForEnrichment(ctx context.Context, deps *Deps, mediaID int64, libraryID int64, mediaType enrichment.MediaType, priority int) {
+// If force is false, the item is only enqueued if it is missing images or NFO metadata.
+// If force is true (new items), enrichment is always attempted.
+func enqueueForEnrichment(ctx context.Context, deps *Deps, mediaID int64, libraryID int64, mediaType enrichment.MediaType, priority int, force bool) {
 	if deps.EnrichmentEnqueuer == nil {
 		return // Enrichment not configured
+	}
+
+	if !force && !needsEnrichment(ctx, deps, mediaID) {
+		return // Item already has images + NFO, skip re-enrichment
 	}
 
 	// Use background context to avoid cancellation from scan context
@@ -103,6 +109,20 @@ func enqueueForEnrichment(ctx context.Context, deps *Deps, mediaID int64, librar
 				slog.Any("error", err))
 		}
 	}()
+}
+
+// needsEnrichment checks whether a media item is missing images or NFO metadata
+// and therefore needs enrichment. Returns true if enrichment is needed.
+func needsEnrichment(ctx context.Context, deps *Deps, mediaID int64) bool {
+	if deps.ImageRepo == nil {
+		return true // No image repo — assume enrichment needed
+	}
+
+	images, err := deps.ImageRepo.GetByMediaID(ctx, int(mediaID))
+	if err != nil || len(images) == 0 {
+		return true
+	}
+	return false
 }
 
 // publishMediaEvent publishes media lifecycle events (discovered, updated, removed).

@@ -191,12 +191,14 @@ func buildLibraryUseCases(
 		ProgressInterval: cfg.Media.ScanProgressInterval,
 	}
 
-	scanUseCase := library.NewScanLibraryUseCase(
+	scanUseCase := library.NewScanLibraryUseCaseWithQueue(
 		mediaRepos,
 		scanRepos,
 		repos.Image,
 		imageCleanup,
 		svcs.EnqueueBuffer, // Batched enrichment enqueue for performance
+		repos.ProcessingQueue,
+		repos.PendingIdentification,
 		scanConfig,
 		cfg.SystemProfile,
 		logger,

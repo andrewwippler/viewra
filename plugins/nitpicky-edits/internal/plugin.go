@@ -125,6 +125,7 @@ func (p *Plugin) GetRoutes() []sdk.Route {
 	return []sdk.Route{
 		{Path: "/identify/movie/:id", Methods: []string{"POST"}, AdminOnly: true, Description: "Set external IDs for a movie"},
 		{Path: "/identify/tv/:id", Methods: []string{"POST"}, AdminOnly: true, Description: "Set external IDs for a TV show"},
+		{Path: "/identify/file", Methods: []string{"POST"}, AdminOnly: true, Description: "Set external IDs for a file path (pending identification)"},
 		{Path: "/episode/:id", Methods: []string{"DELETE"}, AdminOnly: true, Description: "Delete a TV episode from the database"},
 		{Path: "/season/:id", Methods: []string{"DELETE"}, AdminOnly: true, Description: "Delete a TV season and its episodes"},
 		{Path: "/show/:id", Methods: []string{"DELETE"}, AdminOnly: true, Description: "Delete a TV show and all its seasons/episodes"},
@@ -160,6 +161,9 @@ func (p *Plugin) HandleHTTP(ctx context.Context, req *sdk.HTTPRequest) (*sdk.HTT
 	case len(parts) < 2:
 		return sdk.JSONError(404, "not found")
 	case parts[0] == "identify":
+		if len(parts) == 2 && parts[1] == "file" {
+			return p.handleIdentifyFile(ctx, req)
+		}
 		return p.handleIdentify(ctx, req, parts)
 	case parts[0] == "episode":
 		return p.handleDeleteEpisode(ctx, parts)
@@ -300,6 +304,63 @@ func (p *Plugin) handleProgress(ctx context.Context, parts []string) (*sdk.HTTPR
 	default:
 		return sdk.JSONError(400, fmt.Sprintf("unsupported progress action: %s", parts[2]))
 	}
+}
+
+func (p *Plugin) handleIdentifyFile(ctx context.Context, req *sdk.HTTPRequest) (*sdk.HTTPResponse, error) {
+	var body IdentifyFileRequest
+	if err := json.Unmarshal(req.Body, &body); err != nil {
+		return sdk.JSONError(400, "invalid request body: "+err.Error())
+	}
+
+	if body.FilePath == "" {
+		return sdk.JSONError(400, "file_path is required")
+	}
+
+	if body.IMDbID == "" && body.TMDbID == nil && body.TVDbID == nil {
+		return sdk.JSONError(400, "at least one external ID (imdb_id, tmdb_id, tvdb_id) is required")
+	}
+
+	// Find the library that contains this file
+	var libraryID int64
+	query := `SELECT id FROM libraries WHERE ? LIKE path || '%' ORDER BY length(path) DESC LIMIT 1`
+	if p.config.DBDriver == "postgres" || p.config.DBDriver == "postgresql" {
+		query = `SELECT id FROM libraries WHERE $1 LIKE path || '%' ORDER BY length(path) DESC LIMIT 1`
+	}
+	if err := p.db.QueryRowContext(ctx, query, body.FilePath).Scan(&libraryID); err != nil {
+		return sdk.JSONError(404, "no library found containing file: "+body.FilePath)
+	}
+
+	// Insert pending identifications
+	insertQuery := `INSERT INTO pending_identifications (library_id, file_path, provider, external_id, created_at)
+		VALUES (?, ?, ?, ?, datetime('now'))`
+	if p.config.DBDriver == "postgres" || p.config.DBDriver == "postgresql" {
+		insertQuery = `INSERT INTO pending_identifications (library_id, file_path, provider, external_id, created_at)
+			VALUES ($1, $2, $3, $4, NOW()) ON CONFLICT (file_path, provider) DO UPDATE SET external_id = $4`
+	}
+
+	if body.IMDbID != "" {
+		if _, err := p.db.ExecContext(ctx, insertQuery, libraryID, body.FilePath, "imdb", body.IMDbID); err != nil {
+			return sdk.JSONError(500, "failed to insert imdb_id: "+err.Error())
+		}
+	}
+	if body.TMDbID != nil {
+		tmdbID := fmt.Sprintf("%d", *body.TMDbID)
+		if _, err := p.db.ExecContext(ctx, insertQuery, libraryID, body.FilePath, "tmdb", tmdbID); err != nil {
+			return sdk.JSONError(500, "failed to insert tmdb_id: "+err.Error())
+		}
+	}
+	if body.TVDbID != nil {
+		tvdbID := fmt.Sprintf("%d", *body.TVDbID)
+		if _, err := p.db.ExecContext(ctx, insertQuery, libraryID, body.FilePath, "tvdb", tvdbID); err != nil {
+			return sdk.JSONError(500, "failed to insert tvdb_id: "+err.Error())
+		}
+	}
+
+	return sdk.JSONResponse(200, map[string]interface{}{
+		"status":     "ok",
+		"file_path":  body.FilePath,
+		"library_id": libraryID,
+	})
 }
 
 func (p *Plugin) handleGetConfig() (*sdk.HTTPResponse, error) {

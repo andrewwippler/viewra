@@ -192,7 +192,7 @@ const enterCSSFullscreen = (element: HTMLElement): Promise<void> => {
     // Cleanup any existing listeners attached to this element before assigning a new one
     if (activeCssListeners.has(element)) {
       const oldListener = activeCssListeners.get(element)
-      if (oldListener) document.removeEventListener('keydown', oldListener)
+      if (oldListener) {document.removeEventListener('keydown', oldListener)}
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {

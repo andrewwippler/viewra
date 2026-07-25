@@ -112,7 +112,7 @@ export const TvSeasonDetail = ({ showId, seasonNumber, onBack, episodeId: urlEpi
   }, [episodesData])
 
   const currentIndex = useMemo(() => {
-    if (!playingEpisode) return -1
+    if (!playingEpisode) {return -1}
     return allSortedEpisodes.findIndex((ep) => ep.id === playingEpisode.id)
   }, [playingEpisode, allSortedEpisodes])
 
@@ -123,7 +123,7 @@ export const TvSeasonDetail = ({ showId, seasonNumber, onBack, episodeId: urlEpi
    * falls back to the immediate next chronological item.
    */
   const nextEpisode = useMemo(() => {
-    if (currentIndex === -1 || currentIndex === allSortedEpisodes.length - 1) return null
+    if (currentIndex === -1 || currentIndex === allSortedEpisodes.length - 1) {return null}
 
     // Look ahead for the first unwatched episode remaining in the collection
     const remainingEpisodes = allSortedEpisodes.slice(currentIndex + 1)
@@ -138,7 +138,7 @@ export const TvSeasonDetail = ({ showId, seasonNumber, onBack, episodeId: urlEpi
 
   // Previous episode calculation stays linear/chronological for user convenience
   const prevEpisode = useMemo(() => {
-    if (currentIndex <= 0) return null
+    if (currentIndex <= 0) {return null}
     return allSortedEpisodes[currentIndex - 1]
   }, [currentIndex, allSortedEpisodes])
 

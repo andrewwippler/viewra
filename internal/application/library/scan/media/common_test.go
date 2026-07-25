@@ -44,7 +44,7 @@ func TestEnqueueForEnrichment_NilEnqueuer(t *testing.T) {
 	}
 
 	// Should not panic with nil enqueuer
-	enqueueForEnrichment(context.Background(), deps, 1, 1, enrichment.MediaTypeMovie, 0)
+	enqueueForEnrichment(context.Background(), deps, 1, 1, enrichment.MediaTypeMovie, 0, true)
 }
 
 func TestEnqueueForEnrichment_Success(t *testing.T) {
@@ -54,7 +54,7 @@ func TestEnqueueForEnrichment_Success(t *testing.T) {
 		Logger:             testLogger(),
 	}
 
-	enqueueForEnrichment(context.Background(), deps, 123, 1, enrichment.MediaTypeMovie, 100)
+	enqueueForEnrichment(context.Background(), deps, 123, 1, enrichment.MediaTypeMovie, 100, true)
 
 	// Wait briefly for goroutine to execute
 	time.Sleep(50 * time.Millisecond)
@@ -88,7 +88,7 @@ func TestEnqueueForEnrichment_Error(t *testing.T) {
 	}
 
 	// Should not panic on error (just logs warning)
-	enqueueForEnrichment(context.Background(), deps, 456, 1, enrichment.MediaTypeTV, 50)
+	enqueueForEnrichment(context.Background(), deps, 456, 1, enrichment.MediaTypeTV, 50, true)
 
 	// Wait briefly for goroutine to execute
 	time.Sleep(50 * time.Millisecond)
@@ -120,7 +120,7 @@ func TestEnqueueForEnrichment_AllMediaTypes(t *testing.T) {
 				Logger:             testLogger(),
 			}
 
-			enqueueForEnrichment(context.Background(), deps, 1, 1, tt.mediaType, 0)
+			enqueueForEnrichment(context.Background(), deps, 1, 1, tt.mediaType, 0, true)
 
 			// Wait briefly for goroutine
 			time.Sleep(50 * time.Millisecond)
@@ -182,7 +182,7 @@ func TestProcessMediaWithCache_CacheHit(t *testing.T) {
 			t.Error("Create should not be called on cache hit")
 			return nil
 		},
-		PostSave: func(ctx context.Context) {
+		PostSave: func(ctx context.Context, isNewItem bool) {
 			postSaveCalled = true
 		},
 	}
@@ -240,7 +240,7 @@ func TestProcessMediaWithCache_CacheMiss_CreateSuccess(t *testing.T) {
 			createCalled = true
 			return nil
 		},
-		PostSave: func(ctx context.Context) {
+		PostSave: func(ctx context.Context, isNewItem bool) {
 			postSaveCalled = true
 		},
 	}
@@ -298,7 +298,7 @@ func TestProcessMediaWithCache_UpdateError(t *testing.T) {
 			return errors.New("update failed")
 		},
 		Create: func(ctx context.Context) error { return nil },
-		PostSave: func(ctx context.Context) {
+		PostSave: func(ctx context.Context, isNewItem bool) {
 			t.Error("PostSave should not be called on update error")
 		},
 	}
@@ -339,7 +339,7 @@ func TestProcessMediaWithCache_CreateNonConstraintError(t *testing.T) {
 		Create: func(ctx context.Context) error {
 			return errors.New("generic database error")
 		},
-		PostSave: func(ctx context.Context) {
+		PostSave: func(ctx context.Context, isNewItem bool) {
 			t.Error("PostSave should not be called on create error")
 		},
 	}
@@ -390,7 +390,7 @@ func TestProcessMediaWithCache_ConstraintError_CacheHitOnRetry(t *testing.T) {
 			cache.Store("/movies/race.mp4", int64(300))
 			return errors.New("UNIQUE constraint failed")
 		},
-		PostSave: func(ctx context.Context) {},
+		PostSave: func(ctx context.Context, isNewItem bool) {},
 	}
 
 	result, err := ProcessMediaWithCache(context.Background(), deps, 1, "/movies/race.mp4", cache, callbacks)
@@ -451,7 +451,7 @@ func TestProcessMediaWithCache_ConstraintError_FetchFromDB(t *testing.T) {
 		Create: func(ctx context.Context) error {
 			return errors.New("duplicate key value violates unique constraint")
 		},
-		PostSave: func(ctx context.Context) {},
+		PostSave: func(ctx context.Context, isNewItem bool) {},
 	}
 
 	result, err := ProcessMediaWithCache(context.Background(), deps, 1, "/movies/collision.mp4", cache, callbacks)
@@ -504,7 +504,7 @@ func TestProcessMediaWithCache_ConstraintError_FetchError(t *testing.T) {
 		Create: func(ctx context.Context) error {
 			return errors.New("UNIQUE constraint failed")
 		},
-		PostSave: func(ctx context.Context) {},
+		PostSave: func(ctx context.Context, isNewItem bool) {},
 	}
 
 	result, err := ProcessMediaWithCache(context.Background(), deps, 1, "/movies/fetch-fail.mp4", cache, callbacks)
@@ -554,7 +554,7 @@ func TestProcessMediaWithCache_ConstraintError_UpdateAfterFetchError(t *testing.
 		Create: func(ctx context.Context) error {
 			return errors.New("UNIQUE constraint failed")
 		},
-		PostSave: func(ctx context.Context) {},
+		PostSave: func(ctx context.Context, isNewItem bool) {},
 	}
 
 	result, err := ProcessMediaWithCache(context.Background(), deps, 1, "/movies/update-fail.mp4", cache, callbacks)

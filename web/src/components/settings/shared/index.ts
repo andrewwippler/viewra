@@ -22,6 +22,7 @@ export { DatabaseWarningBanner } from './DatabaseWarningBanner'
 export { MaintenanceBanner } from './MaintenanceBanner'
 export { MaintenanceCard } from './MaintenanceCard'
 export { StorageCleanupCard } from './StorageCleanupCard'
+export { EnrichmentQueueCard } from './EnrichmentQueueCard'
 export { DatabaseCard } from './DatabaseCard'
 
 // Constants

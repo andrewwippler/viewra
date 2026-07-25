@@ -162,9 +162,31 @@ func (b *EnqueueBuffer) worker(ctx context.Context) {
 
 		startTime := time.Now()
 
-		// Convert to EnqueueItem slice for batch enqueue
-		items := make([]EnqueueItem, len(batch))
+		// Deduplicate by (media_id, media_type) — keep last occurrence per key.
+		// The buffer only handles first-stage enqueueing, so all jobs share the
+		// same stage for a given media type. The last entry wins (highest priority).
+		type mediaKey struct {
+			mediaID   int64
+			mediaType enrichment.MediaType
+		}
+		seen := make(map[mediaKey]int, len(batch))
 		for i, job := range batch {
+			seen[mediaKey{job.MediaID, job.MediaType}] = i
+		}
+		deduped := make([]enqueueJob, 0, len(seen))
+		for _, idx := range seen {
+			deduped = append(deduped, batch[idx])
+		}
+
+		if len(deduped) < len(batch) {
+			b.logger.Debug("deduplicated enqueue batch",
+				slog.Int("original", len(batch)),
+				slog.Int("deduplicated", len(deduped)))
+		}
+
+		// Convert to EnqueueItem slice for batch enqueue
+		items := make([]EnqueueItem, len(deduped))
+		for i, job := range deduped {
 			items[i] = EnqueueItem{
 				MediaID:   job.MediaID,
 				LibraryID: job.LibraryID,
@@ -177,22 +199,22 @@ func (b *EnqueueBuffer) worker(ctx context.Context) {
 		successCount, err := b.manager.EnqueueFirstStageBatch(ctx, items)
 		if err != nil {
 			b.logger.Warn("batch enqueue failed, falling back to individual",
-				slog.Int("batch_size", len(batch)),
+				slog.Int("batch_size", len(deduped)),
 				slog.Any("error", err))
 
 			// Fallback to individual enqueues
 			successCount = 0
-			for _, job := range batch {
+			for _, job := range deduped {
 				if err := b.manager.EnqueueFirstStage(ctx, job.MediaID, job.LibraryID, job.MediaType, job.Priority); err == nil {
 					successCount++
 				}
 			}
 		}
 
-		failCount := len(batch) - successCount
+		failCount := len(deduped) - successCount
 
 		b.logger.Debug("flushed enqueue batch",
-			slog.Int("batch_size", len(batch)),
+			slog.Int("batch_size", len(deduped)),
 			slog.Int("success", successCount),
 			slog.Int("failed", failCount),
 			slog.Duration("duration", time.Since(startTime)))

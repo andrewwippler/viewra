@@ -40,6 +40,7 @@ type (
 	MusicAlbum = sqlc_sqlite.MusicAlbum
 	MusicArtist = sqlc_sqlite.MusicArtist
 	MusicTrack = sqlc_sqlite.MusicTrack
+	PendingIdentification = sqlc_sqlite.PendingIdentification
 	Person = sqlc_sqlite.Person
 	PlaybackPreference = sqlc_sqlite.PlaybackPreference
 	PlaybackQualityEvent = sqlc_sqlite.PlaybackQualityEvent
@@ -48,6 +49,7 @@ type (
 	PluginApiKey = sqlc_sqlite.PluginApiKey
 	PluginKv = sqlc_sqlite.PluginKv
 	PluginUserMetadatum = sqlc_sqlite.PluginUserMetadatum
+	ProcessingQueue = sqlc_sqlite.ProcessingQueue
 	QualitySwitchEvent = sqlc_sqlite.QualitySwitchEvent
 	Queries = sqlc_sqlite.Queries
 	ScanCheckpoint = sqlc_sqlite.ScanCheckpoint
@@ -209,6 +211,7 @@ type (
 	ListAlbumsByLibraryPaginatedParams = sqlc_sqlite.ListAlbumsByLibraryPaginatedParams
 	ListArtistIDsByLibraryPaginatedDescParams = sqlc_sqlite.ListArtistIDsByLibraryPaginatedDescParams
 	ListArtistIDsByLibraryPaginatedParams = sqlc_sqlite.ListArtistIDsByLibraryPaginatedParams
+	ListEnrichmentQueueParams = sqlc_sqlite.ListEnrichmentQueueParams
 	ListEntityIDsByPositiveRatingParams = sqlc_sqlite.ListEntityIDsByPositiveRatingParams
 	ListEntityIDsByRatingParams = sqlc_sqlite.ListEntityIDsByRatingParams
 	ListEntityIDsByTypeAndPositiveRatingParams = sqlc_sqlite.ListEntityIDsByTypeAndPositiveRatingParams
@@ -396,6 +399,7 @@ type (
 	ListAlbumsByLibraryPaginatedRow = sqlc_sqlite.ListAlbumsByLibraryPaginatedRow
 	ListChannelEPGMappingsRow = sqlc_sqlite.ListChannelEPGMappingsRow
 	ListEnabledPluginsRow = sqlc_sqlite.ListEnabledPluginsRow
+	ListEnrichmentQueueRow = sqlc_sqlite.ListEnrichmentQueueRow
 	ListMoviesByDirectorRow = sqlc_sqlite.ListMoviesByDirectorRow
 	ListMoviesByGenreRow = sqlc_sqlite.ListMoviesByGenreRow
 	ListMoviesByLibraryPaginatedDescRow = sqlc_sqlite.ListMoviesByLibraryPaginatedDescRow

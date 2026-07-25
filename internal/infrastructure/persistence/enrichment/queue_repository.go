@@ -323,3 +323,59 @@ func (r *QueueRepository) GetOrphanedPipelineStates(ctx context.Context) ([]*enr
 	}
 	return states, nil
 }
+
+// QueueListItem represents a single enrichment queue item for display.
+type QueueListItem struct {
+	ID            int64
+	MediaID       int64
+	LibraryID     int64
+	MediaType     enrichment.MediaType
+	Title         string
+	Stage         string
+	Priority      int
+	Status        string
+	Attempts      int
+	MaxAttempts   int
+	ErrorMessage  string
+	ErrorCategory enrichment.ErrorCategory
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+// ListQueue returns enrichment queue items with optional status filter, paginated.
+func (r *QueueRepository) ListQueue(ctx context.Context, status string, limit, offset int) ([]*QueueListItem, error) {
+	rows, err := r.Q().ListEnrichmentQueue(ctx, unified.ListEnrichmentQueueParams{
+		Status: sql.NullString{String: status, Valid: status != ""},
+		Limit:  int64(limit),
+		Offset: int64(offset),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]*QueueListItem, len(rows))
+	for i, row := range rows {
+		items[i] = &QueueListItem{
+			ID:            row.ID,
+			MediaID:       row.MediaID,
+			LibraryID:     common.ParseNullInt64(row.LibraryID),
+			MediaType:     enrichment.MediaType(row.MediaType),
+			Title:         row.Title,
+			Stage:         row.Stage,
+			Priority:      int(common.ParseNullInt64(row.Priority)),
+			Status:        common.ParseNullString(row.Status),
+			Attempts:      int(common.ParseNullInt64(row.Attempts)),
+			MaxAttempts:   int(common.ParseNullInt64(row.MaxAttempts)),
+			ErrorMessage:  common.ParseNullString(row.ErrorMessage),
+			ErrorCategory: enrichment.ErrorCategory(common.ParseNullString(row.ErrorCategory)),
+			CreatedAt:     common.ParseNullTime(row.CreatedAt),
+			UpdatedAt:     common.ParseNullTime(row.UpdatedAt),
+		}
+	}
+	return items, nil
+}
+
+// CountQueue returns the total count of enrichment queue items with optional status filter.
+func (r *QueueRepository) CountQueue(ctx context.Context, status string) (int64, error) {
+	return r.Q().CountEnrichmentQueue(ctx, sql.NullString{String: status, Valid: status != ""})
+}

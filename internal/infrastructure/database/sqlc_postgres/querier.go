@@ -31,6 +31,8 @@ type Querier interface {
 	CountAlbumsInLibrary(ctx context.Context, libraryID int64) (int64, error)
 	CountArtistsInLibrary(ctx context.Context, libraryID int64) (int64, error)
 	CountCreditsForEntity(ctx context.Context, arg CountCreditsForEntityParams) (int64, error)
+	// Count total enrichment queue items with optional status filter.
+	CountEnrichmentQueue(ctx context.Context, status interface{}) (int64, error)
 	CountEnrichmentStatusByStage(ctx context.Context, stage string) (CountEnrichmentStatusByStageRow, error)
 	CountFailedScanCheckpoints(ctx context.Context, scanJobID int64) (int64, error)
 	CountImagesByEntity(ctx context.Context, arg CountImagesByEntityParams) (int64, error)
@@ -434,6 +436,9 @@ type Querier interface {
 	ListDistinctMovieGenres(ctx context.Context, dollar_1 int64) ([]string, error)
 	ListEnabledPlugins(ctx context.Context) ([]ListEnabledPluginsRow, error)
 	ListEnabledScheduledTasks(ctx context.Context) ([]ScheduledTask, error)
+	// List enrichment queue items with optional status filter, paginated.
+	// Joins with media tables to get titles for display.
+	ListEnrichmentQueue(ctx context.Context, arg ListEnrichmentQueueParams) ([]ListEnrichmentQueueRow, error)
 	ListEntityIDsByPositiveRating(ctx context.Context, arg ListEntityIDsByPositiveRatingParams) ([]int64, error)
 	ListEntityIDsByRating(ctx context.Context, arg ListEntityIDsByRatingParams) ([]int64, error)
 	ListEntityIDsByTypeAndPositiveRating(ctx context.Context, arg ListEntityIDsByTypeAndPositiveRatingParams) ([]int64, error)

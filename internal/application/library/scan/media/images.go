@@ -69,7 +69,7 @@ func EnqueueTVParentEntities(ctx context.Context, deps *Deps, showTitle string, 
 	// Enqueue show for enrichment (once per show per scan session)
 	// The enrichment pipeline will extract images and metadata via the LocalImagesEnricher
 	if deps.ProcessedShows != nil && deps.ProcessedShows.TryMark(showTitle) {
-		enqueueForEnrichment(ctx, deps, show.ID, libraryID, enrichment.MediaTypeTVShow, priority)
+		enqueueForEnrichment(ctx, deps, show.ID, libraryID, enrichment.MediaTypeTVShow, priority, true)
 	}
 
 	// Get season and enqueue for enrichment
@@ -86,7 +86,7 @@ func EnqueueTVParentEntities(ctx context.Context, deps *Deps, showTitle string, 
 	// Use show:season as the key for deduplication
 	seasonKey := showTitle + ":" + filepath.Base(showDir) + ":" + string(rune(seasonNumber+'0'))
 	if deps.ProcessedShows != nil && deps.ProcessedShows.TryMark(seasonKey) {
-		enqueueForEnrichment(ctx, deps, season.ID, libraryID, enrichment.MediaTypeTVSeason, priority)
+		enqueueForEnrichment(ctx, deps, season.ID, libraryID, enrichment.MediaTypeTVSeason, priority, true)
 	}
 }
 
@@ -101,14 +101,14 @@ func EnqueueMusicParentEntities(ctx context.Context, deps *Deps, track *media.Mu
 		// Use album name + artist as key for deduplication
 		albumKey := track.Album + ":" + track.Artist
 		if deps.ProcessedArtists != nil && deps.ProcessedArtists.TryMark(albumKey) {
-			enqueueForEnrichment(ctx, deps, track.AlbumID, libraryID, enrichment.MediaTypeMusicAlbum, priority)
+			enqueueForEnrichment(ctx, deps, track.AlbumID, libraryID, enrichment.MediaTypeMusicAlbum, priority, true)
 		}
 	}
 
 	// Enqueue artist for enrichment (once per artist per scan session)
 	if track.Artist != "" && track.ArtistID > 0 {
 		if deps.ProcessedArtists != nil && deps.ProcessedArtists.TryMark(track.Artist) {
-			enqueueForEnrichment(ctx, deps, track.ArtistID, libraryID, enrichment.MediaTypeMusicArtist, priority)
+			enqueueForEnrichment(ctx, deps, track.ArtistID, libraryID, enrichment.MediaTypeMusicArtist, priority, true)
 		}
 	}
 }

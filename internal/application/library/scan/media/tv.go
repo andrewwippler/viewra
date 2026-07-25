@@ -143,12 +143,12 @@ func ProcessTVEpisode(
 			}
 			return nil
 		},
-		PostSave: func(ctx context.Context) {
+		PostSave: func(ctx context.Context, isNewItem bool) {
 			PersistMediaTracks(ctx, deps, episode.Media.ID, result)
 			// Calculate enrichment priority from release date estimate
 			priority := pipeline.CalculatePriorityFromMetadata(result.Year, time.Now())
 			// Enqueue episode for enrichment - images are now extracted via the enrichment pipeline
-			enqueueForEnrichment(ctx, deps, episode.Media.ID, libraryID, enrichment.MediaTypeTV, priority)
+			enqueueForEnrichment(ctx, deps, episode.Media.ID, libraryID, enrichment.MediaTypeTV, priority, isNewItem)
 			// Enqueue parent entities (show/season) for enrichment
 			EnqueueTVParentEntities(ctx, deps, episode.ShowTitle, libraryID, result.FilePath, episode.Season, priority)
 		},
@@ -243,7 +243,7 @@ func ProcessMultiEpisodeFile(
 			// Calculate enrichment priority from release date estimate
 			priority := pipeline.CalculatePriorityFromMetadata(result.Year, time.Now())
 			// Enqueue for enrichment after successful update
-			enqueueForEnrichment(ctx, deps, episode.Media.ID, libraryID, enrichment.MediaTypeTV, priority)
+			enqueueForEnrichment(ctx, deps, episode.Media.ID, libraryID, enrichment.MediaTypeTV, priority, false)
 			if firstMediaID == nil {
 				firstMediaID = &episode.Media.ID
 				// Enqueue parent entities for first episode only (they're shared)
@@ -276,7 +276,7 @@ func ProcessMultiEpisodeFile(
 		// Calculate enrichment priority from release date estimate
 		priority := pipeline.CalculatePriorityFromMetadata(result.Year, result.FileMTime)
 		// Enqueue for enrichment after successful creation
-		enqueueForEnrichment(ctx, deps, episode.Media.ID, libraryID, enrichment.MediaTypeTV, priority)
+		enqueueForEnrichment(ctx, deps, episode.Media.ID, libraryID, enrichment.MediaTypeTV, priority, true)
 
 		if firstMediaID == nil {
 			firstMediaID = &episode.Media.ID

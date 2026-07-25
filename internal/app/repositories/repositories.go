@@ -16,6 +16,7 @@ import (
 	movieRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/movie"
 	musicRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/music"
 	peopleRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/people"
+	persistence "github.com/mantonx/viewra/internal/infrastructure/persistence"
 	pluginRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/plugins"
 	progressRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/progress"
 	ratingsRepo "github.com/mantonx/viewra/internal/infrastructure/persistence/ratings"
@@ -90,11 +91,15 @@ type Repositories struct {
 	// User ratings (favorites, likes, dislikes)
 	Ratings *ratingsRepo.Repository
 
-		// Live TV repositories
-		LiveTvChannel *livetvRepo.ChannelRepository
-		LiveTvProgram *livetvRepo.ProgramRepository
-		Querier      *unified.Querier
-	}
+	// Live TV repositories
+	LiveTvChannel *livetvRepo.ChannelRepository
+	LiveTvProgram *livetvRepo.ProgramRepository
+	Querier      *unified.Querier
+
+	// Pending identification and processing queue
+	PendingIdentification *persistence.PendingIdentificationRepository
+	ProcessingQueue       *persistence.ProcessingQueueRepository
+}
 
 // BuildRepositories creates and wires all repository instances using the provided database connection.
 // All repositories share a common base repository for dual-database (SQLite/PostgreSQL) support.
@@ -175,6 +180,10 @@ func BuildRepositories(db *sql.DB, driver string) *Repositories {
 	channelRepository := livetvRepo.NewChannelRepository(baseRepo)
 	programRepository := livetvRepo.NewProgramRepository(baseRepo)
 
+	// Create pending identification and processing queue repositories
+	pendingIdentificationRepository := persistence.NewPendingIdentificationRepository(db, driver)
+	processingQueueRepository := persistence.NewProcessingQueueRepository(db, driver)
+
 	return &Repositories{
 		Library:                  libraryRepository,
 		Media:                    mediaRepository,
@@ -211,5 +220,7 @@ func BuildRepositories(db *sql.DB, driver string) *Repositories {
 		LiveTvChannel:            channelRepository,
 		LiveTvProgram:            programRepository,
 		Querier:                  querier,
+		PendingIdentification:    pendingIdentificationRepository,
+		ProcessingQueue:          processingQueueRepository,
 	}
 }

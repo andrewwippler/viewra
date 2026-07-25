@@ -126,7 +126,7 @@ const LibraryCard = ({ library }: LibraryCardProps) => {
     setShowErrorsDialog(true)
   }
 
-  // Get enrichment stage data
+  // Get enrichment stage data - simplified to show only pending count
   const stageProgress = enrichmentProgress?.stageProgress
   const stages = stageProgress
     ? Object.entries(stageProgress).map(([name, stats]) => {
@@ -134,12 +134,8 @@ const LibraryCard = ({ library }: LibraryCardProps) => {
         const processing = stats.processingCount ?? 0
         const total = stats.totalCount ?? 0
         // Stage is complete when there's nothing left to process
-        // This is more stable than comparing completed+skipped+failed >= total
-        // because total can increase as new items are discovered during scanning
         const isComplete = total > 0 && pending === 0 && processing === 0
-        // Stage is active if it has work remaining (pending or processing)
-        // Using pending > 0 || processing > 0 prevents flickering because pending
-        // stays non-zero even when processing fluctuates between 0 and 1
+        // Stage is active if it has work remaining
         const isActive = pending > 0 || processing > 0
         return {
           name,
@@ -151,6 +147,9 @@ const LibraryCard = ({ library }: LibraryCardProps) => {
         }
       })
     : []
+
+  // Calculate total pending items across all stages
+  const totalPending = stages.reduce((sum, stage) => sum + (stage.total - stage.completed), 0)
 
   // Status summary for collapsed view
   const getStatusSummary = () => {
@@ -335,21 +334,21 @@ const LibraryCard = ({ library }: LibraryCardProps) => {
         {/* Expanded details */}
         {isExpanded && (
           <div className="px-4 pb-4 border-t border-neutral-100 dark:border-neutral-800">
-            {/* Stats row */}
+            {/* Stats row - simplified to show media files and pending enrichment */}
             <div className="flex gap-8 py-3 text-sm">
               {isCompleted && scanStatus && (
                 <div className="flex flex-col">
-                  <span className="text-xs text-neutral-500 dark:text-neutral-500 uppercase tracking-wide">Files</span>
+                  <span className="text-xs text-neutral-500 dark:text-neutral-500 uppercase tracking-wide">Media files</span>
                   <span className="font-medium text-neutral-900 dark:text-neutral-100">
                     {scanStatus.filesProcessed.toLocaleString()}
                   </span>
                 </div>
               )}
-              {enrichmentProgress?.overallProgress && (
+              {enrichmentProgress?.overallProgress && totalPending > 0 && (
                 <div className="flex flex-col">
-                  <span className="text-xs text-neutral-500 dark:text-neutral-500 uppercase tracking-wide">Enriched</span>
+                  <span className="text-xs text-neutral-500 dark:text-neutral-500 uppercase tracking-wide">Pending Enrichment</span>
                   <span className="font-medium text-neutral-900 dark:text-neutral-100">
-                    {enrichmentProgress.overallProgress.completedItems.toLocaleString()}/{enrichmentProgress.overallProgress.totalItems.toLocaleString()}
+                    {totalPending.toLocaleString()}
                   </span>
                 </div>
               )}
@@ -404,49 +403,6 @@ const LibraryCard = ({ library }: LibraryCardProps) => {
                     </span>
                   )}
                 </p>
-              </div>
-            )}
-
-            {/* Stage breakdown */}
-            {stages.length > 0 && (
-              <div className="py-3 border-t border-neutral-100 dark:border-neutral-800">
-                <h4 className="text-xs font-medium text-neutral-500 dark:text-neutral-500 uppercase tracking-wide mb-2">
-                  Enrichment Stages
-                </h4>
-                <div className="space-y-1.5">
-                  {stages.sort((a, b) => a.name.localeCompare(b.name)).map((stage) => (
-                    <div key={stage.name} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        {/* Status dot */}
-                        <span className={cn(
-                          'w-2 h-2 rounded-full',
-                          stage.isComplete ? 'bg-green-500' :
-                          stage.isActive ? 'bg-blue-500' :
-                          'bg-neutral-300 dark:bg-neutral-600'
-                        )} />
-                        <span className="text-neutral-700 dark:text-neutral-300">
-                          {formatStageName(stage.name)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-neutral-500 dark:text-neutral-500 tabular-nums">
-                          {stage.completed.toLocaleString()}/{stage.total.toLocaleString()}
-                        </span>
-                        {stage.failed > 0 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              openIssuesDialog('enrichment')
-                            }}
-                            className="text-xs text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:underline cursor-pointer"
-                          >
-                            {stage.failed} failed
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
             )}
 

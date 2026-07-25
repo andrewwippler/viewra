@@ -78,7 +78,7 @@ export const Home = () => {
       const continueData = section.data as ContinueWatchingData
       if (continueData?.items && Array.isArray(continueData.items)) {
         for (const item of continueData.items) {
-          if (!item) continue
+          if (!item) {continue}
           if (item.entity_type === 'tv_show' && item.episode_context?.episode_media_id) {
             // TV episodes use episode media ID
             media.push(item.episode_context.episode_media_id)

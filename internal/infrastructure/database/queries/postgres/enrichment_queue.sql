@@ -294,3 +294,44 @@ AND NOT EXISTS (
     AND eq.stage = next_ep.stage_name
     AND eq.status IN ('pending', 'processing')
 );
+
+-- name: ListEnrichmentQueue :many
+-- List enrichment queue items with optional status filter, paginated.
+-- Joins with media tables to get titles for display.
+SELECT
+    eq.id,
+    eq.media_id,
+    eq.library_id,
+    eq.media_type,
+    eq.stage,
+    eq.priority,
+    eq.status,
+    eq.attempts,
+    eq.max_attempts,
+    eq.error_message,
+    eq.error_category,
+    eq.created_at,
+    eq.updated_at,
+    COALESCE(
+        m.title,
+        ts.title,
+        tsn.name,
+        ma.title,
+        mart.name,
+        ''
+    ) as title
+FROM enrichment_queue eq
+LEFT JOIN media m ON eq.media_type IN ('movie', 'tv', 'music') AND eq.media_id = m.id
+LEFT JOIN tv_shows ts ON eq.media_type = 'tv_show' AND eq.media_id = ts.id
+LEFT JOIN tv_seasons tsn ON eq.media_type = 'tv_season' AND eq.media_id = tsn.id
+LEFT JOIN music_albums ma ON eq.media_type = 'music_album' AND eq.media_id = ma.id
+LEFT JOIN music_artists mart ON eq.media_type = 'music_artist' AND eq.media_id = mart.id
+WHERE (sqlc.arg('status') = '' OR eq.status = sqlc.arg('status'))
+ORDER BY eq.priority DESC, eq.created_at ASC
+LIMIT sqlc.arg('limit')::bigint OFFSET sqlc.arg('offset')::bigint;
+
+-- name: CountEnrichmentQueue :one
+-- Count total enrichment queue items with optional status filter.
+SELECT COUNT(*)::bigint as total
+FROM enrichment_queue
+WHERE (sqlc.arg('status') = '' OR status = sqlc.arg('status'));

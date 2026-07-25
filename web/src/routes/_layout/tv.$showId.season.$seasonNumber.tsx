@@ -76,7 +76,7 @@ const SeasonDetail = () => {
 
   const playingEpisode = useMemo(() => {
     const episode = seasonEpisodes.find((ep) => ep.id === playbackState.mediaId)
-    if (!episode) return undefined
+    if (!episode) {return undefined}
     return { ...episode, show_title: showTitle, show_id: showIdNumber }
   }, [seasonEpisodes, playbackState.mediaId, showTitle, showIdNumber])
 
@@ -85,9 +85,9 @@ const SeasonDetail = () => {
     return [...allEpisodes].sort((a, b) => {
       const aSeason = a.season ?? 0
       const bSeason = b.season ?? 0
-      if (aSeason === 0 && bSeason !== 0) return 1
-      if (bSeason === 0 && aSeason !== 0) return -1
-      if (aSeason !== bSeason) return aSeason - bSeason
+      if (aSeason === 0 && bSeason !== 0) {return 1}
+      if (bSeason === 0 && aSeason !== 0) {return -1}
+      if (aSeason !== bSeason) {return aSeason - bSeason}
       return (a.episode ?? 0) - (b.episode ?? 0)
     })
   }, [allEpisodes])
@@ -99,17 +99,17 @@ const SeasonDetail = () => {
    * Alternatively, we can calculate the absolute fallback index below.
    */
   const currentEpisodeIndex = useMemo(() => {
-    if (!playingEpisode) return -1
+    if (!playingEpisode) {return -1}
     return allSortedEpisodes.findIndex((ep) => ep.id === playingEpisode.id)
   }, [playingEpisode, allSortedEpisodes])
 
   const nextEpisode = useMemo(() => {
-    if (currentEpisodeIndex === -1 || currentEpisodeIndex === allSortedEpisodes.length - 1) return null
+    if (currentEpisodeIndex === -1 || currentEpisodeIndex === allSortedEpisodes.length - 1) {return null}
     return allSortedEpisodes[currentEpisodeIndex + 1]
   }, [currentEpisodeIndex, allSortedEpisodes])
 
   const prevEpisode = useMemo(() => {
-    if (currentEpisodeIndex <= 0) return null
+    if (currentEpisodeIndex <= 0) {return null}
     return allSortedEpisodes[currentEpisodeIndex - 1]
   }, [currentEpisodeIndex, allSortedEpisodes])
 
@@ -117,7 +117,7 @@ const SeasonDetail = () => {
 
   // Handle Initial Boot URL Deep-linking
   useEffect(() => {
-    if (isClosingRef.current) return
+    if (isClosingRef.current) {return}
 
     if (urlEpisodeId && !playbackState.isPlaying && seasonEpisodes.length > 0) {
       const episode = seasonEpisodes.find((ep) => ep.id === urlEpisodeId)
@@ -223,8 +223,8 @@ const SeasonDetail = () => {
     return videoPlayer
   }
 
-  if (isLoading) return <LoadingPage text="Loading season..." />
-  if (error) return <ErrorPage error={error} context="season" />
+  if (isLoading) {return <LoadingPage text="Loading season..." />}
+  if (error) {return <ErrorPage error={error} context="season" />}
 
   if (seasonEpisodes.length === 0) {
     return (

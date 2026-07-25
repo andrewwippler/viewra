@@ -125,7 +125,7 @@ Complete reference for ViewRA configuration via environment variables.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GLOBAL_RATE_LIMIT` | `100` | Max API requests per minute per IP (0 = disabled) |
+| `GLOBAL_RATE_LIMIT` | `600` | Max API requests per minute per IP (0 = disabled) |
 | `VIEWRA_DEV_MODE` | (none) | Set to `1` to enable dev mode (pprof server, auth bypass) |
 
 ### Security Features

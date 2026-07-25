@@ -457,7 +457,7 @@ func loadServerConfig(logger *slog.Logger) ServerConfig {
 	corsCredentials := getEnvBool("CORS_ALLOW_CREDENTIALS", true)
 
 	// Rate limiting configuration
-	globalRateLimit := getEnvIntWithLog(logger, "GLOBAL_RATE_LIMIT", 100) // 100 req/min default
+	globalRateLimit := getEnvIntWithLog(logger, "GLOBAL_RATE_LIMIT", 600) // 600 req/min default
 
 	// Allow overriding allowed base paths via environment
 	allowedPaths := getEnvStringSlice("ALLOWED_BASE_PATHS", apiConfig.Browser.AllowedBasePaths)

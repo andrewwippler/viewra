@@ -22,6 +22,13 @@ type IdentifyTVShowRequest struct {
 	TMDbID *int   `json:"tmdb_id,omitempty"`
 }
 
+type IdentifyFileRequest struct {
+	FilePath string `json:"file_path"`
+	IMDbID   string `json:"imdb_id,omitempty"`
+	TMDbID   *int   `json:"tmdb_id,omitempty"`
+	TVDbID   *int   `json:"tvdb_id,omitempty"`
+}
+
 type MissingItem struct {
 	MediaID       int64  `json:"media_id,omitempty"`
 	ShowID        int64  `json:"show_id,omitempty"`

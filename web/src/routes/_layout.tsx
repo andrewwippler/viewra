@@ -215,7 +215,7 @@ const Layout = () => {
               </button>
             </div>
             <div className="text-xs text-neutral-500 dark:text-neutral-400">
-              <p>Version 0.0.1</p>
+              <p>Version {__APP_VERSION__}</p>
             </div>
           </div>
         </aside>

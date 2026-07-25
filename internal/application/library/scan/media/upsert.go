@@ -16,7 +16,7 @@ import (
 //	    SetMediaID: func(id int64) { entity.ID = id },
 //	    Update: func(ctx context.Context) error { return repo.Update(ctx, entity) },
 //	    Create: func(ctx context.Context) error { return repo.Create(ctx, entity) },
-//	    PostSave: func(ctx context.Context) { extractImages(ctx, entity) },
+//	    PostSave: func(ctx context.Context, isNewItem bool) { extractImages(ctx, entity) },
 //	    EventMeta: &media.EventMetadata{Type: "movie", Title: movie.Title},
 //	}
 type UpsertCallbacks struct {
@@ -28,8 +28,9 @@ type UpsertCallbacks struct {
 	Update func(ctx context.Context) error
 	// Create performs the create operation for a new media entity
 	Create func(ctx context.Context) error
-	// PostSave performs post-save operations like image extraction and track persistence
-	PostSave func(ctx context.Context)
+	// PostSave performs post-save operations like image extraction and track persistence.
+	// isNewItem indicates whether this is a newly created item (vs. an existing item being updated).
+	PostSave func(ctx context.Context, isNewItem bool)
 	// EventMeta provides optional metadata for event publishing (media.discovered/updated)
 	EventMeta *EventMetadata
 }

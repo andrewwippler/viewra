@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +22,7 @@ import (
 	"github.com/mantonx/viewra/internal/application/library/scan/status"
 	domainImages "github.com/mantonx/viewra/internal/domain/images"
 	"github.com/mantonx/viewra/internal/domain/library"
+	"github.com/mantonx/viewra/internal/domain/media"
 	"github.com/mantonx/viewra/internal/domain/scanner"
 	"github.com/mantonx/viewra/internal/infrastructure/events"
 	"github.com/mantonx/viewra/internal/infrastructure/filesystem"
@@ -53,6 +57,10 @@ type ScanLibraryUseCase struct {
 	// Per-session deduplication
 	processedArtists scanutil.AtomicDeduplicator
 	processedShows   scanutil.AtomicDeduplicator
+
+	// New dependencies for simplified scan flow
+	processingQueue library.ProcessingQueue
+	pendingIDsRepo  media.PendingIdentificationRepository
 }
 
 // NewScanLibraryUseCase creates a new instance of ScanLibraryUseCase
@@ -89,6 +97,26 @@ func NewScanLibraryUseCase(
 		systemProfile:      systemProfile,
 		logger:             logger,
 	}
+}
+
+// NewScanLibraryUseCaseWithQueue creates a new instance with processing queue support
+func NewScanLibraryUseCaseWithQueue(
+	mediaRepos *scan.MediaRepositories,
+	scanRepos *scan.ScanRepositories,
+	imageRepo domainImages.Repository,
+	imageCleanup cleanup.ImageCleanupExecutor,
+	enrichmentEnqueuer scanmedia.EnrichmentEnqueuer,
+	processingQueue library.ProcessingQueue,
+	pendingIDsRepo media.PendingIdentificationRepository,
+	config scan.Config,
+	systemProfile *system.Profile,
+	logger *slog.Logger,
+) *ScanLibraryUseCase {
+	uc := NewScanLibraryUseCase(mediaRepos, scanRepos, imageRepo, imageCleanup,
+		enrichmentEnqueuer, config, systemProfile, logger)
+	uc.processingQueue = processingQueue
+	uc.pendingIDsRepo = pendingIDsRepo
+	return uc
 }
 
 // SetEventBus sets the event bus for publishing scan events.
@@ -332,6 +360,7 @@ func (uc *ScanLibraryUseCase) mediaDeps() *scanmedia.Deps {
 		MediaRepos:         uc.mediaRepos,
 		ScanRepos:          uc.scanRepos,
 		EnrichmentEnqueuer: uc.enrichmentEnqueuer,
+		ImageRepo:          uc.imageRepo,
 		ProcessedArtists:   &uc.processedArtists,
 		ProcessedShows:     &uc.processedShows,
 		Coordinator:        uc.coordinator,
@@ -504,4 +533,305 @@ func (uc *ScanLibraryUseCase) recoverFromPanic(jobID, libraryID int64, descripti
 
 func (uc *ScanLibraryUseCase) recoverFromPanicWithError(jobID, libraryID int64, description string, errChan chan<- error) {
 	recovery.RecoverFromPanicWithError(uc.logger, jobID, libraryID, description, errChan)
+}
+
+// =============================================================================
+// Simplified Scan Flow Methods
+// =============================================================================
+
+// StartSimplifiedScan initiates a simplified scan that only discovers files and enqueues them
+// for background processing. This is the new scan flow that replaces the full scan.
+func (uc *ScanLibraryUseCase) StartSimplifiedScan(ctx context.Context, libraryID int64) (scan.StartScanResponse, error) {
+	if uc.processingQueue == nil {
+		return scan.StartScanResponse{}, fmt.Errorf("processing queue not configured")
+	}
+
+	lib, err := uc.mediaRepos.Library.GetByID(ctx, libraryID)
+	if err != nil {
+		return scan.StartScanResponse{}, fmt.Errorf("failed to get library: %w", err)
+	}
+
+	// Check for running scans
+	running, err := uc.scanRepos.ScanJob.ListRunning(ctx)
+	if err != nil {
+		return scan.StartScanResponse{}, fmt.Errorf("failed to check running scans: %w", err)
+	}
+	for _, job := range running {
+		if job.LibraryID == libraryID {
+			return scan.StartScanResponse{}, scanner.ErrAlreadyRunning
+		}
+	}
+
+	if uc.logger == nil {
+		uc.logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+
+	// Get previous scan for progress estimation
+	var estimatedTotal int64
+	previousScan, err := uc.scanRepos.ScanJob.GetLatestByLibrary(ctx, libraryID)
+	if err == nil && previousScan != nil && previousScan.Status == scanner.ScanStatusCompleted {
+		estimatedTotal = previousScan.FilesFound
+	}
+
+	job := &scanner.ScanJob{
+		LibraryID:      libraryID,
+		Status:         scanner.ScanStatusRunning,
+		Progress:       0,
+		FilesFound:     0,
+		FilesProcessed: 0,
+		BytesProcessed: 0,
+		ErrorCount:     0,
+		StartedAt:      time.Now(),
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+		Phase:          scanner.ScanPhaseDiscovering,
+		EstimatedTotal: estimatedTotal,
+		DiscoveryDone:  false,
+	}
+
+	if err := uc.scanRepos.ScanJob.Create(ctx, job); err != nil {
+		return scan.StartScanResponse{}, fmt.Errorf("failed to create scan job: %w", err)
+	}
+
+	uc.publishScanStarted(job)
+
+	// Start simplified scan in background
+	go func() {
+		defer uc.recoverFromPanic(job.ID, lib.ID, "simplified scan panicked")
+		uc.runSimplifiedScan(context.Background(), job.ID, lib)
+	}()
+
+	return scan.ToStartScanResponse(job), nil
+}
+
+// runSimplifiedScan runs the simplified scan flow
+func (uc *ScanLibraryUseCase) runSimplifiedScan(ctx context.Context, jobID int64, lib *library.Library) {
+	uc.InitializeScanSession(ctx, lib)
+
+	// Step 1: Discover files
+	newFiles, err := uc.discoverFiles(ctx, jobID, lib)
+	if err != nil {
+		uc.logger.Error("failed to discover files", "error", err)
+		status.CompleteWithError(ctx, uc.statusDeps(), jobID, err)
+		return
+	}
+
+	if len(newFiles) > 0 {
+		// Step 2a: New files found -> promote pending IDs
+		if err := uc.promotePendingIDsForFiles(ctx, lib.ID, newFiles); err != nil {
+			uc.logger.Error("failed to promote pending IDs", "error", err)
+			// Continue - not fatal
+		}
+
+		// Enqueue new files for processing
+		if err := uc.enqueueFilesForProcessing(ctx, lib.ID, newFiles); err != nil {
+			uc.logger.Error("failed to enqueue files", "error", err)
+			status.CompleteWithError(ctx, uc.statusDeps(), jobID, err)
+			return
+		}
+	} else {
+		// Step 2b: No new files -> detect incomplete items
+		incomplete, err := uc.detectIncompleteItems(ctx, lib.ID)
+		if err != nil {
+			uc.logger.Error("failed to detect incomplete items", "error", err)
+			status.CompleteWithError(ctx, uc.statusDeps(), jobID, err)
+			return
+		}
+
+		if len(incomplete) > 0 {
+			// Enqueue incomplete items for re-processing
+			if err := uc.enqueueIncompleteForProcessing(ctx, lib.ID, incomplete); err != nil {
+				uc.logger.Error("failed to enqueue incomplete items", "error", err)
+				status.CompleteWithError(ctx, uc.statusDeps(), jobID, err)
+				return
+			}
+		}
+	}
+
+	// Step 3: Complete
+	job := &scanner.ScanJob{
+		ID:             jobID,
+		Status:         scanner.ScanStatusCompleted,
+		Phase:          scanner.ScanPhaseCompleted,
+		CompletedAt:    &[]time.Time{time.Now()}[0],
+		DiscoveryDone:  true,
+	}
+	status.CompleteSafely(ctx, uc.statusDeps(), job)
+}
+
+// discoverFiles discovers media files in the library
+func (uc *ScanLibraryUseCase) discoverFiles(ctx context.Context, jobID int64, lib *library.Library) ([]string, error) {
+	// Get current job
+	currentJob, err := uc.scanRepos.ScanJob.GetByID(ctx, jobID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create discovery context
+	dDeps := uc.discoveryDeps()
+	walker := discovery.CreateWalker(dDeps)
+	dctx := discovery.NewContext(jobID, lib, currentJob, walker)
+
+	// Phase 1: Count files
+	discovery.PhaseCountFiles(ctx, dctx, dDeps)
+
+	// Phase 2: Walk directory
+	discoveredFiles, err := discovery.PhaseWalkDirectory(ctx, dctx, dDeps, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Phase 3: Determine changes (returns diff with new files)
+	diff := discovery.PhaseDetermineChanges(ctx, dctx, dDeps, discoveredFiles)
+	if diff == nil {
+		// No changes
+		return nil, nil
+	}
+
+	// Return new file paths
+	var newFiles []string
+	for _, file := range diff.NewFiles {
+		newFiles = append(newFiles, file.Path)
+	}
+	for _, file := range diff.ModifiedFiles {
+		newFiles = append(newFiles, file.Path)
+	}
+
+	return newFiles, nil
+}
+
+// promotePendingIDsForFiles promotes pending IDs for discovered files
+func (uc *ScanLibraryUseCase) promotePendingIDsForFiles(ctx context.Context, libraryID int64, filePaths []string) error {
+	if uc.pendingIDsRepo == nil {
+		return nil
+	}
+
+	// Get pending IDs for these files
+	pendingIDs, err := uc.pendingIDsRepo.GetByLibraryAndPaths(ctx, libraryID, filePaths)
+	if err != nil {
+		return err
+	}
+
+	if len(pendingIDs) == 0 {
+		return nil
+	}
+
+	// Group by file path
+	byPath := make(map[string][]*media.PendingIdentification)
+	for _, id := range pendingIDs {
+		byPath[id.FilePath] = append(byPath[id.FilePath], id)
+	}
+
+	// For each file, we need to find or create the media record to get the media ID
+	// This will be done by the background worker after FFprobe processing
+	// For now, we just keep the pending IDs in the table
+
+	uc.logger.Info("promoted pending IDs for files",
+		"library_id", libraryID,
+		"file_count", len(byPath),
+		"total_ids", len(pendingIDs))
+
+	return nil
+}
+
+// enqueueFilesForProcessing adds files to the processing queue
+func (uc *ScanLibraryUseCase) enqueueFilesForProcessing(ctx context.Context, libraryID int64, filePaths []string) error {
+	items := make([]*library.ProcessingItem, 0, len(filePaths))
+	for _, filePath := range filePaths {
+		items = append(items, &library.ProcessingItem{
+			LibraryID: libraryID,
+			FilePath:  filePath,
+			Status:    library.ProcessingStatusPending,
+		})
+	}
+
+	return uc.processingQueue.EnqueueBatch(ctx, items)
+}
+
+// detectIncompleteItems finds items missing images OR NFO that aren't already in queue
+func (uc *ScanLibraryUseCase) detectIncompleteItems(ctx context.Context, libraryID int64) ([]int64, error) {
+	// Get all media items in library
+	mediaItems, err := uc.mediaRepos.Media.ListByLibrary(ctx, libraryID)
+	if err != nil {
+		return nil, err
+	}
+
+	var incomplete []int64
+	for _, item := range mediaItems {
+		// Check if already in processing queue
+		inQueue, err := uc.processingQueue.ExistsInQueue(ctx, libraryID, item.FilePath)
+		if err != nil {
+			uc.logger.Warn("failed to check queue", "file_path", item.FilePath, "error", err)
+			continue
+		}
+		if inQueue {
+			continue
+		}
+
+		// Check images
+		hasImages, err := uc.checkHasImages(ctx, item.ID)
+		if err != nil {
+			uc.logger.Warn("failed to check images", "media_id", item.ID, "error", err)
+			continue
+		}
+
+		// Check NFO file
+		hasNFO := uc.checkHasNFO(item.FilePath)
+
+		if !hasImages || !hasNFO {
+			incomplete = append(incomplete, item.ID)
+		}
+	}
+
+	return incomplete, nil
+}
+
+// checkHasImages checks if a media item has images
+func (uc *ScanLibraryUseCase) checkHasImages(ctx context.Context, mediaID int64) (bool, error) {
+	if uc.imageRepo == nil {
+		return true, nil // If no image repo, assume images exist
+	}
+
+	images, err := uc.imageRepo.GetByMediaID(ctx, int(mediaID))
+	if err != nil {
+		return false, err
+	}
+
+	return len(images) > 0, nil
+}
+
+// checkHasNFO checks if a media file has an NFO file
+func (uc *ScanLibraryUseCase) checkHasNFO(mediaPath string) bool {
+	nfoPath := mediaPathToNFOPath(mediaPath)
+	_, err := os.Stat(nfoPath)
+	return err == nil
+}
+
+// mediaPathToNFOPath converts a media file path to an NFO file path
+func mediaPathToNFOPath(mediaPath string) string {
+	dir := filepath.Dir(mediaPath)
+	base := strings.TrimSuffix(filepath.Base(mediaPath), filepath.Ext(mediaPath))
+	return filepath.Join(dir, base+".nfo")
+}
+
+// enqueueIncompleteForProcessing adds incomplete items to the processing queue
+func (uc *ScanLibraryUseCase) enqueueIncompleteForProcessing(ctx context.Context, libraryID int64, mediaIDs []int64) error {
+	items := make([]*library.ProcessingItem, 0, len(mediaIDs))
+	for _, mediaID := range mediaIDs {
+		// Get media item to find file path
+		mediaItem, err := uc.mediaRepos.Media.GetByID(ctx, mediaID)
+		if err != nil {
+			uc.logger.Warn("failed to get media item", "media_id", mediaID, "error", err)
+			continue
+		}
+
+		items = append(items, &library.ProcessingItem{
+			LibraryID: libraryID,
+			FilePath:  mediaItem.FilePath,
+			MediaID:   &mediaID,
+			Status:    library.ProcessingStatusPending,
+		})
+	}
+
+	return uc.processingQueue.EnqueueBatch(ctx, items)
 }

@@ -268,11 +268,11 @@ func ProcessMusicTrack(
 			}
 			return nil
 		},
-		PostSave: func(ctx context.Context) {
+		PostSave: func(ctx context.Context, isNewItem bool) {
 			// Calculate enrichment priority from release date estimate
 			priority := pipeline.CalculatePriorityFromMetadata(result.Year, time.Now())
 			// Enqueue track for enrichment - images are now extracted via the enrichment pipeline
-			enqueueForEnrichment(ctx, deps, track.Media.ID, libraryID, enrichment.MediaTypeMusic, priority)
+			enqueueForEnrichment(ctx, deps, track.Media.ID, libraryID, enrichment.MediaTypeMusic, priority, isNewItem)
 			// Enqueue parent entities (album/artist) for enrichment
 			EnqueueMusicParentEntities(ctx, deps, track, libraryID, result.FilePath, priority)
 		},

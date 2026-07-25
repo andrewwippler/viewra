@@ -27,6 +27,10 @@ type WorkerPool struct {
 	// enqueueNext is called to enqueue the next stage after successful completion.
 	// Set by Manager after creation.
 	enqueueNext func(ctx context.Context, mediaID int64, libraryID int64, mediaType enrichment.MediaType, currentPosition int) error
+
+	// pause/resume channel mechanism
+	mu      sync.Mutex
+	pauseCh chan struct{} // nil = running, closed = paused
 }
 
 // NewWorkerPool creates a new worker pool for a stage.
@@ -103,6 +107,33 @@ func (p *WorkerPool) SetEnqueueNext(fn func(ctx context.Context, mediaID int64, 
 	p.jobProcessor.SetEnqueueNext(fn)
 }
 
+// Pause stops workers from claiming new jobs. In-flight jobs complete naturally.
+func (p *WorkerPool) Pause() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.pauseCh == nil {
+		p.pauseCh = make(chan struct{})
+	}
+}
+
+// Resume restarts worker polling after a pause.
+func (p *WorkerPool) Resume() {
+	p.mu.Lock()
+	ch := p.pauseCh
+	p.pauseCh = nil
+	p.mu.Unlock()
+	if ch != nil {
+		close(ch)
+	}
+}
+
+// isPaused returns the pause channel if paused, or nil if running.
+func (p *WorkerPool) isPaused() chan struct{} {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.pauseCh
+}
+
 // Run starts the worker pool and processes jobs until context is cancelled.
 func (p *WorkerPool) Run(ctx context.Context) {
 	// Start worker goroutines
@@ -133,6 +164,16 @@ func (p *WorkerPool) worker(ctx context.Context, workerID int) {
 			logger.Debug("worker shutting down")
 			return
 		default:
+		}
+
+		// If paused, block until resumed or context cancelled
+		if ch := p.isPaused(); ch != nil {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ch:
+			}
+			continue
 		}
 
 		// Check circuit breaker before attempting to claim jobs

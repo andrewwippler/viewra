@@ -128,10 +128,10 @@ func ProcessMovie(
 			}
 			return nil
 		},
-		PostSave: func(ctx context.Context) {
+		PostSave: func(ctx context.Context, isNewItem bool) {
 			PersistMediaTracks(ctx, deps, movie.Media.ID, result)
 			priority := pipeline.CalculatePriorityFromMetadata(result.Year, time.Now())
-			enqueueForEnrichment(ctx, deps, movie.Media.ID, libraryID, enrichment.MediaTypeMovie, priority)
+			enqueueForEnrichment(ctx, deps, movie.Media.ID, libraryID, enrichment.MediaTypeMovie, priority, isNewItem)
 		},
 		EventMeta: &EventMetadata{Type: "movie", Title: movie.Media.Title},
 	})
