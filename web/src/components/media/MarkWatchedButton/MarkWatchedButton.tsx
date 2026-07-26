@@ -63,7 +63,7 @@ export const MarkWatchedButton = ({
         onClick={handleClick}
         disabled={isLoading}
         className={cn(
-          'p-1.5 rounded-full transition-all duration-200',
+          'inline-flex items-center justify-center p-1.5 rounded-full transition-all duration-200',
           'focus:outline-none focus:ring-2 focus:ring-primary-500/50',
           optimisticWatched
             ? 'bg-green-500 text-white hover:bg-green-600'

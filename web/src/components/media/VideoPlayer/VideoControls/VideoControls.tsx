@@ -127,6 +127,15 @@ export const VideoControls = ({
     }
   }, [isPlaying, isDragging, videoRef])
 
+  // Hide mouse cursor when controls auto-hide
+  useEffect(() => {
+    const container = videoRef.current?.parentElement
+    if (!container) {return}
+
+    container.style.cursor = showControls ? '' : 'none'
+    return () => { container.style.cursor = '' }
+  }, [showControls, videoRef])
+
   // TV mode: auto-hide on inactivity, show on any keypress, arrow navigation
   useEffect(() => {
     if (typeof __TV_MODE__ === 'undefined' || !__TV_MODE__) {return}
@@ -147,7 +156,6 @@ export const VideoControls = ({
       // Re-show controls on any remote interaction
       if (!showControlsRef.current) {
         setShowControls(true)
-        e.preventDefault()
         return
       }
 

@@ -79,6 +79,7 @@ export const VideoPlayer = ({
   const [autoPlayCountdown, setAutoPlayCountdown] = useState<number | null>(null)
   const autoPlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoPlayCountdownShownRef = useRef(false)
+  const autoPlayTriggeredRef = useRef(false)
 
   const clearAutoPlayTimer = useCallback(() => {
     if (autoPlayTimerRef.current) {
@@ -238,7 +239,10 @@ export const VideoPlayer = ({
     streamOffsetRef,
     isSeekingRef,
     backendSessionId,
-    onPlay: () => setIsPlaying(true),
+    onPlay: () => {
+      setIsPlaying(true)
+      autoPlayTriggeredRef.current = false
+    },
     onPause: () => setIsPlaying(false),
     onTimeUpdate: (time) => {
       setCurrentTime(time)
@@ -249,7 +253,7 @@ export const VideoPlayer = ({
     onEnded: () => {
       setIsPlaying(false)
       endSession()
-      if (isAutoplayEnabled && !autoPlayCountdownShownRef.current) {
+      if (isAutoplayEnabled && !autoPlayCountdownShownRef.current && !autoPlayTriggeredRef.current) {
         autoPlayCountdownShownRef.current = true
         setAutoPlayCountdown(10)
       }
@@ -345,6 +349,14 @@ export const VideoPlayer = ({
     const video = videoRef.current
     if (!video) {return}
 
+    if (metadata) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: metadata.title,
+        artist: metadata.subtitle || undefined,
+        artwork: metadata.posterUrl ? [{ src: metadata.posterUrl, sizes: '256x256', type: 'image/jpeg' }] : [],
+      })
+    }
+
     navigator.mediaSession.setActionHandler('play', () => { video.play() })
     navigator.mediaSession.setActionHandler('pause', () => { video.pause() })
     navigator.mediaSession.setActionHandler('seekbackward', (details) => {
@@ -362,7 +374,7 @@ export const VideoPlayer = ({
       navigator.mediaSession.setActionHandler('seekbackward', null)
       navigator.mediaSession.setActionHandler('seekforward', null)
     }
-  }, [])
+  }, [metadata])
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -461,6 +473,7 @@ export const VideoPlayer = ({
     }
     if (autoPlayCountdown <= 0) {
       clearAutoPlayTimer()
+      autoPlayTriggeredRef.current = true
       autoPlayNextRef.current?.()
       setAutoPlayCountdown(null)
       return
